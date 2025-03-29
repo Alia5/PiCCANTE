@@ -1,11 +1,14 @@
 
-#include <stdio.h>
+#include <pico/stdio.h>
+#include <bsp/board_api.h>
+
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "pico/cyw43_arch.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
+#include "tusb.h"
+#include "usb/usb_descriptors.h"
 
 static void blinkTask(void *pvParameters) {
     (void) pvParameters; // unused parameter
@@ -24,13 +27,41 @@ static void blinkTask(void *pvParameters) {
 static void printTask(void *pvParameters) {
     (void) pvParameters; // unused parameter
 
+    vTaskDelay(300);
+
     while (1) {
         printf("Hello from FreeRTOS task!\n");
+        tud_cdc_n_write_str(1, "Hello from USB CDC1!!\n");
+        //tud_cdc_n_write_str(0, "Hello from USB CDC000!!\n");
+        tud_cdc_n_write_flush(1);
+        // tud_cdc_n_write_flush(0);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
+static void usbDeviceTask(void* parameters) {
+    (void)parameters;
+
+    vTaskDelay(108);
+    tud_init(0);
+
+    for (;;) {
+        tud_task(); // tinyusb device task
+        vTaskDelay(4);
+    }
+}
+
 int main(void) {
+
+    // Initialize TinyUSB stack
+    board_init();
+    tusb_init();
+
+    // TinyUSB board init callback after init
+    if (board_init_after_tusb) {
+        board_init_after_tusb();
+    }
+
     stdio_init_all();
 
     printf("FreeRTOS on RP2040\n");
@@ -38,9 +69,11 @@ int main(void) {
 
     static TaskHandle_t blinkTaskHandle;
     static TaskHandle_t printTaskHandle;
+    static TaskHandle_t usbTaskHandle;
 
     xTaskCreate(blinkTask, "Blink", 256, nullptr, 1, &blinkTaskHandle);
     xTaskCreate(printTask, "Print", 256, nullptr, 1, &printTaskHandle);
+    xTaskCreate(usbDeviceTask, "USB", 256, nullptr, configMAX_PRIORITIES-2, &usbTaskHandle);
 
     vTaskCoreAffinitySet(blinkTaskHandle, 0x01); // Set the task to run on core 1
     vTaskCoreAffinitySet(printTaskHandle, 0x02); // Set the task to run on core 2
@@ -48,6 +81,18 @@ int main(void) {
     vTaskStartScheduler();
 
     return 0;
+}
+
+// callback when data is received on a CDC interface
+void tud_cdc_rx_cb(uint8_t itf)
+{
+    uint8_t buf[CFG_TUD_CDC_RX_BUFSIZE];
+
+    // read the available data 
+    // | IMPORTANT: also do this for CDC0 because otherwise
+    // | you won't be able to print anymore to CDC0
+    // | next time this function is called
+    uint32_t count = tud_cdc_n_read(itf, buf, sizeof(buf));
 }
 
 void vApplicationMallocFailedHook() { configASSERT((volatile void*)nullptr); }
