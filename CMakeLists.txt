@@ -15,27 +15,30 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
+
 set(sdkVersion 2.1.1)
 set(toolchainVersion 14_2_Rel1)
 set(picotoolVersion 2.1.1)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
-if (EXISTS ${picoVscode})
+
+if(EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
+
 # ====================================================================================
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(PicoRet C CXX ASM)
+project(PicoRET C CXX ASM)
 
 # Enabling Exceptions kills debugging as the SDK is buggy...
 set(PICO_CXX_ENABLE_EXCEPTIONS 0)
 set(PICO_CXX_ENABLE_RTTI 1)
 
 set(target_name ${PROJECT_NAME})
-add_executable(${target_name} )
+add_executable(${target_name})
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -50,14 +53,17 @@ target_sources(${target_name} PRIVATE
     ${srcFiles}
 )
 
-
 pico_set_program_name(${target_name} "PicoRet")
 pico_set_program_version(${target_name} "0.1")
 
 target_link_options(${target_name} PRIVATE -Xlinker --print-memory-usage)
 
-# Generate PIO header
-pico_generate_pio_header(${target_name} ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
+if(DEFINED ENV{PICO_DEBUG} OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(PICO_DEOPTIMIZED_DEBUG 1)
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Og)
+ELSE()
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -O3)
+ENDIF()
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(${target_name} 1)
@@ -65,7 +71,17 @@ pico_enable_stdio_usb(${target_name} 0)
 
 # Add the standard library to the build
 target_link_libraries(${target_name}
-        pico_stdlib)
+    pico_stdlib)
+
+# Can2040
+set(CAN2040_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/can2040)
+pico_generate_pio_header(${target_name} ${CAN2040_PATH}/pio/can2040.pio)
+
+# target_compile_options(${target_name} PRIVATE -Wall -Wextra -O3)
+target_sources(
+    ${target_name} PRIVATE
+    ${CAN2040_PATH}/src/can2040.c
+)
 
 # Pull in FreeRTOS
 set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/FreeRTOS-Kernel)
@@ -74,22 +90,28 @@ include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_i
 
 # Add the standard include files to the build
 target_include_directories(${target_name} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
-        ${FREERTOS_KERNEL_PATH}/include
-        ${CMAKE_CURRENT_LIST_DIR}/src/config
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${FREERTOS_KERNEL_PATH}/include
+    ${CMAKE_CURRENT_LIST_DIR}/src/config
+
+    # Can2040
+    ${CAN2040_PATH}/src
+
+    # ${PICO_SDK_PATH}/src/rp2_common/cmsis/stub/CMSIS/Device/RP2040/Include
+    # ${PICO_SDK_PATH}/src/rp2_common/cmsis/stub/CMSIS/Core/Include/
 )
 
 # Add any user requested libraries
-target_link_libraries(${target_name} 
-        pico_async_context_freertos FreeRTOS-Kernel-Heap4
-        hardware_pio
-        pico_stdlib pico_unique_id tinyusb_device tinyusb_board
-        pico_cyw43_arch_none
-        -lstdc++
-    )
+target_link_libraries(${target_name}
+    pico_async_context_freertos FreeRTOS-Kernel-Heap4
+    hardware_pio
+    pico_unique_id tinyusb_device tinyusb_board
+    pico_cyw43_arch_none
+
+    cmsis_core
+    -lstdc++
+)
 
 pico_enable_stdio_usb(${target_name} 1)
 
 pico_add_extra_outputs(${target_name})
-
-

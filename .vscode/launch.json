@@ -19,7 +19,7 @@
             // Fix for no_flash binaries, where monitor reset halt doesn't do what is expected
             // Also works fine for flash binaries
             "overrideLaunchCommands": [
-                "monitor reset halt",
+                "monitor reset init",
                 "load \"${command:raspberry-pi-pico.launchTargetPath}\"",
             ],
             "openOCDLaunchCommands": [

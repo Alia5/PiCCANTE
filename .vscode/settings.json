@@ -52,5 +52,6 @@
         "typeinfo": "c",
         "cstdio": "cpp",
         "random": "cpp"
-    }
+    },
+    "C_Cpp.default.compilerPath": "/home/alia5/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-g++"
 }
