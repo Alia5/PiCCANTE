@@ -81,9 +81,24 @@
 #define configUSE_DAEMON_TASK_STARTUP_HOOK 0
 
 /* Run time and task stats gathering related definitions. */
-// #define configGENERATE_RUN_TIME_STATS 0
-// #define configUSE_TRACE_FACILITY 1
-// #define configUSE_STATS_FORMATTING_FUNCTIONS 0
+#define configGENERATE_RUN_TIME_STATS 0
+#define configUSE_TRACE_FACILITY 1
+#define configUSE_STATS_FORMATTING_FUNCTIONS 0
+
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
+// extern uint64_t time_us_64(void);
+// #ifdef __cplusplus
+// }
+// #endif
+
+// #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
+
+// #define RUN_TIME_STAT_time_us_64Divider 1000 // stat granularity is mS
+// #define portGET_RUN_TIME_COUNTER_VALUE() \
+//     (time_us_64() / RUN_TIME_STAT_time_us_64Divider) // runtime counter in mS
+
 
 /* Co-routine related definitions. */
 #define configUSE_CO_ROUTINES 0
@@ -96,25 +111,26 @@
 #define configTIMER_TASK_STACK_DEPTH 1024
 
 
-/* runtimeStats */
-#define configUSE_STATS_FORMATTING_FUNCTIONS 1
-#define configGENERATE_RUN_TIME_STATS 1
-#define configUSE_TRACE_FACILITY 1
+// /* runtimeStats */
+// #define configUSE_STATS_FORMATTING_FUNCTIONS 1
+// #define configGENERATE_RUN_TIME_STATS 1
+// #define configUSE_TRACE_FACILITY 1
 
-#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
+// #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-uint64_t time_us_64(void);
-#ifdef __cplusplus
-}
-#endif
+// #define RUN_TIME_STAT_time_us_64Divider 1000 // stat granularity is mS
 
-#define RUN_TIME_STAT_time_us_64Divider 1000 // stat granularity is mS
-#define portGET_RUN_TIME_COUNTER_VALUE()                                                 \
-    (time_us_64() / RUN_TIME_STAT_time_us_64Divider) // runtime counter in mS
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
+// extern uint64_t time_us_64(void);
+// #ifdef __cplusplus
+// }
+// #endif
+
+// #define portGET_RUN_TIME_COUNTER_VALUE()                                                 \
+//     (time_us_64() / RUN_TIME_STAT_time_us_64Divider) // runtime counter in mS
 
 /* Interrupt nesting behaviour configuration. */
 /*
@@ -173,5 +189,20 @@ to exclude the API function. */
 #endif
 
 /* A header file that defines trace macro can be included here. */
+
+
+// /* TaskTrace */
+
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
+// void taskSwitchedIn(void* pxTask);
+// void taskSwitchedOut(void* pxTask);
+// #ifdef __cplusplus
+// }
+// #endif
+
+// #define traceTASK_SWITCHED_IN() taskSwitchedIn(pxCurrentTCB)
+// #define traceTASK_SWITCHED_OUT() taskSwitchedOut(pxCurrentTCB)
 
 #endif /* FREERTOS_CONFIG_H */

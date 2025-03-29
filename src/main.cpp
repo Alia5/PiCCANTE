@@ -1,139 +1,140 @@
-
 #include <pico/stdio.h>
-#include <bsp/board_api.h>
+#include <stdio.h>
 
-#include "pico/stdlib.h"
-#include "pico/multicore.h"
-#include "pico/cyw43_arch.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "tusb.h"
-#include "usb/usb_descriptors.h"
-#include <iostream>
-#include <string>
+#include <hardware/irq.h>
+#include <hardware/regs/intctrl.h>
+#include <pico/stdlib.h>
+#include <stdio.h>
+#include <memory.h>
 
-static void blinkTask(void *pvParameters) {
-    (void) pvParameters; // unused parameter
 
-    vTaskDelay(100);
+#define CAN2040_ISR_IN_RAM 1
 
-    while (1) {
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+extern "C" {
+#include "can2040.h"
 }
 
 
-static void printTask(void *pvParameters) {
-    (void) pvParameters; // unused parameter
+volatile bool can_error = false;
+struct can2040_stats can_stats;
 
-    vTaskDelay(300);
+#define MSG_BUFFER_SIZE 8
+volatile struct {
+    struct can2040_msg msg;
+    uint32_t notify;
+    bool valid;
+} msg_buffer[MSG_BUFFER_SIZE];
+volatile uint8_t write_idx = 0;
+volatile uint8_t read_idx = 0;
 
-    while (1) {
-        tud_cdc_n_write_str(1, "Hello from USB CDC1!!\n");
-        //tud_cdc_n_write_str(0, "Hello from USB CDC000!!\n");
-        tud_cdc_n_write_flush(1);
-        // tud_cdc_n_write_flush(0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+static struct can2040 cbus;
+
+static void CAN2040_ISR_FUNC(can2040_cb)(struct can2040* cd, uint32_t notify,
+                                         struct can2040_msg* msg) {
+    if (notify == CAN2040_NOTIFY_ERROR) {
+        can_error = true;
+        return;
+    }
+
+    // Store message in buffer for main loop
+    uint8_t next_idx = (write_idx + 1) % MSG_BUFFER_SIZE;
+    if (next_idx != read_idx) { // Check if buffer not full
+        memcpy((void*)&msg_buffer[write_idx].msg, msg, sizeof(struct can2040_msg));
+        msg_buffer[write_idx].notify = notify;
+        msg_buffer[write_idx].valid = true;
+        write_idx = next_idx;
     }
 }
 
-static void usbDeviceTask(void* parameters) {
-    (void)parameters;
+static int isr_counter = 0;
 
-    vTaskDelay(108);
-    tud_init(0);
-
-    for (;;) {
-        tud_task(); // tinyusb device task
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
+static void CAN2040_ISR_FUNC(PIOx_IRQHandler)(void) {
+    isr_counter++;
+    // Handle the PIO interrupt
+    can2040_pio_irq_handler(&cbus);
 }
 
-static void DebugCommandTask(void* parameters) {
-    (void)parameters;
+void canbus_setup(void) {
+    uint32_t pio_num = 0;
+    uint32_t sys_clock = SYS_CLK_HZ, bitrate = 500000;
+    uint32_t gpio_rx = 4, gpio_tx = 5;
 
-    vTaskDelay(1000);
+    // Setup canbus
+    can2040_setup(&cbus, pio_num);
+    can2040_callback_config(&cbus, can2040_cb);
 
-    while (1) {
-        // read from stdin (using std:cin) and switch cmd
-        std::string cmd;
-        if (std::getline(std::cin, cmd)) {
-            if (cmd == "cpu") {
-                char buffer[configSTATS_BUFFER_MAX_LENGTH];
-                vTaskGetRunTimeStats(buffer);
-                std::cout << buffer << std::endl;
-            }
-        }
+    // Enable irqs
+    // irq_set_exclusive_handler(PIO1_IRQ_0_IRQn, PIOx_IRQHandler);
+    // NVIC_SetPriority(PIO1_IRQ_0_IRQn, 1);
+    // NVIC_EnableIRQ(PIO1_IRQ_0_IRQn);
 
+    irq_set_exclusive_handler(PIO0_IRQ_0, PIOx_IRQHandler);
+    irq_set_priority(PIO0_IRQ_0, 1);
+    irq_set_enabled(PIO0_IRQ_0, true);
 
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
+    // Start canbus
+    can2040_start(&cbus, sys_clock, bitrate, gpio_rx, gpio_tx);
 }
+
 
 int main(void) {
-
-    // Initialize TinyUSB stack
-    board_init();
-    tusb_init();
-
-    // TinyUSB board init callback after init
-    if (board_init_after_tusb) {
-        board_init_after_tusb();
-    }
+    // Debugger fucks up when sleep is called...
+    timer_hw->dbgpause = 0;
 
     stdio_init_all();
 
-    printf("FreeRTOS on RP2040\n");
-    cyw43_arch_init();
+    // cyw43_arch_init();
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 
-    static TaskHandle_t blinkTaskHandle;
-    static TaskHandle_t printTaskHandle;
-    static TaskHandle_t usbTaskHandle;
+    printf("Hello Canbus?\n");
 
-    xTaskCreate(blinkTask, "Blink", 256, nullptr, 1, &blinkTaskHandle);
-    xTaskCreate(printTask, "Print", 256, nullptr, 1, &printTaskHandle);
-    xTaskCreate(usbDeviceTask, "USB", 256, nullptr, configMAX_PRIORITIES-2, &usbTaskHandle);
+    canbus_setup();
 
-    vTaskCoreAffinitySet(blinkTaskHandle, 0x01); // Set the task to run on core 1
-    vTaskCoreAffinitySet(printTaskHandle, 0x02); // Set the task to run on core 2
+    int counter = 0;
 
-    vTaskStartScheduler();
+    while (1) {
+        printf("ISR counter: %d\n", isr_counter);
+        if (can_error) {
+            can_error = false;
+            can2040_get_statistics(&cbus, &can_stats);
+            printf("CAN errors: parse=%u, rx=%u, tx=%u, tx_attempt=%u\n",
+                   can_stats.parse_error, can_stats.rx_total, can_stats.tx_total,
+                   can_stats.tx_attempt);
+        }
+        while (read_idx != write_idx) {
+            if (msg_buffer[read_idx].valid) {
+                struct can2040_msg* msg = (struct can2040_msg*)&msg_buffer[read_idx].msg;
+                uint32_t notify = msg_buffer[read_idx].notify;
+
+                printf("CAN message: notify=%d, ID=%x, Data=%x\n", notify, msg->id,
+                       msg->data[0]);
+
+                msg_buffer[read_idx].valid = false;
+            }
+            read_idx = (read_idx + 1) % MSG_BUFFER_SIZE;
+        }
+
+        struct can2040_msg msg;
+        msg.id = 0x123; // Standard ID
+        msg.dlc = 8;    // 8 bytes of data
+        msg.data[0] = counter & 0xFF;
+        msg.data[1] = (counter >> 8) & 0xFF;
+        msg.data[2] = 0xAA;
+        msg.data[3] = 0xBB;
+        msg.data[4] = 0xCC;
+        msg.data[5] = 0xDD;
+        msg.data[6] = 0xEE;
+        msg.data[7] = 0xFF;
+
+        printf("Sending CAN message, counter=%d\n", counter);
+        int ret = can2040_transmit(&cbus, &msg);
+        printf("Transmit result: %d\n", ret);
+
+
+        counter++;
+        sleep_ms(1000);
+    }
+
 
     return 0;
 }
-
-// callback when data is received on a CDC interface
-void tud_cdc_rx_cb(uint8_t itf)
-{
-    uint8_t buf[CFG_TUD_CDC_RX_BUFSIZE];
-
-    // read the available data 
-    // | IMPORTANT: also do this for CDC0 because otherwise
-    // | you won't be able to print anymore to CDC0
-    // | next time this function is called
-    uint32_t count = tud_cdc_n_read(itf, buf, sizeof(buf));
-}
-
-void vApplicationMallocFailedHook() { configASSERT((volatile void*)nullptr); }
-
-void vApplicationIdleHook() {
-    volatile size_t xFreeHeapSpace;
-
-    xFreeHeapSpace = xPortGetFreeHeapSize();
-
-    (void)xFreeHeapSpace;
-}
-
-#if (configCHECK_FOR_STACK_OVERFLOW > 0)
-
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName) {
-    /* Check pcTaskName for the name of the offending task,
-     * or pxCurrentTCB if pcTaskName has itself been corrupted. */
-    (void)xTask;
-    (void)pcTaskName;
-}
-
-#endif /* #if ( configCHECK_FOR_STACK_OVERFLOW > 0 ) */
