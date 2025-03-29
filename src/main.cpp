@@ -9,6 +9,8 @@
 #include "task.h"
 #include "tusb.h"
 #include "usb/usb_descriptors.h"
+#include <iostream>
+#include <string>
 
 static void blinkTask(void *pvParameters) {
     (void) pvParameters; // unused parameter
@@ -30,7 +32,6 @@ static void printTask(void *pvParameters) {
     vTaskDelay(300);
 
     while (1) {
-        printf("Hello from FreeRTOS task!\n");
         tud_cdc_n_write_str(1, "Hello from USB CDC1!!\n");
         //tud_cdc_n_write_str(0, "Hello from USB CDC000!!\n");
         tud_cdc_n_write_flush(1);
@@ -47,7 +48,28 @@ static void usbDeviceTask(void* parameters) {
 
     for (;;) {
         tud_task(); // tinyusb device task
-        vTaskDelay(4);
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
+static void DebugCommandTask(void* parameters) {
+    (void)parameters;
+
+    vTaskDelay(1000);
+
+    while (1) {
+        // read from stdin (using std:cin) and switch cmd
+        std::string cmd;
+        if (std::getline(std::cin, cmd)) {
+            if (cmd == "cpu") {
+                char buffer[configSTATS_BUFFER_MAX_LENGTH];
+                vTaskGetRunTimeStats(buffer);
+                std::cout << buffer << std::endl;
+            }
+        }
+
+
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 

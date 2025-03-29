@@ -1,3 +1,6 @@
 [submodule "ext/FreeRTOS-Kernel"]
 	path = ext/FreeRTOS-Kernel
 	url = git@github.com:FreeRTOS/FreeRTOS-Kernel.git
+[submodule "ext/can2040"]
+	path = ext/can2040
+	url = git@github.com:KevinOConnor/can2040.git
