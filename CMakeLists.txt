@@ -75,15 +75,17 @@ include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_i
 # Add the standard include files to the build
 target_include_directories(${target_name} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${FREERTOS_KERNEL_PATH}/include
         ${CMAKE_CURRENT_LIST_DIR}/src/config
 )
 
 # Add any user requested libraries
 target_link_libraries(${target_name} 
+        pico_async_context_freertos FreeRTOS-Kernel-Heap4
         hardware_pio
         pico_cyw43_arch_none
         -lstdc++
-        )
+    )
 
 pico_add_extra_outputs(${target_name})
 

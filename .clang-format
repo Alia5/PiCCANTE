@@ -1,0 +1,20 @@
+---
+BasedOnStyle: LLVM
+AccessModifierOffset: '4'
+AllowAllArgumentsOnNextLine: 'true'
+ColumnLimit: '90'
+ConstructorInitializerIndentWidth: '4'
+ContinuationIndentWidth: '4'
+ExperimentalAutoDetectBinPacking: 'true'
+IndentCaseLabels: 'true'
+IndentWidth: '4'
+JavaScriptQuotes: Single
+KeepEmptyLinesAtTheStartOfBlocks: 'false'
+MaxEmptyLinesToKeep: '2'
+PointerAlignment: Left
+SortIncludes: 'false'
+Standard: Auto
+TabWidth: '4'
+UseTab: Never
+
+...
