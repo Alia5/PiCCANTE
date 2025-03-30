@@ -15,7 +15,7 @@
             "problemMatcher": "$gcc",
             "windows": {
                 "command": "${env:USERPROFILE}/.pico-sdk/ninja/v1.12.1/ninja.exe"
-            }
+            },
         },
         {
             "label": "Run Project",
