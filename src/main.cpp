@@ -4,26 +4,26 @@
 
 #include "pico/multicore.h"
 #include "pico/cyw43_arch.h"
+
 #include "FreeRTOS.h"
+#include "queue.h"
 #include "task.h"
+
 #include "timers.h"
 #include "tusb.h"
 #include "usb/usb_descriptors.h"
 #include <iostream>
 #include <string>
 
-#include <hardware/irq.h>
-#include <hardware/regs/intctrl.h>
 #include <pico/stdlib.h>
 #include <stdio.h>
 #include <memory.h>
 
+#include "Logger/Logger.hpp"
 
-#include "can2040.pio.h"
-extern "C" {
-#include "can2040.h"
-}
+#include "CanBus/CanBus.hpp"
 
+#include "Lawicel/Lawicel.hpp"
 
 static void blinkTask(void *pvParameters) {
     (void) pvParameters; // unused parameter
@@ -45,11 +45,8 @@ static void printTask(void *pvParameters) {
     vTaskDelay(300);
 
     while (1) {
-        tud_cdc_n_write_str(1, "Hello from USB CDC1!!\n");
-        //tud_cdc_n_write_str(0, "Hello from USB CDC000!!\n");
-        tud_cdc_n_write_flush(1);
-        // tud_cdc_n_write_flush(0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // tud_cdc_n_write_flush(1);
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -65,82 +62,6 @@ static void usbDeviceTask(void* parameters) {
     }
 }
 
-
-static struct can2040 cbus;
-
-static void can2040_cb(struct can2040* cd, uint32_t notify, struct can2040_msg* msg) {
-    // Add message processing code here...
-    if (notify == CAN2040_NOTIFY_RX) {
-        // Process received message
-        // printf("Received CAN message: ID=%x, Data=%x\n", msg->id, msg->data[0]);
-    } else if (notify == CAN2040_NOTIFY_TX) {
-        // Process transmitted message
-        // printf("Transmitted CAN message: ID=%x, Data=%x\n", msg->id, msg->data[0]);
-    } else if (notify == CAN2040_NOTIFY_ERROR) {
-        // Handle error
-        // printf("CAN error occurred\n");
-    }
-}
-static void PIOx_IRQHandler(void) {
-    // Handle the PIO interrupt
-    can2040_pio_irq_handler(&cbus);
-}
-
-void canbus_setup(void) {
-    uint32_t pio_num = 0;
-    uint32_t sys_clock = 125000000, bitrate = 500000;
-    uint32_t gpio_rx = 4, gpio_tx = 5;
-
-    // Setup canbus
-    can2040_setup(&cbus, pio_num);
-    can2040_callback_config(&cbus, can2040_cb);
-
-    // Enable irqs
-    // irq_set_exclusive_handler(PIO0_IRQ_0, PIOx_IRQHandler);
-    // NVIC_SetPriority(PIO0_IRQ_0, 1);
-    // NVIC_EnableIRQ(PIO0_IRQ_0);
-
-    irq_set_exclusive_handler(PIO0_IRQ_0, PIOx_IRQHandler);
-    irq_set_priority(PIO0_IRQ_0, 1);
-    irq_set_enabled(PIO0_IRQ_0, true);
-
-    // Start canbus
-    can2040_start(&cbus, sys_clock, bitrate, gpio_rx, gpio_tx);
-}
-
-static void canTask(void* parameters) {
-    (void)parameters;
-
-    vTaskDelay(1000);
-
-    printf("CAN Task started\n");
-    canbus_setup();
-
-    int counter = 0;
-
-
-    while (1) {
-        // Send a test message every second
-        struct can2040_msg msg;
-        msg.id = 0x123; // Standard ID
-        msg.dlc = 8;    // 8 bytes of data
-        msg.data[0] = counter & 0xFF;
-        msg.data[1] = (counter >> 8) & 0xFF;
-        msg.data[2] = 0xAA;
-        msg.data[3] = 0xBB;
-        msg.data[4] = 0xCC;
-        msg.data[5] = 0xDD;
-        msg.data[6] = 0xEE;
-        msg.data[7] = 0xFF;
-
-        printf("Sending CAN message, counter=%d\n", counter);
-        int ret = can2040_transmit(&cbus, &msg);
-        printf("Transmit result: %d\n", ret);
-
-        counter++;
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
 
 static void DebugCommandTask(void* parameters) {
     (void)parameters;
@@ -190,7 +111,62 @@ static void DebugCommandTask(void* parameters) {
         }
 
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+}
+
+static Lawicel::Handler handler;
+
+static void lawicel_task(void* parameter) {
+    (void)parameter;
+    // Wait until can is up.
+    vTaskDelay(6000); // TODO
+
+    Log::Info("Starting Lavicel Handler!");
+
+    for (;;) {
+        char cmdBuffer[128];
+        int serialCnt = 0;
+
+        serialCnt = 0;
+        while (tud_cdc_n_available(1) > 0) {
+            char c = tud_cdc_n_read_char(1);
+            cmdBuffer[serialCnt++] = c;
+            if (serialCnt >= sizeof(cmdBuffer) - 1) {
+                break; // Prevent buffer overflow
+            }
+            if (c == '\r' || c == '\n') {
+                break; // End of command
+            }
+        }
+        if (serialCnt == 2 && (cmdBuffer[1] == '\r' || cmdBuffer[1] == '\n')) {
+            // Handle single character commands
+            char cmd = cmdBuffer[0];
+            handler.handleShortCmd(cmd);
+        }
+        if (serialCnt > 2) {
+            cmdBuffer[serialCnt] = '\0'; // Null terminate
+            serialCnt = 0;
+            // Process command
+            handler.handleLongCmd(cmdBuffer);
+        }
+
+        // get buffered frames from can
+        can2040_msg msg;
+        while (receive_can0(msg) >= 0) {
+            // Process received message
+
+            Log::Debug("CAN0: Received message ID:",
+                       Log::fmt("0x%x,", msg.id),
+                       "Data:",
+                       Log::fmt("0x%x", msg.data32[0]));
+
+            // TODO:
+            handler.sendFrameToBuffer(msg, 0);
+        }
+
+
+        vTaskDelay(pdMS_TO_TICKS(16)); // shorter delay for more responsive TX
     }
 }
 
@@ -209,16 +185,17 @@ int main(void) {
     }
 
     stdio_init_all();
+    Log::set_log_level(Log::LEVEL_DEBUG);
+    Log::Info("Starting up...");
 
-    printf("FreeRTOS on RP2040\n");
     cyw43_arch_init();
-
 
     static TaskHandle_t blinkTaskHandle;
     static TaskHandle_t printTaskHandle;
     static TaskHandle_t usbTaskHandle;
     static TaskHandle_t debugTaskHandle;
-    static TaskHandle_t canTaskHandle;
+
+    static TaskHandle_t lawicelTaskHandle;
 
 
     xTaskCreate(blinkTask, "Blink", 256, nullptr, 2, &blinkTaskHandle);
@@ -226,14 +203,16 @@ int main(void) {
     xTaskCreate(usbDeviceTask, "USB", 256, nullptr, configMAX_PRIORITIES - 6,
                 &usbTaskHandle);
     xTaskCreate(DebugCommandTask, "Debug", 256, nullptr, 1, &debugTaskHandle);
-    xTaskCreate(canTask, "CAN", 256, nullptr, configMAX_PRIORITIES - 2, &canTaskHandle);
+    xTaskCreate(lawicel_task, "Lawicel", 256, nullptr, 5, &lawicelTaskHandle);
 
+    static TaskHandle_t canTaskHandle = createCanTask(nullptr);
 
     vTaskCoreAffinitySet(blinkTaskHandle, 0x01); // Set the task to run on core 1
-    vTaskCoreAffinitySet(printTaskHandle, 0x02); // Set the task to run on core 2
+    vTaskCoreAffinitySet(printTaskHandle, 0x01); // Set the task to run on core 2
     vTaskCoreAffinitySet(usbTaskHandle, 0x01);   // Set the task to run on core 1
     vTaskCoreAffinitySet(debugTaskHandle, 0x01); // Set the task to run on core 1
     vTaskCoreAffinitySet(canTaskHandle, 0x02);   // Set the task to run on core 2
+    vTaskCoreAffinitySet(lawicelTaskHandle, 0x01);
 
 
     vTaskStartScheduler();
@@ -244,6 +223,10 @@ int main(void) {
 // callback when data is received on a CDC interface
 void tud_cdc_rx_cb(uint8_t itf)
 {
+    if (itf == 1) {
+        // CDC is handled on Lawicel-Task
+        return; // ignore CDC1
+    }
     uint8_t buf[CFG_TUD_CDC_RX_BUFSIZE];
 
     // read the available data 
