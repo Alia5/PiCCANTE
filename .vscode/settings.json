@@ -108,7 +108,12 @@
         "text_encoding": "cpp",
         "valarray": "cpp",
         "variant": "cpp",
-        "mutex": "cpp"
+        "mutex": "cpp",
+        "cassert": "cpp",
+        "cerrno": "cpp",
+        "cfloat": "cpp",
+        "climits": "cpp",
+        "cfenv": "cpp"
     },
     "C_Cpp.default.compilerPath": "/home/alia5/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-g++"
 }

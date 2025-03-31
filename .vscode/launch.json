@@ -3,11 +3,12 @@
     "configurations": [
         {
             "name": "Pico Debug (Cortex-Debug)",
-            "cwd": "${workspaceRoot}",
+            "cwd": "${userHome}/.pico-sdk/openocd/0.12.0+dev/scripts",
             "executable": "${command:raspberry-pi-pico.launchTargetPath}",
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
+            "serverpath": "${userHome}/.pico-sdk/openocd/0.12.0+dev/openocd",
             "gdbPath": "${command:raspberry-pi-pico.getGDBPath}",
             "device": "${command:raspberry-pi-pico.getChipUppercase}",
             "configFiles": [
@@ -26,7 +27,7 @@
                 "adapter speed 5000"
             ],
             "internalConsoleOptions": "openOnSessionStart",
-            "showDevDebugOutput": "parsed"
+            "showDevDebugOutput": "raw"
         },
         {
             "name": "Pico Debug (Cortex-Debug with external OpenOCD)",
