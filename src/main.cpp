@@ -25,6 +25,10 @@
 
 #include "Lawicel/Lawicel.hpp"
 
+#include "outstream/usb_cdc_stream.hpp"
+
+#include "fmt.hpp"
+
 static void blinkTask(void *pvParameters) {
     (void) pvParameters; // unused parameter
 
@@ -157,9 +161,9 @@ static void lawicel_task(void* parameter) {
             // Process received message
 
             Log::Debug("CAN0: Received message ID:",
-                       Log::fmt("0x%x,", msg.id),
+                       fmt::sprintf("0x%x,", msg.id),
                        "Data:",
-                       Log::fmt("0x%x", msg.data32[0]));
+                       fmt::sprintf("0x%x", msg.data32[0]));
 
             // TODO:
             handler.sendFrameToBuffer(msg, 0);
@@ -185,7 +189,7 @@ int main(void) {
     }
 
     stdio_init_all();
-    Log::set_log_level(Log::LEVEL_DEBUG);
+
     Log::Info("Starting up...");
 
     cyw43_arch_init();

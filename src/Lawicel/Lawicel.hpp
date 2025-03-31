@@ -19,7 +19,7 @@ enum SHORT_CMD {
     GET_SERIAL = 'N',
     SET_EXTENDED_MODE = 'x',
     LIST_SUPPORTED_BUSSES = 'B',
-    TODO_EXTENDED_MODE = 'X',
+    FIRMWARE_UPGRADE = 'X',
     //
 };
 
@@ -49,16 +49,12 @@ class Handler {
     void sendFrameToBuffer(can2040_msg& frame, uint8_t bus);
 
         private:
-    char tokens[14][10];
     bool extended_mode = false;
     bool auto_poll = false;
     bool time_stamping = false;
     uint32_t poll_counter = 0;
 
-    void tokenizeCmdString(char* cmd);
-    void uppercaseToken(char* token);
     void printBusName(int bus);
-    bool parseLawicelCANCmd(can2040_msg& frame);
 };
 
 } // namespace Lawicel

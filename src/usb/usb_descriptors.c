@@ -118,8 +118,8 @@ char const* string_desc_arr[] = {
     "Raspberry Pi",             // 1: Manufacturer
     "Pico W (2)",               // 2: Product
     NULL,                       // 3: Serials (null so it uses unique ID if available)
-    "Pico SDK stdio"            // 4: CDC Interface 0
-    "Custom CDC",               // 5: CDC Interface 1,
+    "PicoRET Debug"             // 4: CDC Interface 0 // TODO
+    "PicoRET SLCAN0",           // 5: CDC Interface 1, // TODO
     "RPiReset"                  // 6: Reset Interface
 };
 

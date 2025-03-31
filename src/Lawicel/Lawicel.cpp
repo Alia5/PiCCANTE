@@ -11,7 +11,9 @@
 #include "../CanBus/CanBus.hpp"
 #include "../Logger/Logger.hpp"
 
-#include "../util/util.hpp"
+#include "../util/hexstr.hpp"
+#include "../outstream/usb_cdc_stream.hpp"
+#include "../fmt.hpp"
 
 
 namespace Lawicel {
@@ -104,7 +106,7 @@ void Handler::handleShortCmd(char cmd) {
                 }
             }
             break;
-        case SHORT_CMD::TODO_EXTENDED_MODE:
+        case SHORT_CMD::FIRMWARE_UPGRADE:
             if (extended_mode) {
                 // TODO: ???
             }
@@ -119,24 +121,20 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
     can2040_msg out_frame;
 
 
-    // TODO:
-    std::string cmdStr(cmd);
-    tokenizeCmdString(cmdStr.data());
+    Log::Debug("Lawicel Long Command:", cmd);
 
-    Log::Debug("Lawicel Long Command:", cmdStr, cmd);
-
-    switch (cmdStr[0]) {
+    switch (cmd[0]) {
         {
             case LONG_CMD::TX_STANDARD_FRAME:
-                out_frame.id = util::parseHex(cmdStr.data() + 1, 3);
-                out_frame.dlc = cmdStr.data()[4] - '0';
+                out_frame.id = hex::parse(cmd.data() + 1, 3);
+                out_frame.dlc = cmd.data()[4] - '0';
                 if (out_frame.dlc < 0) {
                     out_frame.dlc = 0;
                 } else if (out_frame.dlc > 8) {
                     out_frame.dlc = 8;
                 }
                 for (unsigned int i = 0; i < out_frame.dlc; i++) {
-                    out_frame.data[i] = util::parseHex(cmdStr.data() + 5 + i * 2, 2);
+                    out_frame.data[i] = hex::parse(cmd.data() + 5 + i * 2, 2);
                 }
                 // CAN0.SendFrame(out_frame); // TODO:
                 if (auto_poll) {
@@ -144,8 +142,8 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 }
                 break;
             case LONG_CMD::TX_EXTENDED_FRAME:
-                out_frame.id = util::parseHex(cmdStr.data() + 1, 8);
-                out_frame.dlc = cmdStr.data()[9] - '0';
+                out_frame.id = hex::parse(cmd.data() + 1, 8);
+                out_frame.dlc = cmd.data()[9] - '0';
                 if (out_frame.dlc < 0) {
                     out_frame.dlc = 0;
                 }
@@ -153,8 +151,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                     out_frame.dlc = 8;
                 }
                 for (unsigned int data = 0; data < out_frame.dlc; data++) {
-                    out_frame.data[data] =
-                        util::parseHex(cmdStr.data() + 10 + (2 * data), 2);
+                    out_frame.data[data] = hex::parse(cmd.data() + 10 + (2 * data), 2);
                 }
                 // CAN0.sendFrame(out_frame); // TODO
                 if (auto_poll) {
@@ -167,31 +164,34 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                     uint8_t bytes[8];
                     uint32_t id;
                     int num_bytes = 0;
-                    id = std::strtol(tokens[2], nullptr, 16);
-                    for (int b = 0; b < 8; b++) {
-                        if (tokens[3 + b][0] != 0) {
-                            bytes[b] = strtol(tokens[3 + b], nullptr, 16);
-                            num_bytes++;
-                        } else {
-                            break; // break for loop because we're obviously done.
-                        }
-                    }
-                    if (!strcasecmp(tokens[1], "CAN0")) { // TODO
-                        can2040_msg out_frame;
-                        out_frame.id = id;
-                        out_frame.dlc = num_bytes;
-                        for (int b = 0; b < num_bytes; b++)
-                            out_frame.data[b] = bytes[b];
-                        // CAN0.sendFrame(outFrame); // TODO
-                    }
-                    if (!strcasecmp(tokens[1], "CAN1")) { // TODO
-                        can2040_msg out_frame;
-                        out_frame.id = id;
-                        out_frame.dlc = num_bytes;
-                        for (int b = 0; b < num_bytes; b++)
-                            out_frame.data[b] = bytes[b];
-                        // CAN1.sendFrame(outFrame); // TODO
-                    }
+                    // id = std::strtol(tokens[2], nullptr, 16);
+
+                    id = 0x123; // TODO:
+
+                    // for (int b = 0; b < 8; b++) {
+                    //     if (tokens[3 + b][0] != 0) {
+                    //         bytes[b] = strtol(tokens[3 + b], nullptr, 16);
+                    //         num_bytes++;
+                    //     } else {
+                    //         break; // break for loop because we're obviously done.
+                    //     }
+                    // }
+                    // if (!strcasecmp(tokens[1], "CAN0")) { // TODO
+                    //     can2040_msg out_frame;
+                    //     out_frame.id = id;
+                    //     out_frame.dlc = num_bytes;
+                    //     for (int b = 0; b < num_bytes; b++)
+                    //         out_frame.data[b] = bytes[b];
+                    //     // CAN0.sendFrame(outFrame); // TODO
+                    // }
+                    // if (!strcasecmp(tokens[1], "CAN1")) { // TODO
+                    //     can2040_msg out_frame;
+                    //     out_frame.id = id;
+                    //     out_frame.dlc = num_bytes;
+                    //     for (int b = 0; b < num_bytes; b++)
+                    //         out_frame.data[b] = bytes[b];
+                    //     // CAN1.sendFrame(outFrame); // TODO
+                    // }
                 } else {
                     // Set can speed...
                     // TODO:
@@ -206,18 +206,18 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
             case LONG_CMD::SET_RECEIVE_TRAFFIC:
                 if (extended_mode) {
                     // TODO:
-                    if (!strcasecmp(tokens[1], "CAN0")) {
-                        // SysSettings.lawicelBusReception[0] = true;
-                    }
-                    if (!strcasecmp(tokens[1], "CAN1")) {
-                        // SysSettings.lawicelBusReception[1] = true;
-                    }
+                    // if (!strcasecmp(tokens[1], "CAN0")) {
+                    //     // SysSettings.lawicelBusReception[0] = true;
+                    // }
+                    // if (!strcasecmp(tokens[1], "CAN1")) {
+                    //     // SysSettings.lawicelBusReception[1] = true;
+                    // }
                 } else {
-                    // V1 send extended frame, see above...
+                    // V1 send rtr frame, see above...
                 }
                 break;
             case LONG_CMD::SET_AUTOPOLL:
-                auto_poll = cmdStr[1] == '1';
+                auto_poll = cmd[1] == '1';
                 break;
             case LONG_CMD::SET_FILTER_MODE:
                 // unsupported.
@@ -241,26 +241,27 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 // USB_CDC IGNORES BAUD
                 break;
             case LONG_CMD::TOGGLE_TIMESTAMP:
-                time_stamping = cmdStr[1] == '1';
+                time_stamping = cmd[1] == '1';
                 break;
             case LONG_CMD::TOGGLE_AUTO_START:
                 // TODO: Maybe?
                 break;
             case LONG_CMD::CONFIGURE_BUS:
                 if (extended_mode) {
-                    int speed = std::atoi(tokens[2]);
-                    if (!strcasecmp(tokens[1], "CAN0")) {
-                        // TODO: START CAN
-                        // CAN0.begin(speed, 255);
-                    }
-                    if (!strcasecmp(tokens[1], "CAN1")) {
-                        // TODO: START CAN
-                        // CAN1.begin(speed, 255);
-                    }
+                    // TODO:
+                    int speed = 500000; //  std::atoi(tokens[2]);
+                    // if (!strcasecmp(tokens[1], "CAN0")) {
+                    //     // TODO: START CAN
+                    //     // CAN0.begin(speed, 255);
+                    // }
+                    // if (!strcasecmp(tokens[1], "CAN1")) {
+                    //     // TODO: START CAN
+                    //     // CAN1.begin(speed, 255);
+                    // }
                 }
                 break;
             default:
-                Log::Error("Unknown command: ", cmdStr);
+                Log::Error("Unknown command: ", cmd);
                 break;
         }
     }
@@ -279,7 +280,7 @@ void Handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
     }
 
     if (extended_mode) {
-        writeUsbSerial(std::to_string(now) + " - " + Log::fmt("%x", frame.id));
+        writeUsbSerial(std::to_string(now) + " - " + fmt::sprintf("%x", frame.id));
         if (false /*TODO: frame.extended*/) {
             writeUsbSerial(" X ");
         } else {
@@ -289,58 +290,28 @@ void Handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
         for (int i = 0; i < frame.dlc; i++) {
             // TODO: Provide more elegant write
             writeUsbSerial(" ");
-            writeUsbSerial(Log::fmt("%x", frame.data[i]));
+            writeUsbSerial(fmt::sprintf("%x", frame.data[i]));
         }
     } else {
         if (false /*TODO: frame.extended*/) {
             writeUsbSerial("T");
-            writeUsbSerial(Log::fmt("%08x", frame.id));
+            writeUsbSerial(fmt::sprintf("%08x", frame.id));
         } else {
             writeUsbSerial("t");
-            writeUsbSerial(Log::fmt("%03x", frame.id));
+            writeUsbSerial(fmt::sprintf("%03x", frame.id));
         }
         writeUsbSerial(std::to_string(frame.dlc));
         for (int i = 0; i < frame.dlc; i++) {
-            writeUsbSerial(Log::fmt("%02x", frame.data[i]));
+            writeUsbSerial(fmt::sprintf("%02x", frame.data[i]));
         }
         if (time_stamping) {
             uint16_t timestamp = (uint16_t)millis;
-            writeUsbSerial(Log::fmt("%04x", timestamp));
+            writeUsbSerial(fmt::sprintf("%04x", timestamp));
         }
     }
     writeUsbSerial('\r'); // OK
 }
 
-void Handler::tokenizeCmdString(char* buff) {
-    int idx = 0;
-    char* tok;
-
-    for (int i = 0; i < 13; i++)
-        tokens[i][0] = 0;
-
-    tok = std::strtok(buff, " ");
-    if (tok != nullptr)
-        std::strcpy(tokens[idx], tok);
-    else
-        tokens[idx][0] = 0;
-    while (tokens[idx] != nullptr && idx < 13) { // TODO
-        idx++;
-        tok = std::strtok(nullptr, " ");
-        if (tok != nullptr)
-            std::strcpy(tokens[idx], tok);
-        else
-            tokens[idx][0] = 0;
-    }
-}
-
-void Handler::uppercaseToken(char* token) {
-    int idx = 0;
-    while (token[idx] != 0 && idx < 9) {
-        token[idx] = std::toupper(token[idx]);
-        idx++;
-    }
-    token[idx] = 0;
-}
 
 void Handler::printBusName(int bus) {
     switch (bus) {
@@ -355,21 +326,6 @@ void Handler::printBusName(int bus) {
             Log::Warning("Unknown bus: ", bus);
             break;
     }
-}
-
-bool Handler::parseLawicelCANCmd(can2040_msg& frame) {
-    if (tokens[2] == nullptr) // TODO:
-        return false;
-    frame.id = std::strtol(tokens[2], nullptr, 16);
-    int idx = 3;
-    int dataLen = 0;
-    while (tokens[idx] != nullptr) { // TODO:
-        frame.data[dataLen++] = std::strtol(tokens[idx], nullptr, 16);
-        idx++;
-    }
-    frame.dlc = dataLen;
-
-    return true;
 }
 
 
