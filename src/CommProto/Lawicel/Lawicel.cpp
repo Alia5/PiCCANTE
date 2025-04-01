@@ -35,7 +35,7 @@ static void writeUsbSerial(char s) {
 }
 
 void Handler::handleShortCmd(char cmd) {
-    Log::Debug("Lawicel Sjort Command:", cmd);
+    Log::debug << "Lawicel Sjort Command:" << cmd;
 
 
     switch (cmd) {
@@ -112,7 +112,7 @@ void Handler::handleShortCmd(char cmd) {
             }
             break;
         default:
-            Log::Error("Unknown command:", cmd);
+            Log::error << "Unknown command:" << cmd;
             break;
     }
 }
@@ -121,7 +121,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
     can2040_msg out_frame;
 
 
-    Log::Debug("Lawicel Long Command:", cmd);
+    Log::debug << "Lawicel Long Command:", cmd;
 
     switch (cmd[0]) {
         {
@@ -261,7 +261,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 }
                 break;
             default:
-                Log::Error("Unknown command: ", cmd);
+                Log::error << "Unknown command: " << cmd;
                 break;
         }
     }
@@ -323,7 +323,7 @@ void Handler::printBusName(int bus) {
             break;
         default:
             // Serial.print("Unknown bus");
-            Log::Warning("Unknown bus: ", bus);
+            Log::warning << "Unknown bus: " << bus;
             break;
     }
 }
