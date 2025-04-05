@@ -109,7 +109,6 @@ target_link_libraries(${target_name}
     pico_unique_id tinyusb_device tinyusb_board
     pico_cyw43_arch_none
 
-    cmsis_core
     -lstdc++
 )
 # pico_enable_stdio_usb(${target_name} 0)
