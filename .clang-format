@@ -1,5 +1,5 @@
 ---
-Standard: c++23
+Standard: Auto
 BasedOnStyle: LLVM
 AccessModifierOffset: '4'
 AllowAllArgumentsOnNextLine: 'true'

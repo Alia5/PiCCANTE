@@ -1,5 +1,5 @@
 /*
- * PiCCANTE - Pi Car Controller Area Network Tool for Exploration
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
  * Copyright (C) 2025 Peter Repukat
  *
  * This program is free software: you can redistribute it and/or modify
@@ -66,7 +66,7 @@ class build_can_frame : public fsm::state<uint8_t, Protocol, bool> {
                     frame.data[step - 6] = byte;
                 } else {
                     // TODO: out bus
-                    send_can0(frame);
+                    can::send_can(0, frame);
                     // state = IDLE;
                     // // this would be the checksum byte. Compute and compare.
                     // // temp8 = checksumCalc(buff, step);

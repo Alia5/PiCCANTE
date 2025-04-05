@@ -1,4 +1,4 @@
-#include "Lawicel.hpp"
+#include "lawicel.hpp"
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
@@ -16,79 +16,70 @@
 #include "../fmt.hpp"
 
 
-namespace piccante::Lawicel {
+namespace piccante::lawicel {
 
 constexpr uint8_t NUM_BUSES = 1;
 
-void Handler::handleShortCmd(char cmd) {
-    Log::debug << "Lawicel Short Command:" << cmd;
-
-
+void handler::handleShortCmd(char cmd) {
     switch (cmd) {
         case SHORT_CMD::OPEN: // LAWICEL open canbus port
             // CAN0.setListenOnlyMode(false);
             // CAN0.begin(settings.canSettings[0].nomSpeed, 255);
             // CAN0.enable();
-            usb_cdc::out1 << '\r'; // Ok
+            host_out.get() << '\r' << std::flush; // Ok
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::CLOSE: // LAWICEL close canbus port (First one)
             // CAN0.disable();
-            usb_cdc::out1 << '\r'; // Ok
+            host_out.get() << '\r' << std::flush; // Ok
             break;
         case SHORT_CMD::OPEN_LISTEN_ONLY: // LAWICEL open canbus port in listen only
                                           // mode
             // CAN0.setListenOnlyMode(true);
             // CAN0.begin(settings.canSettings[0].nomSpeed, 255);
             // CAN0.enable();
-            usb_cdc::out1 << '\r'; // Ok
+            host_out.get() << '\r' << std::flush; // Ok
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::POLL_ONE: // LAWICEL - poll for one waiting frame. Or, just CR
-            if (get_can_0_rx_buffered_frames() > 0) {
+            if (can::get_can_rx_buffered_frames(0) > 0) {
                 poll_counter = 1; // AVAILABLE CAN_FRAMES;
             } else {
-            usb_cdc::out1 << '\r'; // Ok
+                host_out.get() << '\r' << std::flush; // Ok
             }
             break;
         case SHORT_CMD::POLL_ALL: // LAWICEL - poll for all waiting frames - CR if no
             // frames
             // SysSettings.lawicelPollCounter = CAN0.available();
-            poll_counter = get_can_0_rx_buffered_frames();
+            poll_counter = can::get_can_rx_buffered_frames(0);
             if (poll_counter == 0) {
-            usb_cdc::out1 << '\r'; // Ok
+                host_out.get() << '\r' << std::flush; // Ok
             }
             break;
         case SHORT_CMD::READ_STATUS_BITS: // LAWICEL - read status bits
-            // Serial.print(
-            //     "F00"); // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error
-            //     warning, 3
-            //     =
-            //             // Data overrun, 5= Error passive, 6 = Arb. Lost, 7 = Bus
-            //             Error
-             usb_cdc::out1 << "F00"; // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error
-            usb_cdc::out1 << '\r'; // Ok
+            host_out.get() << "F00"; // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error
+            host_out.get() << '\r' << std::flush; // Ok
             break;
         case SHORT_CMD::GET_VERSION: // LAWICEL - get version number
-            usb_cdc::out1 <<("V1013\n");
+            host_out.get() << ("V1013\n") << std::flush;
             break;
         case SHORT_CMD::GET_SERIAL: // LAWICEL - get serial number
-            usb_cdc::out1 << ("PiCCANTE\n");
+            host_out.get() << ("PiCCANTE\n") << std::flush;
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::SET_EXTENDED_MODE:
             extended_mode = !extended_mode;
             if (extended_mode) {
-                usb_cdc::out1 <<("V2\n");
+                host_out.get() << ("V2\n") << std::flush;
             } else {
-                usb_cdc::out1 <<("LAWICEL\n");
+                host_out.get() << ("LAWICEL\n") << std::flush;
             }
             break;
         case SHORT_CMD::LIST_SUPPORTED_BUSSES: // LAWICEL V2 - Output list of
             if (extended_mode) {
                 for (int i = 0; i < NUM_BUSES; i++) {
                     printBusName(i);
-            usb_cdc::out1 << '\r'; // Ok
+                    host_out.get() << '\r'; // Ok
                 }
             }
             break;
@@ -103,7 +94,7 @@ void Handler::handleShortCmd(char cmd) {
     }
 }
 
-void Handler::handleLongCmd(const std::string_view& cmd) {
+void handler::handleLongCmd(const std::string_view& cmd) {
     can2040_msg out_frame;
 
 
@@ -124,7 +115,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 }
                 // CAN0.SendFrame(out_frame); // TODO:
                 if (auto_poll) {
-                    usb_cdc::out1 <<("z");
+                    host_out.get() << ("z");
                 }
                 break;
             case LONG_CMD::TX_EXTENDED_FRAME:
@@ -142,7 +133,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 }
                 // CAN0.sendFrame(out_frame); // TODO
                 if (auto_poll) {
-                    usb_cdc::out1 <<("Z");
+                    host_out.get() << ("Z");
                 }
                 break;
             case LONG_CMD::SET_SPEED_OR_PACKET:
@@ -252,10 +243,10 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 break;
         }
     }
-    usb_cdc::out1 <<('\r'); // OK
+    host_out.get() << ('\r') << std::flush; // OK
 }
 
-void Handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
+void handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
     uint8_t buff[40];
     uint8_t writtenBytes;
     uint8_t temp;
@@ -267,53 +258,48 @@ void Handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
     }
 
     if (extended_mode) {
-        usb_cdc::out1 << std::to_string(now) << " - " << fmt::sprintf("%x", frame.id);
+        host_out.get() << std::to_string(now) << " - " << fmt::sprintf("%x", frame.id);
         if (false /*TODO: frame.extended*/) {
-            usb_cdc::out1 <<(" X ");
+            host_out.get() << (" X ");
         } else {
-            usb_cdc::out1 <<(" S ");
+            host_out.get() << (" S ");
         }
         printBusName(bus);
         for (int i = 0; i < frame.dlc; i++) {
             // TODO: Provide more elegant write
-            usb_cdc::out1 <<(" ");
-            usb_cdc::out1 <<(fmt::sprintf("%x", frame.data[i]));
+            host_out.get() << (" ");
+            host_out.get() << (fmt::sprintf("%x", frame.data[i]));
         }
     } else {
         if (false /*TODO: frame.extended*/) {
-            usb_cdc::out1 <<("T");
-            usb_cdc::out1 <<(fmt::sprintf("%08x", frame.id));
+            host_out.get() << ("T");
+            host_out.get() << (fmt::sprintf("%08x", frame.id));
         } else {
-            usb_cdc::out1 <<("t");
-            usb_cdc::out1 <<(fmt::sprintf("%03x", frame.id));
+            host_out.get() << ("t");
+            host_out.get() << (fmt::sprintf("%03x", frame.id));
         }
-        usb_cdc::out1 <<(std::to_string(frame.dlc));
+        host_out.get() << (std::to_string(frame.dlc));
         for (int i = 0; i < frame.dlc; i++) {
-            usb_cdc::out1 <<(fmt::sprintf("%02x", frame.data[i]));
+            host_out.get() << (fmt::sprintf("%02x", frame.data[i]));
         }
         if (time_stamping) {
             uint16_t timestamp = (uint16_t)millis;
-            usb_cdc::out1 <<(fmt::sprintf("%04x", timestamp));
+            host_out.get() << (fmt::sprintf("%04x", timestamp));
         }
     }
-    usb_cdc::out1 <<('\r'); // OK
+    host_out.get() << ('\r') << std::flush; // OK
 }
 
-
-void Handler::printBusName(int bus) {
-    switch (bus) {
-        case 0:
-            usb_cdc::out1 <<("CAN0");
-            break;
-        case 1:
-            usb_cdc::out1 <<("CAN1");
-            break;
-        default:
-            // Serial.print("Unknown bus");
-            Log::warning << "Unknown bus: " << bus;
-            break;
+void handler::handleCmd(const std::string_view& cmd) {
+    if (cmd.size() == 2) {
+        handleShortCmd(cmd[0]);
+    } else if (cmd.size() > 2) {
+        handleLongCmd(cmd);
     }
 }
 
 
-} // namespace Lawicel
+void handler::printBusName(int bus) const { host_out.get() << ("CAN0\n") << std::flush; }
+
+
+} // namespace piccante::lawicel

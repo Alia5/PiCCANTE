@@ -114,7 +114,8 @@
         "cfloat": "cpp",
         "climits": "cpp",
         "cfenv": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "queue": "cpp"
     },
     "C_Cpp.default.compilerPath": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-g++",
     "cortex-debug.variableUseNaturalFormat": false,

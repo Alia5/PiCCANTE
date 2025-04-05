@@ -2,10 +2,11 @@
 
 #include <string_view>
 #include <cstdint>
+#include <functional>
 
 struct can2040_msg;
 
-namespace piccante::Lawicel {
+namespace piccante::lawicel {
 
 
 enum SHORT_CMD {
@@ -41,20 +42,29 @@ enum LONG_CMD {
     CONFIGURE_BUS = 'C',
 };
 
-class Handler {
+class handler {
         public:
-    Handler() = default;
+    explicit handler(std::ostream& out_stream, uint8_t bus_num = 0)
+        : host_out(out_stream), bus(bus_num) {};
+    virtual ~handler() = default;
+
+
     void handleShortCmd(char cmd);
     void handleLongCmd(const std::string_view& cmd);
     void sendFrameToBuffer(can2040_msg& frame, uint8_t bus);
+    void handleCmd(const std::string_view& cmd);
+
 
         private:
+    std::reference_wrapper<std::ostream> host_out;
+    uint8_t bus = 0;
+
     bool extended_mode = false;
     bool auto_poll = false;
     bool time_stamping = false;
     uint32_t poll_counter = 0;
 
-    void printBusName(int bus);
+    void printBusName(int bus) const;
 };
 
-} // namespace Lawicel
+} // namespace piccante::lawicel

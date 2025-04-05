@@ -1,3 +1,20 @@
+/*
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
+ * Copyright (C) 2025 Peter Repukat
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include "CanBus.hpp"
 
 #include <cstdint>
@@ -11,26 +28,73 @@
 #include "FreeRTOSConfig.h"
 #include "queue.h"
 #include "Logger/Logger.hpp"
+#include <array>
 
-namespace piccante {
-
-
-
-static QueueHandle_t can0_rx_queue;
-static QueueHandle_t can0_tx_queue;
-
-//
+namespace piccante::can {
 
 
-static struct can2040 cbus0;
-static void can2040_cb_can0(struct can2040* cd, uint32_t notify,
-                            struct can2040_msg* msg) {
+struct CanQueues {
+    QueueHandle_t rx;
+    QueueHandle_t tx;
+};
+
+namespace {
+std::array<CanQueues, NUM_BUSSES> can_queues = {};
+std::array<can2040, NUM_BUSSES> can_buses = {};
+} // namespace
+
+struct CanGPIO {
+    uint8_t pin_rx;
+    uint8_t pin_tx;
+    uint8_t pio_num;
+    uint8_t pio_irq;
+};
+
+
+constexpr std::array<const CanGPIO, NUM_BUSSES> CAN_GPIO = {{{
+                                                                 CAN0_GPIO_RX,
+                                                                 CAN0_GPIO_TX,
+                                                                 0,
+                                                                 PIO0_IRQ_0,
+                                                             },
+#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_2
+                                                             {
+                                                                 CAN1_GPIO_RX,
+                                                                 CAN1_GPIO_TX,
+                                                                 1,
+                                                                 PIO1_IRQ_0,
+                                                             },
+#endif
+#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_3
+                                                             {
+                                                                 CAN2_GPIO_RX,
+                                                                 CAN2_GPIO_TX,
+                                                                 2,
+                                                                 PIO2_IRQ_0,
+                                                             }
+#endif
+}};
+
+
+namespace {
+
+std::array<CanSettings, NUM_BUSSES> can_states = {{//
+                                                   {false, 0},
+#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_2
+                                                   {false, 0},
+#endif
+#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_3
+                                                   {false, 0}
+#endif
+}};
+
+void can2040_cb_can0(struct can2040* cd, uint32_t notify, // NOLINT
+                     struct can2040_msg* msg) {           // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
-
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can0_rx_queue, msg, &higher_priority_task_woken) !=
+        if (xQueueSendFromISR(can_queues[0].rx, msg, &higher_priority_task_woken) !=
             pdTRUE) {
             // Queue is full - log overflow
             // Can't directly call logger from ISR, so set a flag or counter
@@ -40,109 +104,186 @@ static void can2040_cb_can0(struct can2040* cd, uint32_t notify,
     } else if (notify == CAN2040_NOTIFY_ERROR) {
         // Handle error
     }
-    portYIELD_FROM_ISR(higher_priority_task_woken);
+    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
-static void PIOx_IRQHandler_CAN0(void) {
+void can2040_cb_can1(struct can2040* cd, uint32_t notify, // NOLINT
+                     struct can2040_msg* msg) {           // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
-    can2040_pio_irq_handler(&cbus0);
-    portYIELD_FROM_ISR(higher_priority_task_woken);
+    // Add message processing code here...
+    if (notify == CAN2040_NOTIFY_RX) {
+        // Process received message - add to queue from ISR
+        if (xQueueSendFromISR(can_queues[1].rx, msg, &higher_priority_task_woken) !=
+            pdTRUE) {
+            // Queue is full - log overflow
+            // Can't directly call logger from ISR, so set a flag or counter
+        }
+    } else if (notify == CAN2040_NOTIFY_TX) {
+        // Process transmitted message
+    } else if (notify == CAN2040_NOTIFY_ERROR) {
+        // Handle error
+    }
+    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
-
-void canbus_setup(uint32_t can0_bitrate) {
-    uint32_t pio_num = 0;
-    uint32_t sys_clock = SYS_CLK_HZ, bitrate = can0_bitrate;
-    uint32_t gpio_rx = CAN0_GPIO_RX, gpio_tx = CAN0_GPIO_TX;
-
-    // Setup canbus
-    can2040_setup(&cbus0, pio_num);
-    can2040_callback_config(&cbus0, can2040_cb_can0);
-
-    // Enable irqs
-    irq_set_exclusive_handler(PIO0_IRQ_0, PIOx_IRQHandler_CAN0);
-    irq_set_priority(PIO0_IRQ_0, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
-    irq_set_enabled(PIO0_IRQ_0, true);
-
-    // Start canbus
-    can2040_start(&cbus0, sys_clock, bitrate, gpio_rx, gpio_tx);
+void can2040_cb_can2(struct can2040* cd, uint32_t notify, // NOLINT
+                     struct can2040_msg* msg) {           // NOLINT
+    BaseType_t higher_priority_task_woken = pdFALSE;
+    // Add message processing code here...
+    if (notify == CAN2040_NOTIFY_RX) {
+        // Process received message - add to queue from ISR
+        if (xQueueSendFromISR(can_queues[2].rx, msg, &higher_priority_task_woken) !=
+            pdTRUE) {
+            // Queue is full - log overflow
+            // Can't directly call logger from ISR, so set a flag or counter
+        }
+    } else if (notify == CAN2040_NOTIFY_TX) {
+        // Process transmitted message
+    } else if (notify == CAN2040_NOTIFY_ERROR) {
+        // Handle error
+    }
+    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+void PIOx_IRQHandler_CAN0() {
+    BaseType_t const higher_priority_task_woken = pdFALSE;
+    can2040_pio_irq_handler(&(can_buses[0]));
+    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
+}
+void PIOx_IRQHandler_CAN1() {
+    BaseType_t const higher_priority_task_woken = pdFALSE;
+    can2040_pio_irq_handler(&(can_buses[0]));
+    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
+}
+void PIOx_IRQHandler_CAN2() {
+    BaseType_t const higher_priority_task_woken = pdFALSE;
+    can2040_pio_irq_handler(&(can_buses[0]));
+    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
+}
+void canbus_setup(uint8_t bus, uint32_t bitrate) {
+    can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
 
-static void can0Task(void* parameters) {
+    switch (bus) {
+        case 0:
+            can2040_callback_config(&(can_buses[bus]), can2040_cb_can0);
+            irq_set_exclusive_handler(CAN_GPIO[bus].pio_num, PIOx_IRQHandler_CAN0);
+            break;
+        case 1:
+            can2040_callback_config(&(can_buses[bus]), can2040_cb_can1);
+            irq_set_exclusive_handler(CAN_GPIO[bus].pio_num, PIOx_IRQHandler_CAN1);
+            break;
+        case 2:
+            can2040_callback_config(&(can_buses[bus]), can2040_cb_can2);
+            irq_set_exclusive_handler(CAN_GPIO[bus].pio_num, PIOx_IRQHandler_CAN2);
+            break;
+        default:
+            Log::error << "Invalid CAN bus number: " << bus << "\n";
+            return;
+    }
+    irq_set_priority(CAN_GPIO[bus].pio_num, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
+    irq_set_enabled(CAN_GPIO[bus].pio_num, true);
+
+    can2040_start(&(can_buses[bus]), SYS_CLK_HZ, bitrate, CAN_GPIO[bus].pin_rx,
+                  CAN_GPIO[bus].pin_tx);
+}
+} // namespace
+
+
+namespace {
+void canTask(void* parameters) {
     (void)parameters;
 
     vTaskDelay(5000); // TODO
 
-    Log::info << "Starting CAN0 task...\n";
+    Log::info << "Starting CAN task...\n";
 
-    // Create our message queues (64 messages each)
-    can0_rx_queue = xQueueCreate(64, sizeof(can2040_msg));
-    can0_tx_queue = xQueueCreate(64, sizeof(can2040_msg));
+    for (std::size_t i = 0; i < NUM_BUSSES; i++) {
+        can_queues[i].rx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
+        can_queues[i].tx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
 
-    if (can0_rx_queue == NULL || can0_tx_queue == NULL) {
-        Log::error << "Failed to create CAN queues\n";
-        return;
+        if (can_queues[i].rx == NULL || can_queues[i].tx == NULL) {
+            Log::error << "Failed to create CAN queues for bus " << i << "\n";
+            return;
+        }
     }
 
-
-    canbus_setup(500000);
-
-
-    can2040_msg msg;
+    can2040_msg msg = {};
     for (;;) {
-        // Process any pending TX messages from the queue
-        while (xQueueReceive(can0_tx_queue, &msg, 0) == pdTRUE) {
-            int res = can2040_transmit(&cbus0, &msg);
-            if (res < 0) {
-                Log::error << "CAN0: Failed to send message\n";
+        bool did_tx = false;
+        for (std::size_t i = 0; i < NUM_BUSSES; i++) {
+            while (xQueueReceive(can_queues[i].tx, &msg, 0) == pdTRUE) {
+                did_tx = true;
+                int res = can2040_transmit(&(can_buses[i]), &msg);
+                if (res < 0) {
+                    Log::error << "CAN" << "i" << ": Failed to send message\n";
+                }
             }
         }
-
-        // while (xQueueReceive(can0_rx_queue, &msg, 0) == pdTRUE) {
-        //     // Process received message
-        //     Log::Info("CAN0: Received message ID: ", Log::fmt("%x", msg.id));
-        //     Log::Info("CAN0: Data: ");
-        //     for (unsigned int i = 0; i < msg.dlc; i++) {
-        //         Log::Info(" ", Log::fmt("%x", msg.data[i]));
-        //     }
-        //     // Add any additional processing here
-        // }
-
-        // Add any other periodic processing here
-        vTaskDelay(pdMS_TO_TICKS(10)); // shorter delay for more responsive TX
+        if (!did_tx) {
+            // No messages to send, so we can sleep
+            vTaskDelay(pdMS_TO_TICKS(CAN_IDLE_SLEEP_TIME_MS));
+        }
     }
 }
 
-static TaskHandle_t can0TaskHandle;
-TaskHandle_t& createCanTask(void* parameters) {
+TaskHandle_t canTaskHandle; // NOLINT
+} // namespace
+
+TaskHandle_t& createTask(void* parameters) {
     (void)parameters;
 
-    xTaskCreate(can0Task, "CAN0", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
-                &can0TaskHandle);
-    return can0TaskHandle;
+    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
+                &canTaskHandle);
+    return canTaskHandle;
 }
 
-uint8_t get_can_0_rx_buffered_frames(void) {
-    return (uint8_t)uxQueueMessagesWaiting(can0_rx_queue);
-}
-
-uint8_t get_can_0_tx_buffered_frames(void) {
-    return (uint8_t)uxQueueMessagesWaiting(can0_tx_queue);
-}
-
-int send_can0(can2040_msg& msg) {
-    // Queue the message for transmission by the CAN task
-    if (xQueueSend(can0_tx_queue, &msg, pdMS_TO_TICKS(10)) != pdTRUE) {
-        Log::error << "CAN0: TX queue full";
+int send_can(uint8_t bus, can2040_msg& msg) {
+    if (!can_states[bus].enabled) {
+        Log::error << "CAN bus " << bus << " is not enabled\n";
+        return -1;
+    }
+    if (xQueueSend(can_queues[bus].tx, &msg, pdMS_TO_TICKS(CAN_QUEUE_TIMEOUT_MS)) !=
+        pdTRUE) {
+        Log::error << "CAN" << bus << ": TX queue full\n";
         return -1;
     }
     return 0;
 }
-
-int receive_can0(can2040_msg& msg) {
-    // Try to get a message from the queue
-    if (xQueueReceive(can0_rx_queue, &msg, 0) == pdTRUE) {
-        return get_can_0_rx_buffered_frames();
+int receive(uint8_t bus, can2040_msg& msg) {
+    if (xQueueReceive(can_queues[bus].tx, &msg, 0) == pdTRUE) {
+        return get_can_rx_buffered_frames(bus);
     }
     return -1;
 }
+
+int get_can_rx_buffered_frames(uint8_t bus) {
+    return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].rx);
 }
+int get_can_tx_buffered_frames(uint8_t bus) {
+    return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].tx);
+}
+
+void enable(uint8_t bus, uint32_t bitrate) {
+    if (can_states[bus].enabled) {
+        Log::warning << "CAN bus " << bus << " is already enabled - resetting\n";
+        set_bitrate(bus, bitrate);
+        return;
+    }
+    canbus_setup(bus, bitrate);
+    can_states[bus].bitrate = bitrate;
+    can_states[bus].enabled = true;
+}
+
+void disable(uint8_t bus) {
+    can2040_stop(&(can_buses[bus]));
+    can_states[bus].enabled = false;
+}
+
+void set_bitrate(uint8_t bus, uint32_t bitrate) {
+    if (can_states[bus].enabled) {
+        disable(bus);
+    }
+    canbus_setup(bus, bitrate);
+}
+
+uint32_t get_bitrate(uint8_t bus) { return can_states[bus].bitrate; }
+
+} // namespace piccante::can

@@ -23,11 +23,11 @@
 
 #include <cstdio>
 
-#include "outstream/usb_cdc_stream.hpp" // NOLINT
+#include "outstream/usb_cdc_stream.hpp"
 
 
-#include "CommProto/Lawicel/Lawicel.hpp"
-#include "CommProto/gvret/handler.hpp" // NOLINT (stupid...)
+#include "CommProto/lawicel/lawicel.hpp"
+#include "CommProto/gvret/handler.hpp"
 #include "tusb_config.h"
 
 
@@ -80,7 +80,7 @@ static void DebugCommandTask(void* parameters) {
 
     while (1) {
         // Check if data is available on stdin without blocking
-        int c = getchar_timeout_us(0); // Non-blocking getchar
+        int const c = getchar_timeout_us(0); // Non-blocking getchar
 
         if (c != PICO_ERROR_TIMEOUT) {
             // Handle backspace
@@ -121,7 +121,7 @@ static void DebugCommandTask(void* parameters) {
     }
 }
 
-static piccante::Lawicel::Handler handler;
+static piccante::lawicel::handler handler(piccante::usb_cdc::out1, 0);
 
 static void lawicel_task(void* parameter) {
     (void)parameter;
@@ -132,18 +132,32 @@ static void lawicel_task(void* parameter) {
 
     auto gvret_handler = piccante::gvret::handler(piccante::usb_cdc::out0);
 
-    uint8_t buff[128] = {0};
+    uint8_t const buff[128] = {0};
     for (;;) {
         while (tud_cdc_n_available(0) > 0) {
             char c = tud_cdc_n_read_char(0);
             gvret_handler.process_byte(c);
         }
 
+        std::string lawicel_cmd;
+        while (tud_cdc_n_available(1) > 0) {
+            char const c = tud_cdc_n_read_char(1);
+            lawicel_cmd += c;
+            if (c == '\r' || c == '\n') {
+                break; // End of command
+            }
+        }
+        if (!lawicel_cmd.empty()) {
+            // Process the command
+            handler.handleCmd(lawicel_cmd);
+        }
+
         can2040_msg msg;
-        while (piccante::receive_can0(msg) >= 0) {
+        while (piccante::can::receive(0, msg) >= 0) {
             // Process received message
             piccante::gvret::comm_can_frame(0, msg, piccante::usb_cdc::out0);
         }
+
 
         // char cmdBuffer[128];
         // int serialCnt = 0;
@@ -230,7 +244,7 @@ int main() {
     xTaskCreate(lawicel_task, "Lawicel", configMINIMAL_STACK_SIZE, nullptr, 5,
                 &lawicelTaskHandle);
 
-    static TaskHandle_t canTaskHandle = piccante::createCanTask(nullptr);
+    static TaskHandle_t canTaskHandle = piccante::can::createTask(nullptr);
 
     vTaskCoreAffinitySet(blinkTaskHandle, 0x01); // Set the task to run on core 1
     vTaskCoreAffinitySet(printTaskHandle, 0x01); // Set the task to run on core 2
@@ -263,7 +277,7 @@ void tud_cdc_rx_cb(uint8_t itf)
     // | IMPORTANT: also do this for CDC0 because otherwise
     // | you won't be able to print anymore to CDC0
     // | next time this function is called
-    uint32_t count = tud_cdc_n_read(itf, buf, sizeof(buf));
+    uint32_t const count = tud_cdc_n_read(itf, buf, sizeof(buf));
 }
 
 // NOLINTNEXTLINE
