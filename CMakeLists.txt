@@ -27,7 +27,7 @@ endif()
 
 # ====================================================================================
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
-set(PICO_PLATFORM rp2350)
+set(PICO_PLATFORM rp2350-arm-s)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -99,7 +99,12 @@ set_source_files_properties(
 # Pull in FreeRTOS
 set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/FreeRTOS-Kernel)
 set(FREERTOS_CONFIG_PATH ${CMAKE_CURRENT_LIST_DIR}/src/config)
-include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
+
+if(PICO_PLATFORM STREQUAL "rp2040")
+    include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
+elseif(PICO_PLATFORM STREQUAL "rp2350-arm-s")
+    include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/Community-Supported-Ports/GCC/RP2350_ARM_NTZ/FreeRTOS_Kernel_import.cmake)
+endif()
 
 # Add the standard include files to the build
 target_include_directories(${target_name} PRIVATE
@@ -109,9 +114,6 @@ target_include_directories(${target_name} PRIVATE
 
     # Can2040
     ${CAN2040_PATH}/src
-
-    # ${PICO_SDK_PATH}/src/rp2_common/cmsis/stub/CMSIS/Device/RP2040/Include
-    # ${PICO_SDK_PATH}/src/rp2_common/cmsis/stub/CMSIS/Core/Include/
 )
 
 # Add any user requested libraries

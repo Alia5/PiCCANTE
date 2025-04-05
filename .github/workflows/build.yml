@@ -1,0 +1,43 @@
+name: Dev Snapshot Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  BUILD_TYPE: Release
+  PICO_SDK_PATH: ${{github.workspace}}/.pico-sdk
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Clone Pico SDK
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        repository: raspberrypi/pico-sdk
+        ref: 2.1.1
+        path: .pico-sdk
+    - name: Install Arm GNU Toolchain (arm-none-eabi-gcc)
+      uses: carlosperate/arm-none-eabi-gcc-action@v1
+      with:
+        release: '14.2.Rel1'
+  
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: PiCCANTE Dev Build 
+        path: ${{github.workspace}}/build/PiCCANTE.*
