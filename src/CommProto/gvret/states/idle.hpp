@@ -1,5 +1,5 @@
 /*
- * PiCCANTE - Pi Car Controller Area Network Tool for Exploration
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
  * Copyright (C) 2025 Peter Repukat
  *
  * This program is free software: you can redistribute it and/or modify
