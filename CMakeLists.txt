@@ -106,8 +106,19 @@ if(EXISTS ${picoVscode})
 endif()
 
 # ====================================================================================
-set(PICO_BOARD pico2_w CACHE STRING "Board type")
-set(PICO_PLATFORM rp2350-arm-s)
+set(PICO_BOARD $ENV{PICO_BOARD})
+
+if(NOT DEFINED PICO_BOARD)
+    message(STATUS "PICO_BOARD not defined, defaulting to pico2_w")
+    set(PICO_BOARD pico2_w CACHE STRING "Board type")
+endif()
+
+set(PICO_PLATFORM $ENV{PICO_PLATFORM})
+
+if(NOT DEFINED PICO_PLATFORM)
+    message(STATUS "PICO_PLATFORM not defined, defaulting to rp2350")
+    set(PICO_PLATFORM rp2350-arm-s)
+endif()
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
