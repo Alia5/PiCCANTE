@@ -4,3 +4,6 @@
 [submodule "ext/can2040"]
 	path = ext/can2040
 	url = git@github.com:Alia5/can2040.git
+[submodule "ext/littlefs"]
+	path = ext/littlefs
+	url = git@github.com:littlefs-project/littlefs.git

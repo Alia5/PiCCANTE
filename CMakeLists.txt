@@ -205,6 +205,9 @@ target_include_directories(${target_name} PRIVATE
 
     # Can2040
     ${CAN2040_PATH}/src
+
+    # littlefs
+    ${CMAKE_CURRENT_LIST_DIR}/ext/littlefs
 )
 
 # Add any user requested libraries
