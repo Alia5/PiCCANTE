@@ -20,6 +20,7 @@
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"
 #include <FreeRTOS.h>
+#include <cstdint>
 #include <ostream>
 #include "../../../util/bin.hpp"
 

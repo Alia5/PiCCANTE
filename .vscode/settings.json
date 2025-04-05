@@ -116,6 +116,14 @@
         "cfenv": "cpp",
         "*.inc": "cpp"
     },
-    "C_Cpp.default.compilerPath": "/home/alia5/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-g++",
-    "cortex-debug.variableUseNaturalFormat": false
+    "C_Cpp.default.compilerPath": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-g++",
+    "cortex-debug.variableUseNaturalFormat": false,
+    "C_Cpp.loggingLevel": "Information",
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.codeAnalysis.clangTidy.useBuildPath": false,
+    "C_Cpp.default.compilerArgs": [
+        "-std=c++23",
+    ],
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.cStandard": "c17",
 }

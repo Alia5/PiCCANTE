@@ -1,4 +1,5 @@
 ---
+Standard: c++23
 BasedOnStyle: LLVM
 AccessModifierOffset: '4'
 AllowAllArgumentsOnNextLine: 'true'
@@ -13,7 +14,6 @@ KeepEmptyLinesAtTheStartOfBlocks: 'false'
 MaxEmptyLinesToKeep: '2'
 PointerAlignment: Left
 SortIncludes: 'false'
-Standard: Auto
 TabWidth: '4'
 UseTab: Never
 

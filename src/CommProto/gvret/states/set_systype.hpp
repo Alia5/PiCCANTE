@@ -27,7 +27,7 @@ class set_systype : public fsm::state<uint8_t, Protocol, bool> {
     explicit set_systype() : fsm::state<uint8_t, Protocol, bool>(SET_SYSTYPE) {}
 
     // NOLINTNEXTLINE
-    std::pair<Protocol, bool> tick(uint8_t& byte) override {
+    std::pair<Protocol, bool> tick([[maybe_unused]] uint8_t& byte) override {
         // Not supported, just go back to IDLE
 
         return {IDLE, false};

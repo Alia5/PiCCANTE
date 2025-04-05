@@ -17,9 +17,9 @@
  */
 #pragma once
 
-#include "../../../StateMachine/state.hpp"
+#include "StateMachine/state.hpp"
 #include "../proto.hpp"
-#include "../../../CanBus/CanBus.hpp"
+#include "CanBus/CanBus.hpp"
 #include <cstdint>
 #include <utility>
 
@@ -27,7 +27,7 @@ namespace gvret::state {
 
 class build_can_frame : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit build_can_frame() : fsm::state<uint8_t, Protocol, bool>(SEND_CAN_FRAME) {}
+    explicit build_can_frame() : fsm::state<uint8_t, Protocol, bool>(SEND_CAN_FRAME) {};
 
     Protocol enter() override {
         step = 0;

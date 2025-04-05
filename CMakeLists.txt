@@ -108,7 +108,7 @@ endif()
 
 # Add the standard include files to the build
 target_include_directories(${target_name} PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/src
     ${FREERTOS_KERNEL_PATH}/include
     ${CMAKE_CURRENT_LIST_DIR}/src/config
 
