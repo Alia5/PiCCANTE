@@ -27,7 +27,7 @@
                 "adapter speed 5000"
             ],
             "internalConsoleOptions": "openOnSessionStart",
-            "showDevDebugOutput": "raw"
+            "showDevDebugOutput": "none"
         },
         {
             "name": "Pico Debug (Cortex-Debug with external OpenOCD)",

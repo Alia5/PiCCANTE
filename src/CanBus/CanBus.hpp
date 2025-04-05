@@ -12,7 +12,6 @@ constexpr uint32_t CAN0_GPIO_RX = 4;
 constexpr uint32_t CAN0_GPIO_TX = 5;
 
 constexpr UBaseType_t CAN_TASK_PRIORITY = configMAX_PRIORITIES - 5;
-constexpr uint32_t CAN_STACK_DEPTH = 256;
 
 TaskHandle_t& createCanTask(void* parameters);
 

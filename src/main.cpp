@@ -1,8 +1,8 @@
 
+// NOLINTNEXTLINE
 #include <pico/stdio.h>
 #include <bsp/board_api.h>
 
-#include "pico/multicore.h"
 #include "pico/cyw43_arch.h"
 
 #include "FreeRTOS.h"
@@ -11,23 +11,19 @@
 
 #include "timers.h"
 #include "tusb.h"
-#include "usb/usb_descriptors.h"
-#include <iostream>
 #include <string>
 
 #include <pico/stdlib.h>
-#include <stdio.h>
-#include <memory.h>
+#include <cstdio>
+
+#include "outstream/usb_cdc_stream.hpp" // NOLINT
 
 #include "Logger/Logger.hpp"
 
-#include "CanBus/CanBus.hpp"
-
-#include "Lawicel/Lawicel.hpp"
-
-#include "outstream/usb_cdc_stream.hpp"
-
+#include "CommProto/Lawicel/Lawicel.hpp"
+#include "CommProto/gvret/handler.hpp" // NOLINT (stupid...)
 #include "fmt.hpp"
+
 
 static void blinkTask(void *pvParameters) {
     (void) pvParameters; // unused parameter
@@ -126,56 +122,70 @@ static void lawicel_task(void* parameter) {
     // Wait until can is up.
     vTaskDelay(6000); // TODO
 
-    Log::Info("Starting Lavicel Handler!");
+    Log::info << ("Starting Lavicel Handler!\n");
 
+    auto gvret_handler = gvret::handler(usb_cdc::out0);
+
+    uint8_t buff[128] = {0};
     for (;;) {
-        char cmdBuffer[128];
-        int serialCnt = 0;
-
-        serialCnt = 0;
-        while (tud_cdc_n_available(1) > 0) {
-            char c = tud_cdc_n_read_char(1);
-            cmdBuffer[serialCnt++] = c;
-            if (serialCnt >= sizeof(cmdBuffer) - 1) {
-                break; // Prevent buffer overflow
-            }
-            if (c == '\r' || c == '\n') {
-                break; // End of command
-            }
-        }
-        if (serialCnt == 2 && (cmdBuffer[1] == '\r' || cmdBuffer[1] == '\n')) {
-            // Handle single character commands
-            char cmd = cmdBuffer[0];
-            handler.handleShortCmd(cmd);
-        }
-        if (serialCnt > 2) {
-            cmdBuffer[serialCnt] = '\0'; // Null terminate
-            serialCnt = 0;
-            // Process command
-            handler.handleLongCmd(cmdBuffer);
+        while (tud_cdc_n_available(0) > 0) {
+            char c = tud_cdc_n_read_char(0);
+            gvret_handler.process_byte(c);
         }
 
-        // get buffered frames from can
         can2040_msg msg;
         while (receive_can0(msg) >= 0) {
             // Process received message
-
-            Log::Debug("CAN0: Received message ID:",
-                       fmt::sprintf("0x%x,", msg.id),
-                       "Data:",
-                       fmt::sprintf("0x%x", msg.data32[0]));
-
-            // TODO:
-            handler.sendFrameToBuffer(msg, 0);
+            gvret::comm_can_frame(0, msg, usb_cdc::out0);
         }
 
+        // char cmdBuffer[128];
+        // int serialCnt = 0;
 
-        vTaskDelay(pdMS_TO_TICKS(16)); // shorter delay for more responsive TX
+        // serialCnt = 0;
+        // while (tud_cdc_n_available(1) > 0) {
+        //     char c = tud_cdc_n_read_char(1);
+        //     cmdBuffer[serialCnt++] = c;
+        //     if (serialCnt >= sizeof(cmdBuffer) - 1) {
+        //         break; // Prevent buffer overflow
+        //     }
+        //     if (c == '\r' || c == '\n') {
+        //         break; // End of command
+        //     }
+        // }
+        // if (serialCnt == 2 && (cmdBuffer[1] == '\r' || cmdBuffer[1] == '\n')) {
+        //     // Handle single character commands
+        //     char cmd = cmdBuffer[0];
+        //     handler.handleShortCmd(cmd);
+        // }
+        // if (serialCnt > 2) {
+        //     cmdBuffer[serialCnt] = '\0'; // Null terminate
+        //     serialCnt = 0;
+        //     // Process command
+        //     handler.handleLongCmd(cmdBuffer);
+        // }
+
+        // // get buffered frames from can
+        // can2040_msg msg;
+        // while (receive_can0(msg) >= 0) {
+        //     // Process received message
+
+        //     Log::Debug("CAN0: Received message ID:",
+        //                fmt::sprintf("0x%x,", msg.id),
+        //                "Data:",
+        //                fmt::sprintf("0x%x", msg.data32[0]));
+
+        //     // TODO:
+        //     handler.sendFrameToBuffer(msg, 0);
+        // }
+
+
+        vTaskDelay(pdMS_TO_TICKS(10)); // shorter delay for more responsive TX
     }
 }
 
 
-int main(void) {
+int main() {
     // Debugger fucks up when sleep is called...
     // timer_hw->dbgpause = 0;
 
@@ -190,7 +200,8 @@ int main(void) {
 
     stdio_init_all();
 
-    Log::Info("Starting up...");
+    Log::set_log_level(Log::Level::LEVEL_DEBUG);
+    Log::info << "Starting up...\n";
 
     cyw43_arch_init();
 
@@ -202,12 +213,16 @@ int main(void) {
     static TaskHandle_t lawicelTaskHandle;
 
 
-    xTaskCreate(blinkTask, "Blink", 256, nullptr, 2, &blinkTaskHandle);
-    xTaskCreate(printTask, "Print", 256, nullptr, 1, &printTaskHandle);
-    xTaskCreate(usbDeviceTask, "USB", 256, nullptr, configMAX_PRIORITIES - 6,
-                &usbTaskHandle);
-    xTaskCreate(DebugCommandTask, "Debug", 256, nullptr, 1, &debugTaskHandle);
-    xTaskCreate(lawicel_task, "Lawicel", 256, nullptr, 5, &lawicelTaskHandle);
+    xTaskCreate(blinkTask, "Blink", configMINIMAL_STACK_SIZE, nullptr, 2,
+                &blinkTaskHandle);
+    xTaskCreate(printTask, "Print", configMINIMAL_STACK_SIZE, nullptr, 1,
+                &printTaskHandle);
+    xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE, nullptr,
+                configMAX_PRIORITIES - 6, &usbTaskHandle);
+    xTaskCreate(DebugCommandTask, "Debug", configMINIMAL_STACK_SIZE, nullptr, 1,
+                &debugTaskHandle);
+    xTaskCreate(lawicel_task, "Lawicel", configMINIMAL_STACK_SIZE, nullptr, 5,
+                &lawicelTaskHandle);
 
     static TaskHandle_t canTaskHandle = createCanTask(nullptr);
 
@@ -225,11 +240,16 @@ int main(void) {
 }
 
 // callback when data is received on a CDC interface
+// NOLINTNEXTLINE
 void tud_cdc_rx_cb(uint8_t itf)
 {
+    // Log::debug << "CDC RX Callback\n";
     if (itf == 1) {
         // CDC is handled on Lawicel-Task
         return; // ignore CDC1
+    }
+    if (itf == 0) {
+        return;
     }
     uint8_t buf[CFG_TUD_CDC_RX_BUFSIZE];
 
@@ -240,8 +260,9 @@ void tud_cdc_rx_cb(uint8_t itf)
     uint32_t count = tud_cdc_n_read(itf, buf, sizeof(buf));
 }
 
+// NOLINTNEXTLINE
 void vApplicationMallocFailedHook() { configASSERT((volatile void*)nullptr); }
-
+// NOLINTNEXTLINE
 void vApplicationIdleHook() {
     volatile size_t xFreeHeapSpace;
 

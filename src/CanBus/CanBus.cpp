@@ -26,14 +26,18 @@ static void can2040_cb_can0(struct can2040* cd, uint32_t notify,
             // Queue is full - log overflow
             // Can't directly call logger from ISR, so set a flag or counter
         }
-        portYIELD_FROM_ISR(higher_priority_task_woken);
     } else if (notify == CAN2040_NOTIFY_TX) {
         // Process transmitted message
     } else if (notify == CAN2040_NOTIFY_ERROR) {
         // Handle error
     }
+    portYIELD_FROM_ISR(higher_priority_task_woken);
 }
-static void PIOx_IRQHandler_CAN0(void) { can2040_pio_irq_handler(&cbus0); }
+static void PIOx_IRQHandler_CAN0(void) {
+    BaseType_t higher_priority_task_woken = pdFALSE;
+    can2040_pio_irq_handler(&cbus0);
+    portYIELD_FROM_ISR(higher_priority_task_woken);
+}
 
 void canbus_setup(uint32_t can0_bitrate) {
     uint32_t pio_num = 0;
@@ -46,7 +50,7 @@ void canbus_setup(uint32_t can0_bitrate) {
 
     // Enable irqs
     irq_set_exclusive_handler(PIO0_IRQ_0, PIOx_IRQHandler_CAN0);
-    irq_set_priority(PIO0_IRQ_0, 1);
+    irq_set_priority(PIO0_IRQ_0, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
     irq_set_enabled(PIO0_IRQ_0, true);
 
     // Start canbus
@@ -59,14 +63,14 @@ static void can0Task(void* parameters) {
 
     vTaskDelay(5000); // TODO
 
-    Log::Info("Starting CAN0 task...");
+    Log::info << "Starting CAN0 task...\n";
 
     // Create our message queues (64 messages each)
     can0_rx_queue = xQueueCreate(64, sizeof(can2040_msg));
     can0_tx_queue = xQueueCreate(64, sizeof(can2040_msg));
 
     if (can0_rx_queue == NULL || can0_tx_queue == NULL) {
-        Log::Error("Failed to create CAN queues");
+        Log::error << "Failed to create CAN queues\n";
         return;
     }
 
@@ -80,7 +84,7 @@ static void can0Task(void* parameters) {
         while (xQueueReceive(can0_tx_queue, &msg, 0) == pdTRUE) {
             int res = can2040_transmit(&cbus0, &msg);
             if (res < 0) {
-                Log::Error("CAN0: Failed to send message");
+                Log::error << "CAN0: Failed to send message\n";
             }
         }
 
@@ -103,7 +107,7 @@ static TaskHandle_t can0TaskHandle;
 TaskHandle_t& createCanTask(void* parameters) {
     (void)parameters;
 
-    xTaskCreate(can0Task, "CAN0", CAN_STACK_DEPTH, nullptr, CAN_TASK_PRIORITY,
+    xTaskCreate(can0Task, "CAN0", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
                 &can0TaskHandle);
     return can0TaskHandle;
 }
@@ -119,7 +123,7 @@ uint8_t get_can_0_tx_buffered_frames(void) {
 int send_can0(can2040_msg& msg) {
     // Queue the message for transmission by the CAN task
     if (xQueueSend(can0_tx_queue, &msg, pdMS_TO_TICKS(10)) != pdTRUE) {
-        Log::Error("CAN0: TX queue full");
+        Log::error << "CAN0: TX queue full";
         return -1;
     }
     return 0;
