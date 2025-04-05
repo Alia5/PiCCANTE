@@ -84,6 +84,18 @@ target_sources(
     ${CAN2040_PATH}/src/can2040.c
 )
 
+file(GLOB_RECURSE extFiles CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/ext/**/*"
+    "${PICO_SDK_PATH}/**/*"
+    "${PICO_SDK_PATH}/**/*"
+)
+
+set_source_files_properties(
+    ${extFiles}
+    PROPERTIES
+    COMPILE_FLAGS "-w"
+)
+
 # Pull in FreeRTOS
 set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/FreeRTOS-Kernel)
 set(FREERTOS_CONFIG_PATH ${CMAKE_CURRENT_LIST_DIR}/src/config)
