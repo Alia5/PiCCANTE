@@ -17,3 +17,4 @@ void Log::init(Level level, std::ostream& out_stream, std::ostream& err_stream) 
     Log::err = err_stream;
 }
 void Log::set_log_level(Level level) { Log::current_level = level; }
+

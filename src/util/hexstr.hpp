@@ -1,17 +1,20 @@
 #pragma once
+#include <cstddef>
 #include <string_view>
 
 namespace hex {
 
-static unsigned int parse(char c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
+static unsigned int parse(char byte) {
+    constexpr char base = 10;
+
+    if (byte >= '0' && byte <= '9') {
+        return byte - '0';
     }
-    if (c >= 'A' && c <= 'F') {
-        return 10 + c - 'A';
+    if (byte >= 'A' && byte <= 'F') {
+        return base + byte - 'A';
     }
-    if (c >= 'a' && c <= 'f') {
-        return 10 + c - 'a';
+    if (byte >= 'a' && byte <= 'f') {
+        return base + byte - 'a';
     }
     return 0;
 }

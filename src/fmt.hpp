@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 #include <cstdio>
 
@@ -16,7 +17,10 @@ static std::string sprintf(const std::string_view& fmtstr, const Args&... args) 
         // throw std::runtime_error("Error during formatting.");
     }
     result.resize(size);
-    std::sprintf(result.data(), fmtstr.data(), args...);
+    if (std::sprintf(result.data(), fmtstr.data(), args...) < 0) {
+        return "";
+        // throw std::runtime_error("Error during formatting.");
+    }
     return result;
 }
 

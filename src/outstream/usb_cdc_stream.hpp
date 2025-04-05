@@ -15,10 +15,11 @@ class USB_CDC_Sink : public outstream::CustomSink {
     uint8_t itf = 0;
 };
 
-static USB_CDC_Sink usb_cdc_sink0(0);
-static outstream::Stream<char> out0(usb_cdc_sink0);
 
-static USB_CDC_Sink usb_cdc_sink1(1);
-static outstream::Stream<char> out1(usb_cdc_sink1);
+inline USB_CDC_Sink usb_cdc_sink0(0);
+inline outstream::Stream<char> out0(usb_cdc_sink0);
+
+inline USB_CDC_Sink usb_cdc_sink1(1);
+inline outstream::Stream<char> out1(usb_cdc_sink1);
 
 } // namespace usb_cdc

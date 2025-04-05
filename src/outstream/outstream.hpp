@@ -3,6 +3,8 @@
 #include <iostream>
 #include <sstream>
 #include <type_traits>
+#include <span>
+#include <array>
 
 namespace outstream {
 
@@ -11,12 +13,14 @@ class CustomSink {
         public:
     virtual void write(const char* v, std::size_t s) = 0;
     virtual void flush() = 0;
+
+    virtual ~CustomSink() = default;
 };
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 class StreamBuf : public std::basic_streambuf<CharT, Traits> {
         public:
-    explicit StreamBuf(CustomSink& sink) : sink_(sink) {
+    explicit StreamBuf(CustomSink& sink) noexcept : sink_(sink) {
         // No buffer allocation - we'll handle each character directly
     }
 
@@ -26,8 +30,8 @@ class StreamBuf : public std::basic_streambuf<CharT, Traits> {
     // Handle individual character output with no buffering
     typename Traits::int_type overflow(typename Traits::int_type ch) override {
         if (!Traits::eq_int_type(ch, Traits::eof())) {
-            CharT c = Traits::to_char_type(ch);
-            sink_.write(reinterpret_cast<const char*>(&c), sizeof(CharT));
+            CharT c = Traits::to_char_type(ch);                            // NOLINT
+            sink_.write(reinterpret_cast<const char*>(&c), sizeof(CharT)); // NOLINT
             return ch;
         }
         return Traits::eof();
@@ -35,7 +39,7 @@ class StreamBuf : public std::basic_streambuf<CharT, Traits> {
 
     // Optimize for writing chunks directly
     std::streamsize xsputn(const CharT* s, std::streamsize count) override {
-        sink_.write(reinterpret_cast<const char*>(s), count * sizeof(CharT));
+        sink_.write(reinterpret_cast<const char*>(s), count * sizeof(CharT)); // NOLINT
         return count;
     }
 
