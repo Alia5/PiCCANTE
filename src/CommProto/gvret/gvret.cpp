@@ -34,7 +34,7 @@ uint8_t check_sum(const std::span<uint8_t>& buff) {
 void comm_can_frame(uint busnumber, const can2040_msg& frame, std::ostream& out) {
     // TODO: can only cause trouble to output MICROS as 4 byte value, but oh well...
     // I don't think it is implemented anyway anywhere, just use millis for now...
-    uint32_t time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    uint32_t const time = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
     auto id = frame.id;
     // remove flags from id copy
@@ -50,4 +50,4 @@ void comm_can_frame(uint busnumber, const can2040_msg& frame, std::ostream& out)
     out << 0 << std::flush;
 }
 
-} // namespace gvret
+} // namespace piccante::gvret
