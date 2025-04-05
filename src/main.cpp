@@ -1,11 +1,14 @@
 
 // NOLINTNEXTLINE
 #include <boards/pico2_w.h>
+#include <cstring>
 #include <pico/error.h>
 #include <cstdint>
 #include <pico/stdio.h>
 #include <bsp/board_api.h>
 
+#include "CommProto/gvret/gvret.hpp"
+#include "Logger/Logger.hpp"
 #include "device/usbd.h"
 #include "class/cdc/cdc_device.h"
 #include "CanBus/CanBus.hpp"
@@ -19,6 +22,7 @@
 
 #include "timers.h"
 #include "tusb.h"
+#include <print>
 #include <string>
 
 #include <cstdio>
@@ -29,6 +33,9 @@
 #include "CommProto/lawicel/lawicel.hpp"
 #include "CommProto/gvret/handler.hpp"
 #include "tusb_config.h"
+
+#include <lfs.h>
+#include "fs/littlefs_driver.hpp"
 
 
 static void blinkTask(void *pvParameters) {
@@ -87,13 +94,13 @@ static void DebugCommandTask(void* parameters) {
             if (c == '\b' || c == 127) {
                 if (bufferIndex > 0) {
                     bufferIndex--;
-                    printf("\b \b"); // Erase character
+                    std::print("\b \b"); // Erase character
                 }
             }
             // Handle newline/carriage return
             else if (c == '\r' || c == '\n') {
                 cmdBuffer[bufferIndex] = '\0'; // Null terminate
-                printf("\r\n");                // Echo newline
+                std::print("\r\n");            // Echo newline
 
                 // Process command if buffer not empty
                 if (bufferIndex > 0) {
@@ -139,7 +146,7 @@ static void lawicel_task(void* parameter) {
             gvret_handler.process_byte(c);
         }
 
-        std::string lawicel_cmd;
+        std::string lawicel_cmd = {0};
         while (tud_cdc_n_available(1) > 0) {
             char const c = tud_cdc_n_read_char(1);
             lawicel_cmd += c;
@@ -152,7 +159,7 @@ static void lawicel_task(void* parameter) {
             handler.handleCmd(lawicel_cmd);
         }
 
-        can2040_msg msg;
+        can2040_msg msg{};
         while (piccante::can::receive(0, msg) >= 0) {
             // Process received message
             piccante::gvret::comm_can_frame(0, msg, piccante::usb_cdc::out0);
@@ -214,7 +221,7 @@ int main() {
     tusb_init();
 
     // TinyUSB board init callback after init
-    if (board_init_after_tusb) {
+    if (board_init_after_tusb != nullptr) {
         board_init_after_tusb();
     }
 
@@ -224,6 +231,41 @@ int main() {
     piccante::Log::info << "Starting up...\n";
 
     cyw43_arch_init();
+
+    // littleFS
+
+    if (piccante::fs::init()) {
+        piccante::Log::info << "LittleFS mounted successfully\n";
+
+        // Example: Read a file
+        lfs_file_t readFile;
+        int err = lfs_file_open(&piccante::fs::lfs, &readFile, "test.txt", LFS_O_RDONLY);
+        if (err == LFS_ERR_OK) {
+            char buffer[64];
+            lfs_ssize_t const bytesRead =
+                lfs_file_read(&piccante::fs::lfs, &readFile, buffer, sizeof(buffer) - 1);
+            if (bytesRead >= 0) {
+                buffer[bytesRead] = '\0'; // Null-terminate the string
+                piccante::Log::info << "Read from file: " << buffer << "\n";
+            }
+            lfs_file_close(&piccante::fs::lfs, &readFile);
+        } else {
+            piccante::Log::error << "Failed to read file\n";
+        }
+
+        // Example: Write a file
+        lfs_file_t file;
+        err = lfs_file_open(&piccante::fs::lfs, &file, "hello.txt",
+                            LFS_O_WRONLY | LFS_O_CREAT);
+        if (err == LFS_ERR_OK) {
+            const char* data = "Hello from LittleFS on Pico!";
+            lfs_file_write(&piccante::fs::lfs, &file, data, strlen(data));
+            lfs_file_close(&piccante::fs::lfs, &file);
+            piccante::Log::info << "File written successfully\n";
+        }
+    }
+
+    //
 
     static TaskHandle_t blinkTaskHandle;
     static TaskHandle_t printTaskHandle;
@@ -284,7 +326,7 @@ void tud_cdc_rx_cb(uint8_t itf)
 void vApplicationMallocFailedHook() { configASSERT((volatile void*)nullptr); }
 // NOLINTNEXTLINE
 void vApplicationIdleHook() {
-    volatile size_t xFreeHeapSpace;
+    volatile size_t xFreeHeapSpace = 0;
 
     xFreeHeapSpace = xPortGetFreeHeapSize();
 

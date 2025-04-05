@@ -95,7 +95,6 @@ add_compile_definitions(
     picacanteCAN_NUM_3=3
 )
 
-
 set(sdkVersion 2.1.1)
 set(toolchainVersion 14_2_Rel1)
 set(picotoolVersion 2.1.1)
@@ -210,6 +209,38 @@ target_include_directories(${target_name} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/ext/littlefs
 )
 
+# Set filesystem size with default of 24KB
+if(NOT DEFINED ENV{PICCANTE_FS_SIZE_KB})
+    set(LITTLEFS_SIZE_KB 24)
+else()
+    set(LITTLEFS_SIZE_KB $ENV{PICCANTE_FS_SIZE_KB})
+endif()
+
+message(STATUS "Using filesystem size of ${LITTLEFS_SIZE_KB}KB")
+
+math(EXPR LITTLEFS_SIZE_BYTES "${LITTLEFS_SIZE_KB} * 1024")
+math(EXPR LFS_BLOCK_COUNT "${LITTLEFS_SIZE_KB} / 4")
+
+configure_file(${CMAKE_CURRENT_LIST_DIR}/flash_region.template.ld ${CMAKE_BINARY_DIR}/pico_flash_region.ld)
+
+set(LITTLEFS_DATA_DIR ${CMAKE_CURRENT_LIST_DIR}/fs_files)
+file(MAKE_DIRECTORY ${LITTLEFS_DATA_DIR})
+include(${CMAKE_CURRENT_LIST_DIR}/generate_littlefs.cmake)
+generate_littlefs_image(${target_name} ${LITTLEFS_DATA_DIR} ${LITTLEFS_SIZE_BYTES})
+target_compile_definitions(${target_name} PRIVATE
+    LFS_BLOCK_SIZE=4096
+    LFS_BLOCK_COUNT=${LFS_BLOCK_COUNT}
+    LFS_CACHE_SIZE=128
+    LFS_LOOKAHEAD_SIZE=32
+)
+
+target_sources(${target_name} PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/ext/littlefs/lfs.c
+    ${CMAKE_CURRENT_LIST_DIR}/ext/littlefs/lfs_util.c
+)
+
+# \ littlefs
+
 # Add any user requested libraries
 target_link_libraries(${target_name}
     pico_async_context_freertos FreeRTOS-Kernel-Heap4
@@ -219,5 +250,7 @@ target_link_libraries(${target_name}
 
     -lstdc++
 )
+
 # pico_enable_stdio_usb(${target_name} 0)
 pico_add_extra_outputs(${target_name})
+target_link_options(${target_name} PRIVATE "LINKER:--script=${CMAKE_CURRENT_LIST_DIR}/fs_end_flash.ld")
