@@ -87,7 +87,7 @@ void Handler::handleShortCmd(char cmd) {
             writeUsbSerial("V1013\n");
             break;
         case SHORT_CMD::GET_SERIAL: // LAWICEL - get serial number
-            writeUsbSerial("PicoRET\n");
+            writeUsbSerial("PiCCANTE\n");
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::SET_EXTENDED_MODE:
