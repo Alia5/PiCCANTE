@@ -85,20 +85,6 @@
 #define configUSE_TRACE_FACILITY 1
 #define configUSE_STATS_FORMATTING_FUNCTIONS 0
 
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
-// extern uint64_t time_us_64(void);
-// #ifdef __cplusplus
-// }
-// #endif
-
-// #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
-
-// #define RUN_TIME_STAT_time_us_64Divider 1000 // stat granularity is mS
-// #define portGET_RUN_TIME_COUNTER_VALUE() \
-//     (time_us_64() / RUN_TIME_STAT_time_us_64Divider) // runtime counter in mS
-
 
 /* Co-routine related definitions. */
 #define configUSE_CO_ROUTINES 0
@@ -110,27 +96,6 @@
 #define configTIMER_QUEUE_LENGTH 10
 #define configTIMER_TASK_STACK_DEPTH 1024
 
-
-// /* runtimeStats */
-// #define configUSE_STATS_FORMATTING_FUNCTIONS 1
-// #define configGENERATE_RUN_TIME_STATS 1
-// #define configUSE_TRACE_FACILITY 1
-
-// #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
-
-
-// #define RUN_TIME_STAT_time_us_64Divider 1000 // stat granularity is mS
-
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
-// extern uint64_t time_us_64(void);
-// #ifdef __cplusplus
-// }
-// #endif
-
-// #define portGET_RUN_TIME_COUNTER_VALUE()                                                 \
-//     (time_us_64() / RUN_TIME_STAT_time_us_64Divider) // runtime counter in mS
 
 /* Interrupt nesting behaviour configuration. */
 /*
