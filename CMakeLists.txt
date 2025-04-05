@@ -32,7 +32,7 @@ set(PICO_PLATFORM rp2350)
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(PicoRET C CXX ASM)
+project(PiCCANTE C CXX ASM)
 
 # Enabling Exceptions kills debugging as the SDK is buggy...
 set(PICO_CXX_ENABLE_EXCEPTIONS 0)
@@ -54,7 +54,7 @@ target_sources(${target_name} PRIVATE
     ${srcFiles}
 )
 
-pico_set_program_name(${target_name} "PicoRet")
+pico_set_program_name(${target_name} "PiCCANTE")
 pico_set_program_version(${target_name} "0.1")
 
 target_link_options(${target_name} PRIVATE -Xlinker --print-memory-usage)

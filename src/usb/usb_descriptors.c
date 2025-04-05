@@ -10,17 +10,17 @@
 // set some example Vendor and Product ID
 // the board will use to identify at the host
 #define _PID_MAP(itf, n) ((CFG_TUD_##itf) << (n))
-#define CDC_EXAMPLE_VID 0xCafe
+#define CDC_RASPBERRY_VID 0x2E8A
 // use _PID_MAP to generate unique PID for each interface
-#define CDC_EXAMPLE_PID (0x4000 | _PID_MAP(CDC, 0))
+#define CDC_RASPBERRY_PID (0x0009 | _PID_MAP(CDC, 0))
 // set USB 2.0
-#define CDC_EXAMPLE_BCD 0x0200
+#define CDC_BCD 0x0200
 
 // defines a descriptor that will be communicated to the host
 tusb_desc_device_t const desc_device = {
     .bLength = sizeof(tusb_desc_device_t),
     .bDescriptorType = TUSB_DESC_DEVICE,
-    .bcdUSB = CDC_EXAMPLE_BCD,
+    .bcdUSB = CDC_BCD,
 
     .bDeviceClass = TUSB_CLASS_MISC,         // CDC is a subclass of misc
     .bDeviceSubClass = MISC_SUBCLASS_COMMON, // CDC uses common subclass
@@ -28,8 +28,8 @@ tusb_desc_device_t const desc_device = {
 
     .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE, // 64 bytes
 
-    .idVendor = CDC_EXAMPLE_VID,
-    .idProduct = CDC_EXAMPLE_PID,
+    .idVendor = CDC_RASPBERRY_VID,
+    .idProduct = CDC_RASPBERRY_PID,
     .bcdDevice = 0x0100, // Device release number
 
     .iManufacturer = 0x01, // Index of manufacturer string
@@ -87,7 +87,7 @@ uint8_t const* tud_descriptor_configuration_cb(uint8_t index);
 tusb_desc_device_qualifier_t const desc_device_qualifier = {
     .bLength = sizeof(tusb_desc_device_t),
     .bDescriptorType = TUSB_DESC_DEVICE,
-    .bcdUSB = CDC_EXAMPLE_BCD,
+    .bcdUSB = CDC_BCD,
 
     .bDeviceClass = TUSB_CLASS_CDC,
     .bDeviceSubClass = MISC_SUBCLASS_COMMON,
@@ -115,11 +115,11 @@ enum {
 char const* string_desc_arr[] = {
     // switched because board is little endian
     (const char[]){0x09, 0x04}, // 0: supported language is English (0x0409)
-    "Raspberry Pi",             // 1: Manufacturer
-    "Pico W (2)",               // 2: Product
+    "Alia5",                    // 1: Manufacturer
+    "PiCCANTE",                 // 2: Product
     NULL,                       // 3: Serials (null so it uses unique ID if available)
-    "PicoRET Debug"             // 4: CDC Interface 0 // TODO
-    "PicoRET SLCAN0",           // 5: CDC Interface 1, // TODO
+    "PiCCANTE GVRET Device"     // 4: CDC Interface 0
+    "PiCCANTE SLCAN0",          // 5: CDC Interface 1,
     "RPiReset"                  // 6: Reset Interface
 };
 
