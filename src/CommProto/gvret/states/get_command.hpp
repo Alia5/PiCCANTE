@@ -23,10 +23,9 @@
 #include <span>
 #include "../../../fmt.hpp"
 
-namespace gvret {
+namespace piccante::gvret::state {
 
 
-namespace state {
 class get_command : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_command() : fsm::state<uint8_t, Protocol, bool>(GET_COMMAND) {}
@@ -94,5 +93,4 @@ class get_command : public fsm::state<uint8_t, Protocol, bool> {
 };
 
 
-} // namespace state
-} // namespace gvret
+} 

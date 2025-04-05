@@ -24,7 +24,7 @@
 #include "proto.hpp"
 #include "states/states.hpp"
 
-namespace gvret {
+namespace piccante::gvret {
 
 class handler {
         public:

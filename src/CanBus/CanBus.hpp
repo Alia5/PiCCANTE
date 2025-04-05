@@ -8,6 +8,8 @@ extern "C" {
 
 #include <array>
 
+namespace piccante {
+
 constexpr uint32_t CAN0_GPIO_RX = 4;
 constexpr uint32_t CAN0_GPIO_TX = 5;
 
@@ -20,3 +22,5 @@ uint8_t get_can_0_tx_buffered_frames(void);
 
 int send_can0(can2040_msg& msg);
 int receive_can0(can2040_msg& msg);
+
+}

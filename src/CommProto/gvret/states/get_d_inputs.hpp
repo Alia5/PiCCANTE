@@ -25,7 +25,7 @@
 #include "../gvret.hpp"
 
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_d_inputs : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_d_inputs(std::ostream& host_out)

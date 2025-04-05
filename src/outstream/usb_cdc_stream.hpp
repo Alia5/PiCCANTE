@@ -3,7 +3,7 @@
 #include "outstream.hpp"
 #include <tusb.h>
 
-namespace usb_cdc {
+namespace piccante::usb_cdc {
 class USB_CDC_Sink : public outstream::CustomSink {
         public:
     explicit USB_CDC_Sink(uint8_t itf) : itf(itf) {}

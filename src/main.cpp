@@ -1,11 +1,19 @@
 
 // NOLINTNEXTLINE
+#include <boards/pico2_w.h>
+#include <pico/error.h>
+#include <cstdint>
 #include <pico/stdio.h>
 #include <bsp/board_api.h>
 
+#include "device/usbd.h"
+#include "class/cdc/cdc_device.h"
+#include "CanBus/CanBus.hpp"
+#include "FreeRTOSConfig.h"
 #include "pico/cyw43_arch.h"
 
-#include "FreeRTOS.h"
+#include "projdefs.h"
+#include "portable.h"
 #include "queue.h"
 #include "task.h"
 
@@ -13,16 +21,14 @@
 #include "tusb.h"
 #include <string>
 
-#include <pico/stdlib.h>
 #include <cstdio>
 
 #include "outstream/usb_cdc_stream.hpp" // NOLINT
 
-#include "Logger/Logger.hpp"
 
 #include "CommProto/Lawicel/Lawicel.hpp"
 #include "CommProto/gvret/handler.hpp" // NOLINT (stupid...)
-#include "fmt.hpp"
+#include "tusb_config.h"
 
 
 static void blinkTask(void *pvParameters) {
@@ -115,16 +121,16 @@ static void DebugCommandTask(void* parameters) {
     }
 }
 
-static Lawicel::Handler handler;
+static piccante::Lawicel::Handler handler;
 
 static void lawicel_task(void* parameter) {
     (void)parameter;
     // Wait until can is up.
     vTaskDelay(6000); // TODO
 
-    Log::info << ("Starting Lavicel Handler!\n");
+    piccante::Log::info << ("Starting Lavicel Handler!\n");
 
-    auto gvret_handler = gvret::handler(usb_cdc::out0);
+    auto gvret_handler = piccante::gvret::handler(piccante::usb_cdc::out0);
 
     uint8_t buff[128] = {0};
     for (;;) {
@@ -134,9 +140,9 @@ static void lawicel_task(void* parameter) {
         }
 
         can2040_msg msg;
-        while (receive_can0(msg) >= 0) {
+        while (piccante::receive_can0(msg) >= 0) {
             // Process received message
-            gvret::comm_can_frame(0, msg, usb_cdc::out0);
+            piccante::gvret::comm_can_frame(0, msg, piccante::usb_cdc::out0);
         }
 
         // char cmdBuffer[128];
@@ -200,8 +206,8 @@ int main() {
 
     stdio_init_all();
 
-    Log::set_log_level(Log::Level::LEVEL_DEBUG);
-    Log::info << "Starting up...\n";
+    piccante::Log::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
+    piccante::Log::info << "Starting up...\n";
 
     cyw43_arch_init();
 
@@ -224,7 +230,7 @@ int main() {
     xTaskCreate(lawicel_task, "Lawicel", configMINIMAL_STACK_SIZE, nullptr, 5,
                 &lawicelTaskHandle);
 
-    static TaskHandle_t canTaskHandle = createCanTask(nullptr);
+    static TaskHandle_t canTaskHandle = piccante::createCanTask(nullptr);
 
     vTaskCoreAffinitySet(blinkTaskHandle, 0x01); // Set the task to run on core 1
     vTaskCoreAffinitySet(printTaskHandle, 0x01); // Set the task to run on core 2

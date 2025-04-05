@@ -24,7 +24,7 @@
 #include <ostream>
 #include "../../../util/bin.hpp"
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_dev_info : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_dev_info(std::ostream& host_out)

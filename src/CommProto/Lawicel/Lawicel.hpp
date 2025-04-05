@@ -5,7 +5,7 @@
 
 struct can2040_msg;
 
-namespace Lawicel {
+namespace piccante::Lawicel {
 
 
 enum SHORT_CMD {

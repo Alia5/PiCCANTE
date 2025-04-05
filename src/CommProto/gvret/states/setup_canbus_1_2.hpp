@@ -26,7 +26,7 @@
 #include "../proto.hpp"
 #include "../gvret.hpp"
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class setup_canbus_1_2 : public fsm::state<uint8_t, Protocol, bool> {
     // TODO: remove, use can2040 settings, or put to CanBus.hpp or smth.
     struct can_settings {
@@ -120,4 +120,4 @@ class setup_canbus_1_2 : public fsm::state<uint8_t, Protocol, bool> {
     uint32_t buff_int = 0;
     uint32_t bus_speed = 0;
 };
-} // namespace gvret::state
+} // namespace piccante::gvret::state

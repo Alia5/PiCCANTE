@@ -6,7 +6,7 @@
 #include <span>
 #include <array>
 
-namespace outstream {
+namespace piccante::outstream {
 
 
 class CustomSink {

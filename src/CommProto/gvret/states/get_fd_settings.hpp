@@ -24,7 +24,7 @@
 #include <cstdint>
 #include <utility>
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_fd_settings : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_fd_settings() : fsm::state<uint8_t, Protocol, bool>(GET_FD_SETTINGS) {}

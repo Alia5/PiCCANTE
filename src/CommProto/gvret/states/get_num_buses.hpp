@@ -23,7 +23,7 @@
 #include <cstdint>
 #include <ostream>
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_num_buses : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_num_buses(std::ostream& host_out)

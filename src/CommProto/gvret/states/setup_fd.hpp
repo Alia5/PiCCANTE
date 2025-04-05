@@ -21,7 +21,7 @@
 #include "../proto.hpp"
 #include <cstdint>
 #include <utility>
-namespace gvret::state {
+namespace piccante::gvret::state {
 class setup_fd : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit setup_fd() : fsm::state<uint8_t, Protocol, bool>(SETUP_FD) {}
@@ -30,4 +30,4 @@ class setup_fd : public fsm::state<uint8_t, Protocol, bool> {
         return {IDLE, false};
     }
 };
-} // namespace gvret::state
+} // namespace piccante::gvret::state

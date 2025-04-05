@@ -26,7 +26,7 @@
 #include <array>
 #include <utility>
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_a_inputs : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_a_inputs(std::ostream& host_out)
@@ -55,4 +55,4 @@ class get_a_inputs : public fsm::state<uint8_t, Protocol, bool> {
         private:
     std::ostream& out;
 };
-} // namespace gvret::state
+} // namespace piccante::gvret::state

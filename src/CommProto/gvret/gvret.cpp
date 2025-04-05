@@ -17,14 +17,15 @@
  */
 #include "gvret.hpp"
 #include <cstdint>
-#include <span>
+#include <pico/types.h>
 #include <numeric>
 #include <ostream>
 #include "../../CanBus/CanBus.hpp"
+#include "can2040.h"
+#include "portmacrocommon.h"
 #include "proto.hpp"
-#include <FreeRTOS.h>
-#include "../../util/bin.hpp"
-namespace gvret {
+#include "util/bin.hpp"
+namespace piccante::gvret {
 
 uint8_t check_sum(const std::span<uint8_t>& buff) {
     return std::accumulate(buff.begin(), buff.end(), 0);

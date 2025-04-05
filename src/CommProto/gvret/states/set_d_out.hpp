@@ -20,8 +20,7 @@
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"
 
-namespace gvret {
-namespace state {
+namespace piccante::gvret::state {
 class set_d_out : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit set_d_out() : fsm::state<uint8_t, Protocol, bool>(SET_D_OUT) {}
@@ -38,5 +37,4 @@ class set_d_out : public fsm::state<uint8_t, Protocol, bool> {
         return {IDLE, true};
     }
 };
-} // namespace state
-} // namespace gvret
+}

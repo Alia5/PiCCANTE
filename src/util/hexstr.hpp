@@ -19,8 +19,13 @@
 #include <cstddef>
 #include <string_view>
 
-namespace hex {
-
+namespace piccante::hex {
+/**
+ * @brief Converts a hex character to its integer value.
+ *
+ * @param byte The hex character to convert.
+ * @return The integer value of the hex character.
+ */
 static unsigned int parse(char byte) {
     constexpr char base = 10;
 
@@ -35,7 +40,13 @@ static unsigned int parse(char byte) {
     }
     return 0;
 }
-
+/**
+ * @brief Converts a string of hex values to integer value: 'DEADBEEF' -> 3735928559.
+ *
+ * @param str The hex string to convert.
+ * @param len The length of the hex string. If 0, the length is determined automatically.
+ * @return The integer value of the hex string.
+ */
 static unsigned int parse(const std::string_view& str, size_t len = 0) {
     unsigned int res = 0;
     if (len == 0) {
@@ -46,4 +57,4 @@ static unsigned int parse(const std::string_view& str, size_t len = 0) {
     }
     return res;
 }
-} // namespace hex
+} // namespace piccante::hex

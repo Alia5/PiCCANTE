@@ -21,7 +21,7 @@
 #include "../proto.hpp"
 #include <cstdint>
 #include <utility>
-namespace gvret::state {
+namespace piccante::gvret::state {
 
 class idle : public fsm::state<uint8_t, Protocol, bool> {
         public:

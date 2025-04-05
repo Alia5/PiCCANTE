@@ -21,7 +21,7 @@
 #include "../proto.hpp"
 #include <utility>
 #include <cstdint>
-namespace gvret::state {
+namespace piccante::gvret::state {
 class set_systype : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit set_systype() : fsm::state<uint8_t, Protocol, bool>(SET_SYSTYPE) {}

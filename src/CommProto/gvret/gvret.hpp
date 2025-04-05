@@ -23,7 +23,7 @@
 #include "../../CanBus/CanBus.hpp"
 
 
-namespace gvret {
+namespace piccante::gvret {
 
 // My implementation of the gvret protocol (afaik) originally by Collin Kidder (Collin80)
 // Based on the original (buggy...) code from:

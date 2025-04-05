@@ -25,6 +25,7 @@
 #include <cstdint>
 #include "../outstream/outstream.hpp"
 
+namespace piccante {
 class Log {
         public:
     enum Level : uint8_t {
@@ -101,3 +102,4 @@ class Log {
     inline static outstream::Stream<char> warning = outstream::Stream<char>(warning_sink);
     inline static outstream::Stream<char> error = outstream::Stream<char>(error_sink);
 };
+}

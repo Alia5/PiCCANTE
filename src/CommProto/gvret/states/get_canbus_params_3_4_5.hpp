@@ -24,7 +24,7 @@
 #include <utility>
 #include "../../../util/bin.hpp"
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_canbus_params_3_4_5(std::ostream& host_out)

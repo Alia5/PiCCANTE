@@ -16,6 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "Logger.hpp"
+#include <functional>
+#include <ostream>
+#include <map>
+
+namespace piccante {
 
 Log::Level Log::current_level = Log::LEVEL_INFO;
 
@@ -34,4 +39,4 @@ void Log::init(Level level, std::ostream& out_stream, std::ostream& err_stream) 
     Log::err = err_stream;
 }
 void Log::set_log_level(Level level) { Log::current_level = level; }
-
+}

@@ -24,7 +24,7 @@
 #include <ostream>
 #include "../../../util/bin.hpp"
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class keepalive : public fsm::state<uint8_t, Protocol, bool> {
     static constexpr uint16_t KEEPALIVE_PAYLOAD = 0xDEAD;
 

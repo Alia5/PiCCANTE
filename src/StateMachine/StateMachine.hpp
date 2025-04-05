@@ -26,7 +26,7 @@
 
 #include "../Logger/Logger.hpp"
 
-namespace fsm {
+namespace piccante::fsm {
 
 template <typename T, typename ID = std::string, typename ReturnType = void>
 class StateMachine {

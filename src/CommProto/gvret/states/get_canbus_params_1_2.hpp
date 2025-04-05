@@ -25,7 +25,7 @@
 #include "../../../util/bin.hpp"
 
 #include "../../../Logger/Logger.hpp"
-namespace gvret::state {
+namespace piccante::gvret::state {
 class get_canbus_params_1_2 : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_canbus_params_1_2(std::ostream& host_out)
@@ -50,4 +50,4 @@ class get_canbus_params_1_2 : public fsm::state<uint8_t, Protocol, bool> {
         private:
     std::ostream& out;
 };
-} // namespace gvret::state
+} // namespace piccante::gvret::state

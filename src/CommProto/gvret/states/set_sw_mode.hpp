@@ -22,7 +22,7 @@
 #include <utility>
 #include <cstdint>
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class set_sw_mode : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit set_sw_mode() : fsm::state<uint8_t, Protocol, bool>(SET_SW_MODE) {}

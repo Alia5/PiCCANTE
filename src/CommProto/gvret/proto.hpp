@@ -17,7 +17,7 @@
  */
 #pragma once
 #include <cstdint>
-namespace gvret {
+namespace piccante::gvret {
 
 enum Protocol : uint8_t {
     // CMDS

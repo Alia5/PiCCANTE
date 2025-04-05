@@ -21,7 +21,7 @@
 #include "../proto.hpp"
 #include <cstdint>
 #include <utility>
-namespace gvret::state {
+namespace piccante::gvret::state {
 class send_fd_frame : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit send_fd_frame() : fsm::state<uint8_t, Protocol, bool>(SEND_FD_FRAME) {}
@@ -30,4 +30,4 @@ class send_fd_frame : public fsm::state<uint8_t, Protocol, bool> {
         return {IDLE, false};
     }
 };
-} // namespace gvret::state
+} // namespace piccante::gvret::state

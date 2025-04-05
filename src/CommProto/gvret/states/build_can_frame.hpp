@@ -23,7 +23,7 @@
 #include <cstdint>
 #include <utility>
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 
 class build_can_frame : public fsm::state<uint8_t, Protocol, bool> {
         public:
@@ -87,4 +87,4 @@ class build_can_frame : public fsm::state<uint8_t, Protocol, bool> {
     can2040_msg frame = {0, 0, 0, 0, 0, 0, 0, 0};
     uint8_t out_bus = 0;
 };
-} // namespace gvret::state
+} // namespace piccante::gvret::state

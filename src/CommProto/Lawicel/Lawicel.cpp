@@ -16,26 +16,12 @@
 #include "../fmt.hpp"
 
 
-namespace Lawicel {
+namespace piccante::Lawicel {
 
 constexpr uint8_t NUM_BUSES = 1;
 
-// TODO: Provide better options for this
-static void writeUsbSerial(const std::string_view& s) {
-    tud_cdc_n_write_str(1, s.data());
-    tud_cdc_n_write_flush(1);
-}
-static void writeUsbSerial(const char* s) {
-    tud_cdc_n_write_str(1, s);
-    tud_cdc_n_write_flush(1);
-}
-static void writeUsbSerial(char s) {
-    tud_cdc_n_write_char(1, s);
-    tud_cdc_n_write_flush(1);
-}
-
 void Handler::handleShortCmd(char cmd) {
-    Log::debug << "Lawicel Sjort Command:" << cmd;
+    Log::debug << "Lawicel Short Command:" << cmd;
 
 
     switch (cmd) {
@@ -43,26 +29,26 @@ void Handler::handleShortCmd(char cmd) {
             // CAN0.setListenOnlyMode(false);
             // CAN0.begin(settings.canSettings[0].nomSpeed, 255);
             // CAN0.enable();
-            writeUsbSerial('\r'); // OK
+            usb_cdc::out1 << '\r'; // Ok
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::CLOSE: // LAWICEL close canbus port (First one)
             // CAN0.disable();
-            writeUsbSerial('\r'); // OK
+            usb_cdc::out1 << '\r'; // Ok
             break;
         case SHORT_CMD::OPEN_LISTEN_ONLY: // LAWICEL open canbus port in listen only
                                           // mode
             // CAN0.setListenOnlyMode(true);
             // CAN0.begin(settings.canSettings[0].nomSpeed, 255);
             // CAN0.enable();
-            writeUsbSerial('\r'); // OK
+            usb_cdc::out1 << '\r'; // Ok
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::POLL_ONE: // LAWICEL - poll for one waiting frame. Or, just CR
             if (get_can_0_rx_buffered_frames() > 0) {
                 poll_counter = 1; // AVAILABLE CAN_FRAMES;
             } else {
-                writeUsbSerial('\r'); // OK
+            usb_cdc::out1 << '\r'; // Ok
             }
             break;
         case SHORT_CMD::POLL_ALL: // LAWICEL - poll for all waiting frames - CR if no
@@ -70,7 +56,7 @@ void Handler::handleShortCmd(char cmd) {
             // SysSettings.lawicelPollCounter = CAN0.available();
             poll_counter = get_can_0_rx_buffered_frames();
             if (poll_counter == 0) {
-                writeUsbSerial('\r'); // OK
+            usb_cdc::out1 << '\r'; // Ok
             }
             break;
         case SHORT_CMD::READ_STATUS_BITS: // LAWICEL - read status bits
@@ -80,29 +66,29 @@ void Handler::handleShortCmd(char cmd) {
             //     =
             //             // Data overrun, 5= Error passive, 6 = Arb. Lost, 7 = Bus
             //             Error
-            writeUsbSerial("F00"); // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error
-            writeUsbSerial('\r');  // OK
+             usb_cdc::out1 << "F00"; // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error
+            usb_cdc::out1 << '\r'; // Ok
             break;
         case SHORT_CMD::GET_VERSION: // LAWICEL - get version number
-            writeUsbSerial("V1013\n");
+            usb_cdc::out1 <<("V1013\n");
             break;
         case SHORT_CMD::GET_SERIAL: // LAWICEL - get serial number
-            writeUsbSerial("PiCCANTE\n");
+            usb_cdc::out1 << ("PiCCANTE\n");
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::SET_EXTENDED_MODE:
             extended_mode = !extended_mode;
             if (extended_mode) {
-                writeUsbSerial("V2\n");
+                usb_cdc::out1 <<("V2\n");
             } else {
-                writeUsbSerial("LAWICEL\n");
+                usb_cdc::out1 <<("LAWICEL\n");
             }
             break;
         case SHORT_CMD::LIST_SUPPORTED_BUSSES: // LAWICEL V2 - Output list of
             if (extended_mode) {
                 for (int i = 0; i < NUM_BUSES; i++) {
                     printBusName(i);
-                    writeUsbSerial('\n');
+            usb_cdc::out1 << '\r'; // Ok
                 }
             }
             break;
@@ -126,7 +112,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
     switch (cmd[0]) {
         {
             case LONG_CMD::TX_STANDARD_FRAME:
-                out_frame.id = hex::parse(cmd.data() + 1, 3);
+                out_frame.id = piccante::hex::parse(cmd.data() + 1, 3);
                 out_frame.dlc = cmd.data()[4] - '0';
                 if (out_frame.dlc < 0) {
                     out_frame.dlc = 0;
@@ -134,15 +120,15 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                     out_frame.dlc = 8;
                 }
                 for (unsigned int i = 0; i < out_frame.dlc; i++) {
-                    out_frame.data[i] = hex::parse(cmd.data() + 5 + i * 2, 2);
+                    out_frame.data[i] = piccante::hex::parse(cmd.data() + 5 + i * 2, 2);
                 }
                 // CAN0.SendFrame(out_frame); // TODO:
                 if (auto_poll) {
-                    writeUsbSerial("z");
+                    usb_cdc::out1 <<("z");
                 }
                 break;
             case LONG_CMD::TX_EXTENDED_FRAME:
-                out_frame.id = hex::parse(cmd.data() + 1, 8);
+                out_frame.id = piccante::hex::parse(cmd.data() + 1, 8);
                 out_frame.dlc = cmd.data()[9] - '0';
                 if (out_frame.dlc < 0) {
                     out_frame.dlc = 0;
@@ -151,11 +137,12 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                     out_frame.dlc = 8;
                 }
                 for (unsigned int data = 0; data < out_frame.dlc; data++) {
-                    out_frame.data[data] = hex::parse(cmd.data() + 10 + (2 * data), 2);
+                    out_frame.data[data] =
+                        piccante::hex::parse(cmd.data() + 10 + (2 * data), 2);
                 }
                 // CAN0.sendFrame(out_frame); // TODO
                 if (auto_poll) {
-                    writeUsbSerial("Z");
+                    usb_cdc::out1 <<("Z");
                 }
                 break;
             case LONG_CMD::SET_SPEED_OR_PACKET:
@@ -265,7 +252,7 @@ void Handler::handleLongCmd(const std::string_view& cmd) {
                 break;
         }
     }
-    writeUsbSerial('\r'); // OK
+    usb_cdc::out1 <<('\r'); // OK
 }
 
 void Handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
@@ -280,46 +267,46 @@ void Handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
     }
 
     if (extended_mode) {
-        writeUsbSerial(std::to_string(now) + " - " + fmt::sprintf("%x", frame.id));
+        usb_cdc::out1 << std::to_string(now) << " - " << fmt::sprintf("%x", frame.id);
         if (false /*TODO: frame.extended*/) {
-            writeUsbSerial(" X ");
+            usb_cdc::out1 <<(" X ");
         } else {
-            writeUsbSerial(" S ");
+            usb_cdc::out1 <<(" S ");
         }
         printBusName(bus);
         for (int i = 0; i < frame.dlc; i++) {
             // TODO: Provide more elegant write
-            writeUsbSerial(" ");
-            writeUsbSerial(fmt::sprintf("%x", frame.data[i]));
+            usb_cdc::out1 <<(" ");
+            usb_cdc::out1 <<(fmt::sprintf("%x", frame.data[i]));
         }
     } else {
         if (false /*TODO: frame.extended*/) {
-            writeUsbSerial("T");
-            writeUsbSerial(fmt::sprintf("%08x", frame.id));
+            usb_cdc::out1 <<("T");
+            usb_cdc::out1 <<(fmt::sprintf("%08x", frame.id));
         } else {
-            writeUsbSerial("t");
-            writeUsbSerial(fmt::sprintf("%03x", frame.id));
+            usb_cdc::out1 <<("t");
+            usb_cdc::out1 <<(fmt::sprintf("%03x", frame.id));
         }
-        writeUsbSerial(std::to_string(frame.dlc));
+        usb_cdc::out1 <<(std::to_string(frame.dlc));
         for (int i = 0; i < frame.dlc; i++) {
-            writeUsbSerial(fmt::sprintf("%02x", frame.data[i]));
+            usb_cdc::out1 <<(fmt::sprintf("%02x", frame.data[i]));
         }
         if (time_stamping) {
             uint16_t timestamp = (uint16_t)millis;
-            writeUsbSerial(fmt::sprintf("%04x", timestamp));
+            usb_cdc::out1 <<(fmt::sprintf("%04x", timestamp));
         }
     }
-    writeUsbSerial('\r'); // OK
+    usb_cdc::out1 <<('\r'); // OK
 }
 
 
 void Handler::printBusName(int bus) {
     switch (bus) {
         case 0:
-            writeUsbSerial("CAN0");
+            usb_cdc::out1 <<("CAN0");
             break;
         case 1:
-            writeUsbSerial("CAN1");
+            usb_cdc::out1 <<("CAN1");
             break;
         default:
             // Serial.print("Unknown bus");

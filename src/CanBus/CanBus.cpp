@@ -1,10 +1,19 @@
 #include "CanBus.hpp"
 
+#include <cstdint>
+#include <cstddef>
 #include <hardware/irq.h>
-#include "FreeRTOS.h"
+#include <hardware/platform_defs.h>
+#include <hardware/regs/intctrl.h>
+#include "can2040.h"
+#include "portmacrocommon.h"
+#include "projdefs.h"
+#include "FreeRTOSConfig.h"
 #include "queue.h"
+#include "Logger/Logger.hpp"
 
-#include "../Logger/Logger.hpp"
+namespace piccante {
+
 
 
 static QueueHandle_t can0_rx_queue;
@@ -135,4 +144,5 @@ int receive_can0(can2040_msg& msg) {
         return get_can_0_rx_buffered_frames();
     }
     return -1;
+}
 }

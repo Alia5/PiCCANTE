@@ -24,7 +24,7 @@
 #include <ostream>
 #include "../../../util/bin.hpp"
 
-namespace gvret::state {
+namespace piccante::gvret::state {
 class time_sync : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit time_sync(std::ostream& host_out)

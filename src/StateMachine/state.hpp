@@ -20,7 +20,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace fsm {
+namespace piccante::fsm {
 
 template <typename T, typename ID = std::string, typename ReturnType = void> class state {
         public:
