@@ -1,0 +1,5 @@
+# Disable checks for third-party code
+---
+Checks: "-*,misc-definitions-in-headers"
+CheckOptions:
+  - { key: HeaderFileExtensions, value: "x" }
