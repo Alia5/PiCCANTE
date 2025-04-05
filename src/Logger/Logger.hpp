@@ -59,42 +59,44 @@ class Log {
         }
     }
 
-    class DebugSink : public outstream::CustomSink {
-            public:
-        void write(const char* value, std::size_t size) override {
-            log(LEVEL_DEBUG, std::string_view(value, size));
+    class LogSink : public outstream::CustomSink {
+            protected:
+        Level level;
+        bool at_line_start = true;
+
+        void output_message(const char* value, std::size_t size) {
+            if (current_level <= level) {
+                auto& output = (level == LEVEL_ERROR) ? err.get() : out.get();
+
+                for (size_t i = 0; i < size; ++i) {
+                    if (at_line_start) {
+                        output << "[" << level_names[level] << "] ";
+                        at_line_start = false;
+                    }
+
+                    output << value[i];
+
+                    if (value[i] == '\n') {
+                        at_line_start = true;
+                    }
+                }
+            }
         }
-        void flush() override { out.get().flush(); }
+
+            public:
+        explicit LogSink(Level log_level) : level(log_level) {}
+
+        void write(const char* value, std::size_t size) override {
+            output_message(value, size);
+        }
+
+        void flush() override { (level == LEVEL_ERROR ? err.get() : out.get()).flush(); }
     };
 
-    class InfoSink : public outstream::CustomSink {
-            public:
-        void write(const char* value, std::size_t size) override {
-            log(LEVEL_INFO, std::string_view(value, size));
-        }
-        void flush() override { out.get().flush(); }
-    };
-
-    class WarningSink : public outstream::CustomSink {
-            public:
-        void write(const char* value, std::size_t size) override {
-            log(LEVEL_WARNING, std::string_view(value, size));
-        }
-        void flush() override { out.get().flush(); }
-    };
-
-    class ErrorSink : public outstream::CustomSink {
-            public:
-        void write(const char* value, std::size_t size) override {
-            log(LEVEL_ERROR, std::string_view(value, size));
-        }
-        void flush() override { err.get().flush(); }
-    };
-
-    inline static DebugSink debug_sink = DebugSink();
-    inline static InfoSink info_sink = InfoSink();
-    inline static WarningSink warning_sink = WarningSink();
-    inline static ErrorSink error_sink = ErrorSink();
+    inline static LogSink debug_sink = LogSink(LEVEL_DEBUG);
+    inline static LogSink info_sink = LogSink(LEVEL_INFO);
+    inline static LogSink warning_sink = LogSink(LEVEL_WARNING);
+    inline static LogSink error_sink = LogSink(LEVEL_ERROR);
 
         public:
     inline static outstream::Stream<char> debug = outstream::Stream<char>(debug_sink);

@@ -18,7 +18,6 @@
 #include "Logger.hpp"
 #include <functional>
 #include <ostream>
-#include <map>
 
 namespace piccante {
 
