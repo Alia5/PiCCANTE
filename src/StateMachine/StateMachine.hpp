@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include <ostream>
+
 #include <string>
 #include <memory>
 #include <map>
@@ -78,7 +78,7 @@ class StateMachine {
                     if (next_it != states.end()) {
                         next = next_it->second->enter();
                     } else {
-                        Log::error << "Transition to non-existent state\n" << std::flush;
+                        Log::error << "Transition to non-existent state\n";
                     }
                 }
 
@@ -92,11 +92,11 @@ class StateMachine {
                 if (next_it != states.end()) {
                     next = next_it->second->enter();
                 } else {
-                    Log::error << "Transition to non-existent state\n" << std::flush;
+                    Log::error << "Transition to non-existent state\n";
                 }
             }
         } else {
-            Log::error << "State not found\n" << std::flush;
+            Log::error << "State not found\n";
             if constexpr (!std::is_void_v<ReturnType>) {
                 return ReturnType{};
             }

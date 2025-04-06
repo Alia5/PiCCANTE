@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <pico/types.h>
 #include <numeric>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include "../../CanBus/CanBus.hpp"
 #include "can2040.h"
 #include "portmacrocommon.h"
@@ -31,7 +31,7 @@ uint8_t check_sum(const std::span<uint8_t>& buff) {
     return std::accumulate(buff.begin(), buff.end(), 0);
 }
 
-void comm_can_frame(uint busnumber, const can2040_msg& frame, std::ostream& out) {
+void comm_can_frame(uint busnumber, const can2040_msg& frame, out::stream& out) {
     // TODO: can only cause trouble to output MICROS as 4 byte value, but oh well...
     // I don't think it is implemented anyway anywhere, just use millis for now...
     uint32_t const time = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -47,7 +47,8 @@ void comm_can_frame(uint busnumber, const can2040_msg& frame, std::ostream& out)
         out << frame.data[i];
     }
     // TODO: Checksum, seems not to be implemented anyway...
-    out << 0 << std::flush;
+    out << uint8_t(0);
+    out.flush();
 }
 
 } // namespace piccante::gvret

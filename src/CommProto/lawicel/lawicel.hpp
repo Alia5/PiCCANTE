@@ -3,6 +3,7 @@
 #include <string_view>
 #include <cstdint>
 #include <functional>
+#include "outstream/stream.hpp"
 
 struct can2040_msg;
 
@@ -44,7 +45,7 @@ enum LONG_CMD {
 
 class handler {
         public:
-    explicit handler(std::ostream& out_stream, uint8_t bus_num = 0)
+    explicit handler(out::stream& out_stream, uint8_t bus_num = 0)
         : host_out(out_stream), bus(bus_num) {};
     virtual ~handler() = default;
 
@@ -56,7 +57,7 @@ class handler {
 
 
         private:
-    std::reference_wrapper<std::ostream> host_out;
+    std::reference_wrapper<out::stream> host_out;
     uint8_t bus = 0;
 
     bool extended_mode = false;

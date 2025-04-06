@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstddef>
-#include <ostream>
+#include "outstream/stream.hpp"
 
 namespace piccante {
 template <typename T> class bin {
@@ -27,7 +27,7 @@ template <typename T> class bin {
 
         public:
     explicit bin(const T& i) : i(i) {}
-    friend std::ostream& operator<<(std::ostream& os, const bin& b) {
+    friend out::stream& operator<<(out::stream& os, const bin& b) {
         os.write(reinterpret_cast<const char*>(&(b.i)), sizeof(T));
         return os;
     }
@@ -40,11 +40,11 @@ template <typename T> class bin_be {
 
         public:
     explicit bin_be(const T& i) : i(i) {}
-    friend std::ostream& operator<<(std::ostream& os, const bin_be& b) {
+    friend out::stream& operator<<(out::stream& os, const bin_be& b) {
         // Write bytes in reverse order
-        const auto* bytes = reinterpret_cast<const unsigned char*>(&(b.i));
+        const auto* bytes = reinterpret_cast<const char*>(&(b.i));
         for (size_t j = sizeof(T); j > 0; --j) {
-            os.put(bytes[j - 1]);
+            os.write(bytes[j - 1]);
         }
         return os;
     }

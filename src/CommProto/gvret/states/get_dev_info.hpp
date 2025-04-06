@@ -21,13 +21,13 @@
 #include "../proto.hpp"
 #include <cstdint>
 #include <utility>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include "../../../util/bin.hpp"
 
 namespace piccante::gvret::state {
 class get_dev_info : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit get_dev_info(std::ostream& host_out)
+    explicit get_dev_info(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(GET_DEV_INFO), out(host_out) {}
 
     Protocol enter() override {
@@ -40,7 +40,8 @@ class get_dev_info : public fsm::state<uint8_t, Protocol, bool> {
             // TODO: WTF Is 0?
             << (uint8_t(0))
             // single wire mode?
-            << (uint8_t(0)) << std::flush;
+            << (uint8_t(0));
+        out.flush();
 
         // TODO: doesn't TX a checksum byte ¯\_(ツ)_/¯
 
@@ -51,6 +52,6 @@ class get_dev_info : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         private:
-    std::ostream& out;
+    out::stream& out;
 };
 } // namespace gvret

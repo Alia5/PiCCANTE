@@ -34,19 +34,6 @@ constexpr uint8_t CAN_QUEUE_SIZE = piccanteCAN_QUEUE_SIZE;
 constexpr uint8_t CAN_IDLE_SLEEP_TIME_MS = piccanteCAN_IDLE_SLEEP_MS;
 constexpr uint8_t CAN_QUEUE_TIMEOUT_MS = piccanteCAN_QUEUE_TIMEOUT_MS;
 
-
-constexpr uint32_t CAN0_GPIO_RX = piccanteCAN0_RX_PIN;
-constexpr uint32_t CAN0_GPIO_TX = piccanteCAN0_TX_PIN;
-
-#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_2
-constexpr uint32_t CAN1_GPIO_RX = piccanteCAN1_RX_PIN;
-constexpr uint32_t CAN1_GPIO_TX = piccanteCAN1_TX_PIN;
-#endif
-#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_3
-constexpr uint32_t CAN2_GPIO_RX = piccanteCAN2_RX_PIN;
-constexpr uint32_t CAN2_GPIO_TX = piccanteCAN2_TX_PIN;
-#endif
-
 constexpr UBaseType_t CAN_TASK_PRIORITY = configMAX_PRIORITIES - 5;
 
 struct CanSettings {

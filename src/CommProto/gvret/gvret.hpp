@@ -19,7 +19,7 @@
 
 #include <cstdint>
 #include <span>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include "../../CanBus/CanBus.hpp"
 
 
@@ -37,7 +37,7 @@ namespace piccante::gvret {
 // binary protocol enum in proto.hpp
 uint8_t check_sum(const std::span<uint8_t>& buff);
 
-void comm_can_frame(uint busnumber, const can2040_msg& frame, std::ostream& out);
+void comm_can_frame(uint busnumber, const can2040_msg& frame, out::stream& out);
 
 static constexpr auto SPEED_MASK = 0xFFFFFU;
 static constexpr auto BUS_FLAG_MASK = 0x80000000UL;

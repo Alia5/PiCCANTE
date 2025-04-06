@@ -15,25 +15,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "Logger.hpp"
-#include <functional>
-#include "outstream/stream.hpp"
-#include "outstream/uart_stream.hpp"
-namespace piccante {
+#include "uart_stream.hpp"
+#include <cstddef>
+#include <cstdint>
+#include "hardware/uart.h"
+#include "hardware/gpio.h"
+#include "pico/stdlib.h"
 
-Log::Level Log::current_level = Log::LEVEL_INFO;
 
-std::reference_wrapper<out::stream> Log::out = piccante::uart::out0;
+namespace piccante::uart {
 
-std::map<Log::Level, std::string> Log::level_names = {
-    {Log::LEVEL_DEBUG, "DEBUG"},
-    {Log::LEVEL_INFO, "INFO"},
-    {Log::LEVEL_WARNING, "WARNING"},
-    {Log::LEVEL_ERROR, "ERROR"},
-};
-void Log::init(Level level, out::stream& out_stream) {
-    Log::current_level = level;
-    Log::out = out_stream;
+void uart_sink::init(uint8_t pin_tx, uint8_t pin_rx, uint32_t baud) {
+    uart_init(uart_instance, baud);
+
+    gpio_set_function(pin_tx, UART_FUNCSEL_NUM(uart_instance, pin_tx));
+    gpio_set_function(pin_rx, UART_FUNCSEL_NUM(uart_instance, pin_rx));
 }
-void Log::set_log_level(Level level) { Log::current_level = level; }
+
+void uart_sink::write(const char* v, std::size_t s) {
+    uart_write_blocking(uart_instance, reinterpret_cast<const uint8_t*>(v), s);
 }
+
+void uart_sink::flush() {
+    // Wait until UART has finished sending all data
+    uart_tx_wait_blocking(uart_instance);
+}
+} // namespace piccante::uart

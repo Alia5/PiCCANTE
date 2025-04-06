@@ -1,20 +1,17 @@
 #include "lawicel.hpp"
+#include <cstdint>
+#include <algorithm>
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
-
-#include <string>
+#include "outstream/stream.hpp"
+#include <pico/types.h>
+#include <utility>
 #include <pico/time.h>
-
-#include "tusb.h"
-
 #include "../CanBus/CanBus.hpp"
-#include "../Logger/Logger.hpp"
-
 #include "../util/hexstr.hpp"
-#include "../outstream/usb_cdc_stream.hpp"
-#include "../fmt.hpp"
-
+#include "fmt.hpp"
+#include "Logger/Logger.hpp"
 
 namespace piccante::lawicel {
 
@@ -26,26 +23,30 @@ void handler::handleShortCmd(char cmd) {
             // CAN0.setListenOnlyMode(false);
             // CAN0.begin(settings.canSettings[0].nomSpeed, 255);
             // CAN0.enable();
-            host_out.get() << '\r' << std::flush; // Ok
+            host_out.get() << '\r'; // ok
+            host_out.get().flush();
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::CLOSE: // LAWICEL close canbus port (First one)
             // CAN0.disable();
-            host_out.get() << '\r' << std::flush; // Ok
+            host_out.get() << '\r'; // ok
+            host_out.get().flush();
             break;
         case SHORT_CMD::OPEN_LISTEN_ONLY: // LAWICEL open canbus port in listen only
                                           // mode
             // CAN0.setListenOnlyMode(true);
             // CAN0.begin(settings.canSettings[0].nomSpeed, 255);
             // CAN0.enable();
-            host_out.get() << '\r' << std::flush; // Ok
+            host_out.get() << '\r'; // ok
+            host_out.get().flush();
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::POLL_ONE: // LAWICEL - poll for one waiting frame. Or, just CR
             if (can::get_can_rx_buffered_frames(0) > 0) {
                 poll_counter = 1; // AVAILABLE CAN_FRAMES;
             } else {
-                host_out.get() << '\r' << std::flush; // Ok
+                host_out.get() << '\r'; // ok
+                host_out.get().flush();
             }
             break;
         case SHORT_CMD::POLL_ALL: // LAWICEL - poll for all waiting frames - CR if no
@@ -53,33 +54,40 @@ void handler::handleShortCmd(char cmd) {
             // SysSettings.lawicelPollCounter = CAN0.available();
             poll_counter = can::get_can_rx_buffered_frames(0);
             if (poll_counter == 0) {
-                host_out.get() << '\r' << std::flush; // Ok
+                host_out.get() << '\r'; // ok
+                host_out.get().flush();
             }
             break;
         case SHORT_CMD::READ_STATUS_BITS: // LAWICEL - read status bits
             host_out.get() << "F00"; // bit 0 = RX Fifo Full, 1 = TX Fifo Full, 2 = Error
-            host_out.get() << '\r' << std::flush; // Ok
+            host_out.get() << '\r';  // ok
+            host_out.get().flush();
             break;
         case SHORT_CMD::GET_VERSION: // LAWICEL - get version number
-            host_out.get() << ("V1013\n") << std::flush;
+            host_out.get() << ("V1013\n"); // ok
+            host_out.get().flush();
             break;
         case SHORT_CMD::GET_SERIAL: // LAWICEL - get serial number
-            host_out.get() << ("PiCCANTE\n") << std::flush;
+            host_out.get() << ("PiCCANTE\n"); // ok
+            host_out.get().flush();
             // SysSettings.lawicelMode = true;
             break;
         case SHORT_CMD::SET_EXTENDED_MODE:
             extended_mode = !extended_mode;
             if (extended_mode) {
-                host_out.get() << ("V2\n") << std::flush;
+                host_out.get() << ("V2\n"); // ok
+                host_out.get().flush();
             } else {
-                host_out.get() << ("LAWICEL\n") << std::flush;
+                host_out.get() << ("LAWICEL\n"); // ok
+                host_out.get().flush();
             }
             break;
         case SHORT_CMD::LIST_SUPPORTED_BUSSES: // LAWICEL V2 - Output list of
             if (extended_mode) {
-                for (int i = 0; i < NUM_BUSES; i++) {
+                for (int i = 0; std::cmp_less(i, NUM_BUSES); i++) {
                     printBusName(i);
-                    host_out.get() << '\r'; // Ok
+                    host_out.get() << '\r'; // ok
+                    host_out.get().flush();
                 }
             }
             break;
@@ -89,16 +97,16 @@ void handler::handleShortCmd(char cmd) {
             }
             break;
         default:
-            Log::error << "Unknown command:" << cmd;
+            Log::error << "Unknown command:" << cmd << "\n";
             break;
     }
 }
 
 void handler::handleLongCmd(const std::string_view& cmd) {
-    can2040_msg out_frame;
+    can2040_msg out_frame{};
 
 
-    Log::debug << "Lawicel Long Command:", cmd;
+    Log::debug << "Lawicel Long Command:" << cmd << "\n";
 
     switch (cmd[0]) {
         {
@@ -111,7 +119,7 @@ void handler::handleLongCmd(const std::string_view& cmd) {
                     out_frame.dlc = 8;
                 }
                 for (unsigned int i = 0; i < out_frame.dlc; i++) {
-                    out_frame.data[i] = piccante::hex::parse(cmd.data() + 5 + i * 2, 2);
+                    out_frame.data[i] = piccante::hex::parse(cmd.data() + 5 + (i * 2), 2);
                 }
                 // CAN0.SendFrame(out_frame); // TODO:
                 if (auto_poll) {
@@ -121,12 +129,8 @@ void handler::handleLongCmd(const std::string_view& cmd) {
             case LONG_CMD::TX_EXTENDED_FRAME:
                 out_frame.id = piccante::hex::parse(cmd.data() + 1, 8);
                 out_frame.dlc = cmd.data()[9] - '0';
-                if (out_frame.dlc < 0) {
-                    out_frame.dlc = 0;
-                }
-                if (out_frame.dlc > 8) {
-                    out_frame.dlc = 8;
-                }
+                out_frame.dlc = std::max<uint32_t>(out_frame.dlc, 0);
+                out_frame.dlc = std::min<uint32_t>(out_frame.dlc, 8);
                 for (unsigned int data = 0; data < out_frame.dlc; data++) {
                     out_frame.data[data] =
                         piccante::hex::parse(cmd.data() + 10 + (2 * data), 2);
@@ -140,8 +144,8 @@ void handler::handleLongCmd(const std::string_view& cmd) {
                 if (extended_mode) {
                     // Send packet to specified BUS
                     uint8_t bytes[8];
-                    uint32_t id;
-                    int num_bytes = 0;
+                    uint32_t id = 0;
+                    int const num_bytes = 0;
                     // id = std::strtol(tokens[2], nullptr, 16);
 
                     id = 0x123; // TODO:
@@ -227,7 +231,7 @@ void handler::handleLongCmd(const std::string_view& cmd) {
             case LONG_CMD::CONFIGURE_BUS:
                 if (extended_mode) {
                     // TODO:
-                    int speed = 500000; //  std::atoi(tokens[2]);
+                    int const speed = 500000; //  std::atoi(tokens[2]);
                     // if (!strcasecmp(tokens[1], "CAN0")) {
                     //     // TODO: START CAN
                     //     // CAN0.begin(speed, 255);
@@ -243,15 +247,16 @@ void handler::handleLongCmd(const std::string_view& cmd) {
                 break;
         }
     }
-    host_out.get() << ('\r') << std::flush; // OK
+    host_out.get() << ('\r'); // ok
+    host_out.get().flush();
 }
 
 void handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
     uint8_t buff[40];
-    uint8_t writtenBytes;
-    uint8_t temp;
-    uint32_t now = to_us_since_boot(get_absolute_time());
-    uint32_t millis = to_ms_since_boot(get_absolute_time());
+    uint8_t writtenBytes = 0;
+    uint8_t temp = 0;
+    uint32_t const now = to_us_since_boot(get_absolute_time());
+    uint32_t const millis = to_ms_since_boot(get_absolute_time());
 
     if (poll_counter > 0) {
         poll_counter--;
@@ -265,7 +270,7 @@ void handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
             host_out.get() << (" S ");
         }
         printBusName(bus);
-        for (int i = 0; i < frame.dlc; i++) {
+        for (int i = 0; std::cmp_less(i, frame.dlc); i++) {
             // TODO: Provide more elegant write
             host_out.get() << (" ");
             host_out.get() << (fmt::sprintf("%x", frame.data[i]));
@@ -279,15 +284,16 @@ void handler::sendFrameToBuffer(can2040_msg& frame, uint8_t bus) {
             host_out.get() << (fmt::sprintf("%03x", frame.id));
         }
         host_out.get() << (std::to_string(frame.dlc));
-        for (int i = 0; i < frame.dlc; i++) {
+        for (int i = 0; std::cmp_less(i, frame.dlc); i++) {
             host_out.get() << (fmt::sprintf("%02x", frame.data[i]));
         }
         if (time_stamping) {
-            uint16_t timestamp = (uint16_t)millis;
+            auto const timestamp = (uint16_t)millis;
             host_out.get() << (fmt::sprintf("%04x", timestamp));
         }
     }
-    host_out.get() << ('\r') << std::flush; // OK
+    host_out.get() << ('\r'); // ok
+    host_out.get().flush();
 }
 
 void handler::handleCmd(const std::string_view& cmd) {
@@ -299,7 +305,10 @@ void handler::handleCmd(const std::string_view& cmd) {
 }
 
 
-void handler::printBusName(int bus) const { host_out.get() << ("CAN0\n") << std::flush; }
+void handler::printBusName(int bus) const {
+    host_out.get() << ("CAN0\n"); // ok
+    host_out.get().flush();
+}
 
 
 } // namespace piccante::lawicel

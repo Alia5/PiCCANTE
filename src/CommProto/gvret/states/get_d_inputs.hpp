@@ -20,7 +20,7 @@
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"
 #include <cstdint>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include <utility>
 #include "../gvret.hpp"
 
@@ -28,7 +28,7 @@
 namespace piccante::gvret::state {
 class get_d_inputs : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit get_d_inputs(std::ostream& host_out)
+    explicit get_d_inputs(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(GET_D_INPUTS), out(host_out) {}
 
     Protocol enter() override {
@@ -43,7 +43,8 @@ class get_d_inputs : public fsm::state<uint8_t, Protocol, bool> {
         // TODO: Originalcode txs a trailing 0... WTF is the trailing zero for?
         // Original Code also never actually sets anything in the buffer...
         // COLLIN!!!!!
-        out << buffer << check_sum({buffer, sizeof(buffer)}) << std::flush;
+        out << buffer << check_sum({buffer, sizeof(buffer)});
+        out.flush();
 
         return IDLE;
     }
@@ -52,6 +53,6 @@ class get_d_inputs : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         private:
-    std::ostream& out;
+    out::stream& out;
 };
 } // namespace gvret

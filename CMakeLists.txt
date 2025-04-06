@@ -6,9 +6,6 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Initialise pico_sdk from installed location
-# (note this can come from environment, CMake cache etc)
-
 # == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
 if(WIN32)
     set(USERHOME $ENV{USERPROFILE})
@@ -29,7 +26,7 @@ set(CAN_QUEUE_SIZE $ENV{PICCANTE_CAN_QUEUE_SIZE})
 
 if(NOT DEFINED NUM_CAN_BUSSES)
     message(STATUS "NUM_CAN_BUSSES not defined, defaulting to 2")
-    set(NUM_CAN_BUSSES 2)
+    set(NUM_CAN_BUSSES 1)
 endif()
 
 if(NOT DEFINED CAN0_RX_PIN)
@@ -62,6 +59,7 @@ if(NOT DEFINED CAN2_TX_PIN)
     set(CAN2_TX_PIN 9)
 endif()
 
+
 if(NOT DEFINED CAN_IDLE_SLEEP_MS)
     message(STATUS "CAN_IDLE_SLEEP_MS not defined, defaulting to 10")
     set(CAN_IDLE_SLEEP_MS 10)
@@ -90,9 +88,9 @@ add_compile_definitions(
     piccanteCAN_QUEUE_SIZE=${CAN_QUEUE_SIZE}
 
     #
-    picacanteCAN_NUM_1=1
-    picacanteCAN_NUM_2=2
-    picacanteCAN_NUM_3=3
+    piccanteCAN_NUM_1=1
+    piccanteCAN_NUM_2=2
+    piccanteCAN_NUM_3=3
 )
 
 set(sdkVersion 2.1.1)
@@ -124,10 +122,10 @@ include(pico_sdk_import.cmake)
 
 project(PiCCANTE C CXX ASM)
 
-# Enabling Exceptions kills debugging as the SDK is buggy...
 set(PICO_CXX_ENABLE_EXCEPTIONS 0)
 set(PICO_CXX_ENABLE_RTTI 1)
 
+# set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(target_name ${PROJECT_NAME})
 add_executable(${target_name})
 
@@ -147,8 +145,6 @@ target_sources(${target_name} PRIVATE
 pico_set_program_name(${target_name} "PiCCANTE")
 pico_set_program_version(${target_name} "0.1")
 
-target_link_options(${target_name} PRIVATE -Xlinker --print-memory-usage)
-
 if(DEFINED ENV{PICO_DEBUG} OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(PICO_DEOPTIMIZED_DEBUG 1)
     target_compile_options(${target_name} PRIVATE -Wall -Wextra -Og)
@@ -156,7 +152,8 @@ ELSE()
     target_compile_options(${target_name} PRIVATE -Wall -Wextra -O3)
 ENDIF()
 
-# Modify the below lines to enable/disable output over UART/USB
+target_link_options(${target_name} PRIVATE -Xlinker --print-memory-usage)
+
 pico_enable_stdio_uart(${target_name} 1)
 pico_enable_stdio_usb(${target_name} 0)
 
@@ -243,10 +240,15 @@ target_sources(${target_name} PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(${target_name}
+
+    # pico_lwip_http
+    # pico_lwip_mdns
+    # pico_cyw43_arch_lwip_sys_freertos
+    pico_cyw43_arch_none
+
     pico_async_context_freertos FreeRTOS-Kernel-Heap4
     hardware_pio
     pico_unique_id tinyusb_device tinyusb_board
-    pico_cyw43_arch_none
 
     -lstdc++
 )

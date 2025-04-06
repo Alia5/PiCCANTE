@@ -23,14 +23,14 @@
 #include "../../../CanBus/CanBus.hpp"
 #include <cstdint>
 #include <utility>
-#include <ostream>
+
 
 namespace piccante::gvret::state {
 // Seems not to be implemented in savvyCan...
 // It's the same as send_can_frame, but instead of sending the frame, it just echoes it...
 class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit echo_can_frame(std::ostream& host_out)
+    explicit echo_can_frame(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(ECHO_CAN_FRAME), out(host_out) {}
 
 
@@ -85,6 +85,6 @@ class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
     uint8_t step = 0;
     can2040_msg frame = {0};
     uint8_t out_bus = 0;
-    std::ostream& out;
+    out::stream& out;
 };
 } // namespace piccante::gvret::state

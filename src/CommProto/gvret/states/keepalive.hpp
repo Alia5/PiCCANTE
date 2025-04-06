@@ -21,7 +21,7 @@
 #include "../proto.hpp"
 #include <cstdint>
 #include <utility>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include "../../../util/bin.hpp"
 
 namespace piccante::gvret::state {
@@ -29,17 +29,17 @@ class keepalive : public fsm::state<uint8_t, Protocol, bool> {
     static constexpr uint16_t KEEPALIVE_PAYLOAD = 0xDEAD;
 
         public:
-    explicit keepalive(std::ostream& host_out)
+    explicit keepalive(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(KEEPALIVE), out(host_out) {}
 
     Protocol enter() override {
-        out << GET_COMMAND << KEEPALIVE << piccante::bin_be(KEEPALIVE_PAYLOAD)
-            << std::flush; // NOLINT
+        out << GET_COMMAND << KEEPALIVE << piccante::bin_be(KEEPALIVE_PAYLOAD);
+        out.flush();
         return IDLE;
     }
     std::pair<Protocol, bool> tick(uint8_t& byte) override { return {IDLE, false}; }
 
         private:
-    std::ostream& out;
+    out::stream& out;
 };
 } // namespace gvret

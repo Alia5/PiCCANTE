@@ -21,24 +21,26 @@
 #include "../proto.hpp"
 #include <FreeRTOS.h>
 #include <cstdint>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include "../../../util/bin.hpp"
 
 namespace piccante::gvret::state {
 class time_sync : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit time_sync(std::ostream& host_out)
+    explicit time_sync(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(TIME_SYNC), out(host_out) {}
     Protocol enter() override {
-        Log::info << "Time Sync\n" << std::flush;
+        Log::info << "Time Sync\n";
         // no state required, send response and return to IDLE
-        // TODO: can only cause trouble to output MICROS as 4 byte value, but oh well...
-        // I don't think it is implemented anyway anywhere, just use millis for now...
+        // TODO: can only cause trouble to output MICROS as 4 byte value, but oh
+        // well... I don't think it is implemented anyway anywhere, just use millis
+        // for now...
         uint32_t time = xTaskGetTickCount() * portTICK_PERIOD_MS;
         out << GET_COMMAND
             << TIME_SYNC
             // IS this really output in binary?
-            << piccante::bin(time) << std::flush;
+            << piccante::bin(time);
+        out.flush();
         return IDLE;
     }
     std::pair<Protocol, bool> tick([[maybe_unused]] uint8_t& byte) override {
@@ -46,7 +48,7 @@ class time_sync : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         private:
-    std::ostream& out;
+    out::stream& out;
 };
 
 

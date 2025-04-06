@@ -22,14 +22,14 @@
 #include "../../../util/bin.hpp"
 #include "../gvret.hpp"
 #include <cstdint>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include <array>
 #include <utility>
 
 namespace piccante::gvret::state {
 class get_a_inputs : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit get_a_inputs(std::ostream& host_out)
+    explicit get_a_inputs(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(GET_A_INPUTS), out(host_out) {}
     Protocol enter() override {
         // no state required, send response and return to IDLE
@@ -44,7 +44,8 @@ class get_a_inputs : public fsm::state<uint8_t, Protocol, bool> {
         // TODO: Checksum correct o.O?
         out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size()); // NOLINT
         // Original Code never set's the buffer used to calc checksum to anything...
-        out << gvret::check_sum({buffer.data(), buffer.size()}) << std::flush;
+        out << gvret::check_sum({buffer.data(), buffer.size()});
+        out.flush();
 
         return IDLE;
     }
@@ -53,6 +54,6 @@ class get_a_inputs : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         private:
-    std::ostream& out;
+    out::stream& out;
 };
 } // namespace piccante::gvret::state

@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstdint>
-#include <ostream>
+
 
 #include "../../StateMachine/StateMachine.hpp"
 #include "proto.hpp"
@@ -28,7 +28,7 @@ namespace piccante::gvret {
 
 class handler {
         public:
-    explicit handler(std::ostream& out_stream) : host_out(out_stream) {};
+    explicit handler(out::stream& out_stream) : host_out(out_stream) {};
     virtual ~handler() = default;
 
     // Disable copy and move operations
@@ -40,7 +40,7 @@ class handler {
     bool process_byte(uint8_t byte);
 
         private:
-    std::ostream& host_out;
+    out::stream& host_out;
     fsm::StateMachine<uint8_t, Protocol, bool> protocol_fsm{
         state::idle(),
         state::get_command(),

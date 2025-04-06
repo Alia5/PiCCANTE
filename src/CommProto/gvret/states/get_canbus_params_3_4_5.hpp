@@ -20,14 +20,14 @@
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"
 #include <cstdint>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include <utility>
 #include "../../../util/bin.hpp"
 
 namespace piccante::gvret::state {
 class get_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit get_canbus_params_3_4_5(std::ostream& host_out)
+    explicit get_canbus_params_3_4_5(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(GET_CANBUS_PARAMS_3_4_5), out(host_out) {}
 
     // TODO: doesn't seem to be implemented anywhere, just guessing response based on
@@ -38,8 +38,8 @@ class get_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
         const uint8_t flags = 0x01 + (0x00 << 4); // enabled + listen only
 
         out << GET_COMMAND << GET_CANBUS_PARAMS_3_4_5 << flags << piccante::bin(speed)
-            << flags << piccante::bin(speed) << flags << piccante::bin(speed)
-            << std::flush;
+            << flags << piccante::bin(speed) << flags << piccante::bin(speed);
+        out.flush();
 
         // TODO: doesn't TX a checksum byte ¯\_(ツ)_/¯
 
@@ -50,6 +50,6 @@ class get_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         private:
-    std::ostream& out;
+    out::stream& out;
 };
 } // namespace gvret

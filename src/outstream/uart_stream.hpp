@@ -15,25 +15,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "Logger.hpp"
-#include <functional>
-#include "outstream/stream.hpp"
-#include "outstream/uart_stream.hpp"
-namespace piccante {
+#pragma once
 
-Log::Level Log::current_level = Log::LEVEL_INFO;
+#include "stream.hpp"
+#include "hardware/uart.h"
 
-std::reference_wrapper<out::stream> Log::out = piccante::uart::out0;
+namespace piccante::uart {
+class uart_sink : public out::base_sink {
+        public:
+    explicit uart_sink(uart_inst_t* uart_inst = uart0) : uart_instance(uart_inst) {}
+    void init(uint8_t pin_tx, uint8_t pin_rx, uint32_t baud);
+    void write(const char* v, std::size_t s) override;
+    void flush() override;
 
-std::map<Log::Level, std::string> Log::level_names = {
-    {Log::LEVEL_DEBUG, "DEBUG"},
-    {Log::LEVEL_INFO, "INFO"},
-    {Log::LEVEL_WARNING, "WARNING"},
-    {Log::LEVEL_ERROR, "ERROR"},
+        private:
+    uart_inst_t* uart_instance;
 };
-void Log::init(Level level, out::stream& out_stream) {
-    Log::current_level = level;
-    Log::out = out_stream;
-}
-void Log::set_log_level(Level level) { Log::current_level = level; }
-}
+
+
+inline uart_sink sink0{uart0};
+inline out::stream out0{sink0};
+
+} // namespace piccante::uart

@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <utility>
-#include <ostream>
+#include "outstream/stream.hpp"
 #include <cstdint>
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"

@@ -3,8 +3,6 @@
 #include <boards/pico2_w.h>
 #include <cstring>
 #include <pico/error.h>
-#include <cstdint>
-#include <pico/stdio.h>
 #include <bsp/board_api.h>
 
 #include "CommProto/gvret/gvret.hpp"
@@ -22,12 +20,10 @@
 
 #include "timers.h"
 #include "tusb.h"
-#include <print>
 #include <string>
 
-#include <cstdio>
-
 #include "outstream/usb_cdc_stream.hpp"
+#include "outstream/uart_stream.hpp"
 
 
 #include "CommProto/lawicel/lawicel.hpp"
@@ -86,44 +82,6 @@ static void DebugCommandTask(void* parameters) {
     static int bufferIndex = 0;
 
     while (1) {
-        // Check if data is available on stdin without blocking
-        int const c = getchar_timeout_us(0); // Non-blocking getchar
-
-        if (c != PICO_ERROR_TIMEOUT) {
-            // Handle backspace
-            if (c == '\b' || c == 127) {
-                if (bufferIndex > 0) {
-                    bufferIndex--;
-                    std::print("\b \b"); // Erase character
-                }
-            }
-            // Handle newline/carriage return
-            else if (c == '\r' || c == '\n') {
-                cmdBuffer[bufferIndex] = '\0'; // Null terminate
-                std::print("\r\n");            // Echo newline
-
-                // Process command if buffer not empty
-                if (bufferIndex > 0) {
-                    std::string cmd(cmdBuffer);
-
-                    if (cmd == "stat") {
-                        // char buffer[500];
-                        // vTaskGetRunTimeStatistics(buffer, 500);
-                        // printf("%s", buffer);
-                    }
-                }
-
-                // Reset buffer for next command
-                bufferIndex = 0;
-            }
-            // Regular character
-            else if (bufferIndex < sizeof(cmdBuffer) - 1) {
-                cmdBuffer[bufferIndex++] = c;
-                putchar(c); // Echo character
-            }
-        }
-
-
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
@@ -213,8 +171,7 @@ static void lawicel_task(void* parameter) {
 
 
 int main() {
-    // Debugger fucks up when sleep is called...
-    // timer_hw->dbgpause = 0;
+    piccante::uart::sink0.init(0, 1, 115200);
 
     // Initialize TinyUSB stack
     board_init();
@@ -224,8 +181,6 @@ int main() {
     if (board_init_after_tusb != nullptr) {
         board_init_after_tusb();
     }
-
-    stdio_init_all();
 
     piccante::Log::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
     piccante::Log::info << "Starting up...\n";
@@ -253,16 +208,16 @@ int main() {
             piccante::Log::error << "Failed to read file\n";
         }
 
-        // Example: Write a file
-        lfs_file_t file;
-        err = lfs_file_open(&piccante::fs::lfs, &file, "hello.txt",
-                            LFS_O_WRONLY | LFS_O_CREAT);
-        if (err == LFS_ERR_OK) {
-            const char* data = "Hello from LittleFS on Pico!";
-            lfs_file_write(&piccante::fs::lfs, &file, data, strlen(data));
-            lfs_file_close(&piccante::fs::lfs, &file);
-            piccante::Log::info << "File written successfully\n";
-        }
+        // // Example: Write a file
+        // lfs_file_t file;
+        // err = lfs_file_open(&piccante::fs::lfs, &file, "hello.txt",
+        //                     LFS_O_WRONLY | LFS_O_CREAT);
+        // if (err == LFS_ERR_OK) {
+        //     const char* data = "Hello from LittleFS on Pico!";
+        //     lfs_file_write(&piccante::fs::lfs, &file, data, strlen(data));
+        //     lfs_file_close(&piccante::fs::lfs, &file);
+        //     piccante::Log::info << "File written successfully\n";
+        // }
     }
 
     //

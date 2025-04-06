@@ -29,7 +29,7 @@
 #include "queue.h"
 #include "Logger/Logger.hpp"
 #include <array>
-
+#include "fmt.hpp"
 namespace piccante::can {
 
 
@@ -51,39 +51,40 @@ struct CanGPIO {
 };
 
 
-constexpr std::array<const CanGPIO, NUM_BUSSES> CAN_GPIO = {{{
-                                                                 CAN0_GPIO_RX,
-                                                                 CAN0_GPIO_TX,
-                                                                 0,
-                                                                 PIO0_IRQ_0,
-                                                             },
-#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_2
-                                                             {
-                                                                 CAN1_GPIO_RX,
-                                                                 CAN1_GPIO_TX,
-                                                                 1,
-                                                                 PIO1_IRQ_0,
-                                                             },
+constexpr std::array<const CanGPIO, NUM_BUSSES> CAN_GPIO = {
+    {{
+         .pin_rx = piccanteCAN0_RX_PIN,
+         .pin_tx = piccanteCAN0_TX_PIN,
+         .pio_num = 0,
+         .pio_irq = PIO0_IRQ_0,
+     },
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
+     {
+         .pin_rx = piccanteCAN1_RX_PIN,
+         .pin_tx = piccanteCAN1_TX_PIN,
+         .pio_num = 1,
+         .pio_irq = PIO1_IRQ_0,
+     },
 #endif
-#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_3
-                                                             {
-                                                                 CAN2_GPIO_RX,
-                                                                 CAN2_GPIO_TX,
-                                                                 2,
-                                                                 PIO2_IRQ_0,
-                                                             }
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
+     {
+         .pin_rx = piccanteCAN2_RX_PIN,
+         .pin_tx = piccanteCAN2_TX_PIN,
+         .pio_num = 2,
+         .pio_irq = PIO2_IRQ_0,
+     }
 #endif
-}};
+    }};
 
 
 namespace {
 
 std::array<CanSettings, NUM_BUSSES> can_states = {{//
                                                    {false, 0},
-#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_2
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
                                                    {false, 0},
 #endif
-#if piccanteNUM_CAN_BUSSES == picacanteCAN_NUM_3
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
                                                    {false, 0}
 #endif
 }};
@@ -106,6 +107,7 @@ void can2040_cb_can0(struct can2040* cd, uint32_t notify, // NOLINT
     }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
 void can2040_cb_can1(struct can2040* cd, uint32_t notify, // NOLINT
                      struct can2040_msg* msg) {           // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
@@ -124,6 +126,8 @@ void can2040_cb_can1(struct can2040* cd, uint32_t notify, // NOLINT
     }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+#endif
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
 void can2040_cb_can2(struct can2040* cd, uint32_t notify, // NOLINT
                      struct can2040_msg* msg) {           // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
@@ -142,21 +146,28 @@ void can2040_cb_can2(struct can2040* cd, uint32_t notify, // NOLINT
     }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+#endif
 void PIOx_IRQHandler_CAN0() {
     BaseType_t const higher_priority_task_woken = pdFALSE;
     can2040_pio_irq_handler(&(can_buses[0]));
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
+
 void PIOx_IRQHandler_CAN1() {
     BaseType_t const higher_priority_task_woken = pdFALSE;
-    can2040_pio_irq_handler(&(can_buses[0]));
+    can2040_pio_irq_handler(&(can_buses[1]));
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+#endif
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
+
 void PIOx_IRQHandler_CAN2() {
     BaseType_t const higher_priority_task_woken = pdFALSE;
-    can2040_pio_irq_handler(&(can_buses[0]));
+    can2040_pio_irq_handler(&(can_buses[2]));
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
+#endif
 void canbus_setup(uint8_t bus, uint32_t bitrate) {
     can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
@@ -164,22 +175,27 @@ void canbus_setup(uint8_t bus, uint32_t bitrate) {
     switch (bus) {
         case 0:
             can2040_callback_config(&(can_buses[bus]), can2040_cb_can0);
-            irq_set_exclusive_handler(CAN_GPIO[bus].pio_num, PIOx_IRQHandler_CAN0);
+            irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN0);
             break;
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
         case 1:
             can2040_callback_config(&(can_buses[bus]), can2040_cb_can1);
-            irq_set_exclusive_handler(CAN_GPIO[bus].pio_num, PIOx_IRQHandler_CAN1);
+            irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN1);
             break;
+#endif
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
+
         case 2:
             can2040_callback_config(&(can_buses[bus]), can2040_cb_can2);
-            irq_set_exclusive_handler(CAN_GPIO[bus].pio_num, PIOx_IRQHandler_CAN2);
+            irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN2);
             break;
+#endif
         default:
-            Log::error << "Invalid CAN bus number: " << bus << "\n";
+            Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
             return;
     }
-    irq_set_priority(CAN_GPIO[bus].pio_num, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
-    irq_set_enabled(CAN_GPIO[bus].pio_num, true);
+    irq_set_priority(CAN_GPIO[bus].pio_irq, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
+    irq_set_enabled(CAN_GPIO[bus].pio_irq, true);
 
     can2040_start(&(can_buses[bus]), SYS_CLK_HZ, bitrate, CAN_GPIO[bus].pin_rx,
                   CAN_GPIO[bus].pin_tx);
@@ -191,9 +207,11 @@ namespace {
 void canTask(void* parameters) {
     (void)parameters;
 
-    vTaskDelay(5000); // TODO
+    vTaskDelay(3500); // TODO
 
     Log::info << "Starting CAN task...\n";
+
+    piccante::can::enable(0, 500000);
 
     for (std::size_t i = 0; i < NUM_BUSSES; i++) {
         can_queues[i].rx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
@@ -213,7 +231,8 @@ void canTask(void* parameters) {
                 did_tx = true;
                 int res = can2040_transmit(&(can_buses[i]), &msg);
                 if (res < 0) {
-                    Log::error << "CAN" << "i" << ": Failed to send message\n";
+                    Log::error << "CAN" << fmt::sprintf("%d", i)
+                               << ": Failed to send message\n";
                 }
             }
         }
@@ -237,18 +256,18 @@ TaskHandle_t& createTask(void* parameters) {
 
 int send_can(uint8_t bus, can2040_msg& msg) {
     if (!can_states[bus].enabled) {
-        Log::error << "CAN bus " << bus << " is not enabled\n";
+        Log::error << "CAN bus " << fmt::sprintf("%d", bus) << " is not enabled\n";
         return -1;
     }
     if (xQueueSend(can_queues[bus].tx, &msg, pdMS_TO_TICKS(CAN_QUEUE_TIMEOUT_MS)) !=
         pdTRUE) {
-        Log::error << "CAN" << bus << ": TX queue full\n";
+        Log::error << "CAN" << fmt::sprintf("%d", bus) << ": TX queue full\n";
         return -1;
     }
     return 0;
 }
 int receive(uint8_t bus, can2040_msg& msg) {
-    if (xQueueReceive(can_queues[bus].tx, &msg, 0) == pdTRUE) {
+    if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
         return get_can_rx_buffered_frames(bus);
     }
     return -1;
@@ -263,7 +282,8 @@ int get_can_tx_buffered_frames(uint8_t bus) {
 
 void enable(uint8_t bus, uint32_t bitrate) {
     if (can_states[bus].enabled) {
-        Log::warning << "CAN bus " << bus << " is already enabled - resetting\n";
+        Log::warning << "CAN bus " << fmt::sprintf("%d", bus)
+                     << " is already enabled - resetting\n";
         set_bitrate(bus, bitrate);
         return;
     }

@@ -20,10 +20,10 @@
 #include <functional>
 #include <string>
 #include <string_view>
-#include <iostream>
 #include <map>
 #include <cstdint>
-#include "../outstream/outstream.hpp"
+#include "outstream/stream.hpp"
+#include "outstream/uart_stream.hpp"
 
 namespace piccante {
 class Log {
@@ -36,13 +36,12 @@ class Log {
     };
 
     static void set_log_level(Level level);
-    static void init(Level level = LEVEL_INFO, std::ostream& out_stream = std::cout,
-                     std::ostream& err_stream = std::cerr);
+    static void init(Level level = LEVEL_INFO,
+                     out::stream& out_stream = piccante::uart::out0);
 
         private:
     static Level current_level;
-    static std::reference_wrapper<std::ostream> out;
-    static std::reference_wrapper<std::ostream> err;
+    static std::reference_wrapper<out::stream> out;
 
     static std::map<Level, std::string> level_names;
 
@@ -50,23 +49,23 @@ class Log {
     static void log(const Level level, const std::string_view& message,
                     const Args&... args) {
         if (current_level <= level) {
-            auto ostr = (level == LEVEL_ERROR) ? err : out;
-            ostr.get() << "[" << level_names[level] << "] " << message;
+            auto& ostr = out.get();
+            ostr << "[" << level_names[level] << "] " << message;
             if constexpr (sizeof...(args) > 0) {
-                ostr.get() << ' ';
-                ((ostr.get() << args << ' '), ...);
+                ostr << ' ';
+                ((ostr << args << ' '), ...);
             }
         }
     }
 
-    class LogSink : public outstream::CustomSink {
+    class LogSink : public out::base_sink {
             protected:
         Level level;
         bool at_line_start = true;
 
         void output_message(const char* value, std::size_t size) {
             if (current_level <= level) {
-                auto& output = (level == LEVEL_ERROR) ? err.get() : out.get();
+                auto& output = out.get();
 
                 for (size_t i = 0; i < size; ++i) {
                     if (at_line_start) {
@@ -90,7 +89,7 @@ class Log {
             output_message(value, size);
         }
 
-        void flush() override { (level == LEVEL_ERROR ? err.get() : out.get()).flush(); }
+        void flush() override { out.get().flush(); }
     };
 
     inline static LogSink debug_sink = LogSink(LEVEL_DEBUG);
@@ -99,9 +98,9 @@ class Log {
     inline static LogSink error_sink = LogSink(LEVEL_ERROR);
 
         public:
-    inline static outstream::Stream<char> debug = outstream::Stream<char>(debug_sink);
-    inline static outstream::Stream<char> info = outstream::Stream<char>(info_sink);
-    inline static outstream::Stream<char> warning = outstream::Stream<char>(warning_sink);
-    inline static outstream::Stream<char> error = outstream::Stream<char>(error_sink);
+    inline static out::stream debug = out::stream(debug_sink);
+    inline static out::stream info = out::stream(info_sink);
+    inline static out::stream warning = out::stream(warning_sink);
+    inline static out::stream error = out::stream(error_sink);
 };
 }

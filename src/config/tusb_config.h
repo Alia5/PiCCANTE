@@ -27,15 +27,15 @@
  // Enable 2 CDC classes
  #define CFG_TUD_CDC             (2)
  // Set CDC FIFO buffer sizes
- #define CFG_TUD_CDC_RX_BUFSIZE  (256)
- #define CFG_TUD_CDC_TX_BUFSIZE  (256)
- #define CFG_TUD_CDC_EP_BUFSIZE  (64)
- 
- #ifndef CFG_TUD_ENDPOINT0_SIZE
- #define CFG_TUD_ENDPOINT0_SIZE  (64)
- #endif
- 
- #ifdef __cplusplus
+#define CFG_TUD_CDC_RX_BUFSIZE (128)
+#define CFG_TUD_CDC_TX_BUFSIZE (128)
+#define CFG_TUD_CDC_EP_BUFSIZE (64)
+
+#ifndef CFG_TUD_ENDPOINT0_SIZE
+#define CFG_TUD_ENDPOINT0_SIZE (64)
+#endif
+
+#ifdef __cplusplus
   }
  #endif
  
