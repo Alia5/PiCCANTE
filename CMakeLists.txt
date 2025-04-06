@@ -172,9 +172,9 @@ target_sources(
 )
 
 file(GLOB_RECURSE extFiles CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_LIST_DIR}/ext/**/*"
-    "${PICO_SDK_PATH}/**/*"
-    "${PICO_SDK_PATH}/**/*"
+    "${CMAKE_CURRENT_LIST_DIR}/ext/**/*.c"
+    "${PICO_SDK_PATH}/**/*.c"
+    "${PICO_SDK_PATH}/**/*.h"
 )
 
 set_source_files_properties(
@@ -196,8 +196,11 @@ endif()
 # Add the standard include files to the build
 target_include_directories(${target_name} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
-    ${FREERTOS_KERNEL_PATH}/include
     ${CMAKE_CURRENT_LIST_DIR}/src/config
+)
+
+target_include_directories(${target_name} SYSTEM PRIVATE
+    ${FREERTOS_KERNEL_PATH}/include
 
     # Can2040
     ${CAN2040_PATH}/src
