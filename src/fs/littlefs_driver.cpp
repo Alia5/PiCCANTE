@@ -40,19 +40,10 @@ lfs_t lfs; // NOLINT
 namespace {
 
 constexpr uint32_t READ_SIZE = 16;
-constexpr uint32_t PROG_SIZE = 16;
-constexpr uint32_t BLOCK_CYCLES = 500;
+constexpr uint32_t PROG_SIZE = FLASH_PAGE_SIZE;
+constexpr uint32_t BLOCK_CYCLES = 256;
 
 static SemaphoreHandle_t flash_mutex = nullptr; // NOLINT
-
-inline uint32_t flash_addr(lfs_block_t block, lfs_off_t off) {
-    auto const fs_start_addr = reinterpret_cast<uint32_t>(&__filesystem_start); // NOLINT
-
-    // We know the section exists at the right place, but we need to compute
-    // addresses based on the known size rather than __filesystem_end
-    return (fs_start_addr - XIP_BASE) + (block * LFS_BLOCK_SIZE) + off;
-}
-
 
 void ensure_mutex_initialized() {
     if (flash_mutex == nullptr) {
@@ -61,14 +52,13 @@ void ensure_mutex_initialized() {
     }
 }
 
-int flash_read(const struct lfs_config* /*c*/, lfs_block_t block, lfs_off_t off,
+int flash_read(const struct lfs_config* cfg, lfs_block_t block, lfs_off_t off,
                void* buffer, lfs_size_t size) {
-    uint32_t const xip_addr = flash_addr(block, off) + XIP_BASE;
-    memcpy(buffer, reinterpret_cast<const void*>(xip_addr), size); // NOLINT
+    auto fs_mem = (uint8_t*)cfg->context;
+    memcpy(buffer, &fs_mem[block * cfg->block_size + off], size);
     return LFS_ERR_OK;
 }
-
-int flash_prog(const struct lfs_config* /*c*/, lfs_block_t block, lfs_off_t off,
+int flash_prog(const struct lfs_config* cfg, lfs_block_t block, lfs_off_t off,
                const void* buffer, lfs_size_t size) {
     ensure_mutex_initialized();
 
@@ -76,77 +66,44 @@ int flash_prog(const struct lfs_config* /*c*/, lfs_block_t block, lfs_off_t off,
         return LFS_ERR_IO;
     }
 
-    uint32_t const addr = flash_addr(block, off);
-    uint32_t const ints = save_and_disable_interrupts();
-    uint32_t const aligned_addr = addr & ~(FLASH_PAGE_SIZE - 1);
-    uint32_t const offset_in_page = addr - aligned_addr;
+    // Get XIP address and convert to flash address
+    auto fs_mem = (uint8_t*)cfg->context;
+    auto addr = (uint32_t)(&fs_mem[block * cfg->block_size + off] - (uint8_t*)XIP_BASE);
 
-    if (offset_in_page != 0 || (size % FLASH_PAGE_SIZE) != 0) {
-        std::array<uint8_t, FLASH_PAGE_SIZE> page_buffer;
-
-        uint32_t const end_addr = addr + size;
-        uint32_t curr_page = aligned_addr;
-
-        while (curr_page < end_addr) {
-            memcpy(page_buffer.data(),
-                   reinterpret_cast<void*>(curr_page + XIP_BASE), // NOLINT
-                   FLASH_PAGE_SIZE);
-
-            uint32_t const start_offset = (addr > curr_page) ? (addr - curr_page) : 0;
-            uint32_t const end_offset = (curr_page + FLASH_PAGE_SIZE > end_addr)
-                                            ? (end_addr - curr_page)
-                                            : FLASH_PAGE_SIZE;
-
-            if (end_offset > start_offset) {
-                uint32_t const buffer_offset = (curr_page + start_offset) - addr;
-                if (buffer_offset < size) {
-                    uint32_t copy_size = end_offset - start_offset;
-                    if (buffer_offset + copy_size > size) {
-                        copy_size = size - buffer_offset;
-                    }
-
-                    memcpy(page_buffer.data() + start_offset,
-                           std::next(static_cast<const uint8_t*>(buffer), buffer_offset),
-                           copy_size);
-                }
-            }
-
-            flash_range_erase(curr_page, FLASH_SECTOR_SIZE);
-            flash_range_program(curr_page, page_buffer.data(), FLASH_PAGE_SIZE);
-
-            curr_page += FLASH_PAGE_SIZE;
-        }
-    } else {
-        flash_range_program(addr, static_cast<const uint8_t*>(buffer), size);
-    }
-
+    auto ints = save_and_disable_interrupts();
+    flash_range_program(addr, (const uint8_t*)buffer, size);
     restore_interrupts(ints);
-    xSemaphoreGive(flash_mutex);
 
+    xSemaphoreGive(flash_mutex);
     return LFS_ERR_OK;
 }
 
-int flash_erase(const struct lfs_config* /*c*/, lfs_block_t block) {
+int flash_erase(const struct lfs_config* cfg, lfs_block_t block) {
     ensure_mutex_initialized();
+
     if (xSemaphoreTake(flash_mutex, portMAX_DELAY) != pdTRUE) {
         return LFS_ERR_IO;
     }
 
-    uint32_t const addr = flash_addr(block, 0);
-    uint32_t const ints = save_and_disable_interrupts();
+    auto fs_mem = (uint8_t*)cfg->context;
+    auto addr = (uint32_t)(&fs_mem[block * cfg->block_size] - (uint8_t*)XIP_BASE);
 
-    flash_range_erase(addr, LFS_BLOCK_SIZE);
+    auto ints = save_and_disable_interrupts();
+    flash_range_erase(addr, cfg->block_size);
     restore_interrupts(ints);
 
     xSemaphoreGive(flash_mutex);
-
     return LFS_ERR_OK;
 }
+
 
 // Sync operation (no-op for RP2040)
 int flash_sync(const struct lfs_config* /*c*/) { return LFS_ERR_OK; }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 lfs_config const cfg = {
+    .context = (void*)&__filesystem_start, // NOLINT
     .read = flash_read,
     .prog = flash_prog,
     .erase = flash_erase,
@@ -154,12 +111,14 @@ lfs_config const cfg = {
 
     .read_size = READ_SIZE,
     .prog_size = PROG_SIZE,
-    .block_size = LFS_BLOCK_SIZE,
+    .block_size = FLASH_SECTOR_SIZE,
     .block_count = LFS_BLOCK_COUNT,
     .block_cycles = BLOCK_CYCLES,
-    .cache_size = LFS_CACHE_SIZE,
+    .cache_size = PROG_SIZE,
     .lookahead_size = LFS_LOOKAHEAD_SIZE,
 };
+#pragma GCC diagnostic pop
+
 
 } // namespace
 
@@ -181,6 +140,7 @@ bool init() {
             return false;
         }
     }
+
     return true;
 }
 
