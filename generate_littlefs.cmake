@@ -48,6 +48,8 @@ endfunction()
 function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
     set(FS_IMAGE ${CMAKE_BINARY_DIR}/littlefs.bin)
     set(FS_DATA_C ${CMAKE_BINARY_DIR}/fs_data.c)
+    set(CONVERTER_SCRIPT ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bin2c.cmake)
+
 
     download_mklittlefs()
 
@@ -112,12 +114,9 @@ function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
 
     add_custom_command(
         OUTPUT ${FS_DATA_C}
-        COMMAND xxd -i -c 16 ${FS_IMAGE} |
-        sed "1s/.*/const unsigned char __attribute__((section(\".littlefs_fs\"))) fs_data[] = {/; \
-                     s/unsigned int/const unsigned int/; \
-                     s/\\(.*\\)_len/\\1_size/" > ${FS_DATA_C}
-        DEPENDS ${FS_IMAGE}
-        COMMENT "Converting LittleFS image to C array"
+        COMMAND ${CMAKE_COMMAND} -D BIN_FILE=${FS_IMAGE} -D C_FILE=${FS_DATA_C} -D BIN_SIZE=${FS_SIZE} -P ${CONVERTER_SCRIPT}
+        DEPENDS ${FS_IMAGE} ${CONVERTER_SCRIPT}
+        COMMENT "Converting LittleFS image to C array (cross-platform)"
         VERBATIM
     )
 

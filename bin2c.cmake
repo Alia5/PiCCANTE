@@ -1,0 +1,5 @@
+file(READ ${BIN_FILE} CONTENTS HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1, " CONTENTS ${CONTENTS})
+file(WRITE ${C_FILE} "/* Auto-generated filesystem data */\n")
+file(APPEND ${C_FILE} "const unsigned char __attribute__((section(\".littlefs_fs\"))) fs_data[] = {\n  ${CONTENTS}\n};\n\n")
+file(APPEND ${C_FILE} "const unsigned int fs_data_size = ${BIN_SIZE};\n")
