@@ -23,7 +23,6 @@
 #include <hardware/platform_defs.h>
 #include <hardware/regs/intctrl.h>
 #include "can2040.h"
-#include "portmacrocommon.h"
 #include "projdefs.h"
 #include "FreeRTOSConfig.h"
 #include "queue.h"

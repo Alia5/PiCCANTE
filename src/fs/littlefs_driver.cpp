@@ -24,7 +24,6 @@
 #include "hardware/sync.h"
 #include <hardware/regs/addressmap.h>
 #include <lfs.h>
-#include "portmacrocommon.h"
 #include "projdefs.h"
 #include "semphr.h"
 #include "Logger/Logger.hpp"

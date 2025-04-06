@@ -96,6 +96,7 @@
 #define configTIMER_QUEUE_LENGTH 10
 #define configTIMER_TASK_STACK_DEPTH 1024
 
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY 16
 
 /* Interrupt nesting behaviour configuration. */
 /*
@@ -150,7 +151,6 @@ to exclude the API function. */
 #define configENABLE_TRUSTZONE 0
 #define configRUN_FREERTOS_SECURE_ONLY 1
 #define configENABLE_FPU 1
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY 16
 #endif
 
 /* A header file that defines trace macro can be included here. */

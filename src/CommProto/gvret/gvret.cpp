@@ -22,7 +22,6 @@
 #include "outstream/stream.hpp"
 #include "../../CanBus/CanBus.hpp"
 #include "can2040.h"
-#include "portmacrocommon.h"
 #include "proto.hpp"
 #include "util/bin.hpp"
 namespace piccante::gvret {
