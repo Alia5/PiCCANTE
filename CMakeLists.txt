@@ -26,7 +26,7 @@ set(CAN_QUEUE_SIZE $ENV{PICCANTE_CAN_QUEUE_SIZE})
 
 if(NOT DEFINED NUM_CAN_BUSSES)
     message(STATUS "NUM_CAN_BUSSES not defined, defaulting to 2")
-    set(NUM_CAN_BUSSES 1)
+    set(NUM_CAN_BUSSES 2)
 endif()
 
 if(NOT DEFINED CAN0_RX_PIN)
