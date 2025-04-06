@@ -154,7 +154,7 @@ ENDIF()
 
 target_link_options(${target_name} PRIVATE -Xlinker --print-memory-usage)
 
-pico_enable_stdio_uart(${target_name} 1)
+pico_enable_stdio_uart(${target_name} 0)
 pico_enable_stdio_usb(${target_name} 0)
 
 # Add the standard library to the build
