@@ -83,7 +83,7 @@ class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
 
         protected:
     uint8_t step = 0;
-    can2040_msg frame = {0};
+    can2040_msg frame = {};
     uint8_t out_bus = 0;
     out::stream& out;
 };

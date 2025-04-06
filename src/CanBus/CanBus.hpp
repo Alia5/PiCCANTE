@@ -35,11 +35,15 @@ constexpr uint8_t CAN_IDLE_SLEEP_TIME_MS = piccanteCAN_IDLE_SLEEP_MS;
 constexpr uint8_t CAN_QUEUE_TIMEOUT_MS = piccanteCAN_QUEUE_TIMEOUT_MS;
 
 constexpr UBaseType_t CAN_TASK_PRIORITY = configMAX_PRIORITIES - 5;
+constexpr uint32_t DEFAULT_BUS_SPEED = 500000;
 
+#pragma pack(push, 1)
 struct CanSettings {
     bool enabled;
+    bool listen_only;
     uint32_t bitrate;
 };
+#pragma pack(pop)
 
 TaskHandle_t& createTask(void* parameters);
 
@@ -52,5 +56,8 @@ int get_can_tx_buffered_frames(uint8_t bus);
 void enable(uint8_t bus, uint32_t bitrate);
 void disable(uint8_t bus);
 void set_bitrate(uint8_t bus, uint32_t bitrate);
+bool is_enabled(uint8_t bus);
 uint32_t get_bitrate(uint8_t bus);
+bool is_listenonly(uint8_t bus);
+void set_listenonly(uint8_t bus, bool listen_only);
 }

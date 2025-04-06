@@ -30,6 +30,8 @@
 #include "Logger/Logger.hpp"
 #include <array>
 #include "fmt.hpp"
+#include <lfs.h>
+#include <fs/littlefs_driver.hpp>
 namespace piccante::can {
 
 
@@ -39,7 +41,9 @@ struct CanQueues {
 };
 
 namespace {
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 std::array<CanQueues, NUM_BUSSES> can_queues = {};
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 std::array<can2040, NUM_BUSSES> can_buses = {};
 } // namespace
 
@@ -77,20 +81,19 @@ constexpr std::array<const CanGPIO, NUM_BUSSES> CAN_GPIO = {
     }};
 
 
+#pragma pack(push, 1)
+struct can_settings_file {
+    uint8_t num_busses;
+    std::array<CanSettings, 3> bus_config;
+};
+#pragma pack(pop)
+
 namespace {
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
+can_settings_file settings = {};
 
-std::array<CanSettings, NUM_BUSSES> can_states = {{//
-                                                   {false, 0},
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
-                                                   {false, 0},
-#endif
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
-                                                   {false, 0}
-#endif
-}};
-
-void can2040_cb_can0(struct can2040* cd, uint32_t notify, // NOLINT
-                     struct can2040_msg* msg) {           // NOLINT
+void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
+                     struct can2040_msg* msg) {               // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
@@ -100,16 +103,17 @@ void can2040_cb_can0(struct can2040* cd, uint32_t notify, // NOLINT
             // Queue is full - log overflow
             // Can't directly call logger from ISR, so set a flag or counter
         }
-    } else if (notify == CAN2040_NOTIFY_TX) {
-        // Process transmitted message
-    } else if (notify == CAN2040_NOTIFY_ERROR) {
-        // Handle error
     }
+    // else if (notify == CAN2040_NOTIFY_TX) {
+    //     // Process transmitted message
+    // } else if (notify == CAN2040_NOTIFY_ERROR) {
+    //     // Handle error
+    // }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
 #if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
-void can2040_cb_can1(struct can2040* cd, uint32_t notify, // NOLINT
-                     struct can2040_msg* msg) {           // NOLINT
+void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
+                     struct can2040_msg* msg) {               // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
@@ -119,17 +123,18 @@ void can2040_cb_can1(struct can2040* cd, uint32_t notify, // NOLINT
             // Queue is full - log overflow
             // Can't directly call logger from ISR, so set a flag or counter
         }
-    } else if (notify == CAN2040_NOTIFY_TX) {
-        // Process transmitted message
-    } else if (notify == CAN2040_NOTIFY_ERROR) {
-        // Handle error
     }
+    // else if (notify == CAN2040_NOTIFY_TX) {
+    //     // Process transmitted message
+    // } else if (notify == CAN2040_NOTIFY_ERROR) {
+    //     // Handle error
+    // }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
 #endif
 #if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
-void can2040_cb_can2(struct can2040* cd, uint32_t notify, // NOLINT
-                     struct can2040_msg* msg) {           // NOLINT
+void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
+                     struct can2040_msg* msg) {               // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
@@ -139,11 +144,12 @@ void can2040_cb_can2(struct can2040* cd, uint32_t notify, // NOLINT
             // Queue is full - log overflow
             // Can't directly call logger from ISR, so set a flag or counter
         }
-    } else if (notify == CAN2040_NOTIFY_TX) {
-        // Process transmitted message
-    } else if (notify == CAN2040_NOTIFY_ERROR) {
-        // Handle error
     }
+    // else if (notify == CAN2040_NOTIFY_TX) {
+    //     // Process transmitted message
+    // } else if (notify == CAN2040_NOTIFY_ERROR) {
+    //     // Handle error
+    // }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
 #endif
@@ -172,7 +178,7 @@ void canbus_setup(uint8_t bus, uint32_t bitrate) {
     can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
 
-    switch (bus) {
+    switch (bus) { // NOLINT
         case 0:
             can2040_callback_config(&(can_buses[bus]), can2040_cb_can0);
             irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN0);
@@ -207,11 +213,29 @@ namespace {
 void canTask(void* parameters) {
     (void)parameters;
 
-    vTaskDelay(3500); // TODO
-
     Log::info << "Starting CAN task...\n";
 
-    piccante::can::enable(0, 500000);
+    lfs_file_t readFile;
+    const int err =
+        lfs_file_open(&piccante::fs::lfs, &readFile, "can_settings", LFS_O_RDONLY);
+    if (err == LFS_ERR_OK) {
+        lfs_ssize_t const bytesRead =
+            lfs_file_read(&piccante::fs::lfs, &readFile, &settings, sizeof(settings));
+        if (bytesRead >= 0) {
+            for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES;
+                 i++) {
+                if (settings.bus_config[i].enabled) {
+                    Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i)
+                              << " with bitrate " << settings.bus_config[i].bitrate
+                              << " from stored settings\n";
+                    canbus_setup(i, settings.bus_config[i].bitrate);
+                }
+            }
+        }
+        lfs_file_close(&piccante::fs::lfs, &readFile);
+    } else {
+        Log::error << "Failed to read CAN settings file\n";
+    }
 
     for (std::size_t i = 0; i < NUM_BUSSES; i++) {
         can_queues[i].rx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
@@ -255,18 +279,31 @@ TaskHandle_t& createTask(void* parameters) {
 }
 
 int send_can(uint8_t bus, can2040_msg& msg) {
-    if (!can_states[bus].enabled) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return -1;
+    }
+    if (!settings.bus_config[bus].enabled) {
         Log::error << "CAN bus " << fmt::sprintf("%d", bus) << " is not enabled\n";
+        return -1;
+    }
+    if (settings.bus_config[bus].listen_only) {
+        Log::error << "CAN bus " << fmt::sprintf("%d", bus)
+                   << " is in listen-only mode\n";
         return -1;
     }
     if (xQueueSend(can_queues[bus].tx, &msg, pdMS_TO_TICKS(CAN_QUEUE_TIMEOUT_MS)) !=
         pdTRUE) {
-        Log::error << "CAN" << fmt::sprintf("%d", bus) << ": TX queue full\n";
+        Log::error << "CAN bus " << fmt::sprintf("%d", bus) << ": TX queue full\n";
         return -1;
     }
     return 0;
 }
 int receive(uint8_t bus, can2040_msg& msg) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return -1;
+    }
     if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
         return get_can_rx_buffered_frames(bus);
     }
@@ -274,36 +311,119 @@ int receive(uint8_t bus, can2040_msg& msg) {
 }
 
 int get_can_rx_buffered_frames(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return -1;
+    }
     return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].rx);
 }
 int get_can_tx_buffered_frames(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return -1;
+    }
     return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].tx);
 }
 
+namespace {
+void store_settings() {
+    lfs_file_t writeFile;
+    const int err = lfs_file_open(&piccante::fs::lfs, &writeFile, "can_settings",
+                                  LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
+    if (err == LFS_ERR_OK) {
+        if (lfs_file_write(&piccante::fs::lfs, &writeFile, &settings, sizeof(settings)) <
+            0) {
+            Log::error << "Failed to write CAN settings file\n";
+        }
+        if (const auto err = lfs_file_close(&piccante::fs::lfs, &writeFile);
+            err != LFS_ERR_OK) {
+            Log::error << "Failed to close CAN settings file: " << fmt::sprintf("%d", err)
+                       << "\n";
+        }
+    } else {
+        Log::error << "Failed to write CAN settings file\n";
+    }
+}
+} // namespace
+
 void enable(uint8_t bus, uint32_t bitrate) {
-    if (can_states[bus].enabled) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return;
+    }
+    if (settings.bus_config[bus].enabled) {
         Log::warning << "CAN bus " << fmt::sprintf("%d", bus)
                      << " is already enabled - resetting\n";
         set_bitrate(bus, bitrate);
         return;
     }
     canbus_setup(bus, bitrate);
-    can_states[bus].bitrate = bitrate;
-    can_states[bus].enabled = true;
+    settings.bus_config[bus].bitrate = bitrate;
+    settings.bus_config[bus].enabled = true;
+    store_settings();
 }
 
 void disable(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return;
+    }
     can2040_stop(&(can_buses[bus]));
-    can_states[bus].enabled = false;
+    if (!settings.bus_config[bus].enabled) {
+        settings.bus_config[bus].enabled = false;
+        store_settings();
+    }
 }
 
 void set_bitrate(uint8_t bus, uint32_t bitrate) {
-    if (can_states[bus].enabled) {
-        disable(bus);
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return;
     }
-    canbus_setup(bus, bitrate);
+    if (settings.bus_config[bus].enabled) {
+        can2040_stop(&(can_buses[bus]));
+        canbus_setup(bus, bitrate);
+        settings.bus_config[bus].enabled = true;
+    }
+    if (settings.bus_config[bus].bitrate != bitrate) {
+        settings.bus_config[bus].bitrate = bitrate;
+        store_settings();
+    }
 }
 
-uint32_t get_bitrate(uint8_t bus) { return can_states[bus].bitrate; }
+bool is_enabled(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return false;
+    }
+    return settings.bus_config[bus].enabled;
+}
+uint32_t get_bitrate(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return DEFAULT_BUS_SPEED;
+    }
+    return settings.bus_config[bus].bitrate;
+}
+
+bool is_listenonly(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return false;
+    }
+    return settings.bus_config[bus].listen_only;
+}
+
+void set_listenonly(uint8_t bus, bool listen_only) {
+    if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return;
+    }
+    if (settings.bus_config[bus].listen_only == listen_only) {
+        return;
+    }
+    settings.bus_config[bus].listen_only = listen_only;
+    store_settings();
+}
 
 } // namespace piccante::can

@@ -33,10 +33,9 @@ class get_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
     // TODO: doesn't seem to be implemented anywhere, just guessing response based on
     // other
     Protocol enter() override {
-        // TODO: implement, for now just tx 500000kbits, enabled, NOT listen only
-        const uint32_t speed = 500000;
-        const uint8_t flags = 0x01 + (0x00 << 4); // enabled + listen only
-
+        // Max 3 busses supported, 4 and 5.. just copy params from 2 ¯\_(ツ)_/¯
+        const uint8_t flags = can::is_enabled(2) + (can::is_listenonly(2) << 4);
+        const auto speed = can::get_bitrate(2);
         out << GET_COMMAND << GET_CANBUS_PARAMS_3_4_5 << flags << piccante::bin(speed)
             << flags << piccante::bin(speed) << flags << piccante::bin(speed);
         out.flush();
