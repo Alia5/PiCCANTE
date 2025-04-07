@@ -61,7 +61,8 @@ constexpr std::array<const CanGPIO, NUM_BUSSES> CAN_GPIO = {
          .pio_num = 0,
          .pio_irq = PIO0_IRQ_0,
      },
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
+    piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
      {
          .pin_rx = piccanteCAN1_RX_PIN,
          .pin_tx = piccanteCAN1_TX_PIN,
@@ -110,7 +111,8 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
     // }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
+    piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
 void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
                      struct can2040_msg* msg) {               // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
@@ -157,7 +159,8 @@ void PIOx_IRQHandler_CAN0() {
     can2040_pio_irq_handler(&(can_buses[0]));
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
+    piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
 
 void PIOx_IRQHandler_CAN1() {
     BaseType_t const higher_priority_task_woken = pdFALSE;
@@ -182,7 +185,8 @@ void canbus_setup(uint8_t bus, uint32_t bitrate) {
             can2040_callback_config(&(can_buses[bus]), can2040_cb_can0);
             irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN0);
             break;
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
+    piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
         case 1:
             can2040_callback_config(&(can_buses[bus]), can2040_cb_can1);
             irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN1);
