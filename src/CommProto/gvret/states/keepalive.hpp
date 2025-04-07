@@ -37,7 +37,9 @@ class keepalive : public fsm::state<uint8_t, Protocol, bool> {
         out.flush();
         return IDLE;
     }
-    std::pair<Protocol, bool> tick(uint8_t& byte) override { return {IDLE, false}; }
+    std::pair<Protocol, bool> tick([[maybe_unused]] uint8_t& byte) override {
+        return {IDLE, false};
+    }
 
         private:
     out::stream& out;

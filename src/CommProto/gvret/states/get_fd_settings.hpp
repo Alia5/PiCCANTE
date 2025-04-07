@@ -28,7 +28,7 @@ namespace piccante::gvret::state {
 class get_fd_settings : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit get_fd_settings() : fsm::state<uint8_t, Protocol, bool>(GET_FD_SETTINGS) {}
-    std::pair<Protocol, bool> tick(uint8_t& byte) override {
+    std::pair<Protocol, bool> tick([[maybe_unused]] uint8_t& byte) override {
         // TODO: Implementation
         return {IDLE, false};
     }
