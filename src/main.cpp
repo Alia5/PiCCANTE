@@ -86,7 +86,9 @@ static void DebugCommandTask(void* parameters) {
     }
 }
 
-static piccante::lawicel::handler handler(piccante::usb_cdc::out1, 0);
+static piccante::lawicel::handler lawicel_handler(piccante::usb_cdc::out1, 0);
+static piccante::gvret::handler gvret_handler =
+    piccante::gvret::handler(piccante::usb_cdc::out0);
 
 static void lawicel_task(void* parameter) {
     (void)parameter;
@@ -95,14 +97,7 @@ static void lawicel_task(void* parameter) {
 
     piccante::Log::info << ("Starting Lavicel Handler!\n");
 
-    auto gvret_handler = piccante::gvret::handler(piccante::usb_cdc::out0);
-
     for (;;) {
-        while (tud_cdc_n_available(0) > 0) {
-            char c = tud_cdc_n_read_char(0);
-            gvret_handler.process_byte(c);
-        }
-
         std::string lawicel_cmd;
         while (tud_cdc_n_available(1) > 0) {
             char const c = tud_cdc_n_read_char(1);
@@ -113,13 +108,42 @@ static void lawicel_task(void* parameter) {
         }
         if (!lawicel_cmd.empty()) {
             // Process the command
-            handler.handleCmd(lawicel_cmd);
+            lawicel_handler.handleCmd(lawicel_cmd);
         }
 
+        vTaskDelay(pdMS_TO_TICKS(10)); // shorter delay for more responsive TX
+    }
+}
+
+static void gvret_task(void* parameter) {
+    (void)parameter;
+    // Wait until can is up.
+    vTaskDelay(2000); // TODO
+
+    piccante::Log::info << ("Starting Gvret Handler!\n");
+
+    for (;;) {
+        while (tud_cdc_n_available(0) > 0) {
+            char c = tud_cdc_n_read_char(0);
+            gvret_handler.process_byte(c);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10)); // shorter delay for more responsive TX
+    }
+}
+
+static void can_recieveTask(void* parameter) {
+    (void)parameter;
+    // Wait until can is up.
+    vTaskDelay(2000); // TODO
+
+    piccante::Log::info << ("Starting CAN Receive Task!\n");
+
+    for (;;) {
         can2040_msg msg{};
         while (piccante::can::receive(0, msg) >= 0) {
             piccante::gvret::comm_can_frame(0, msg, piccante::usb_cdc::out0);
-            handler.handleCanFrame(msg);
+            lawicel_handler.handleCanFrame(msg);
         }
 
         vTaskDelay(pdMS_TO_TICKS(10)); // shorter delay for more responsive TX
@@ -184,7 +208,9 @@ int main() {
     static TaskHandle_t usbTaskHandle;
     static TaskHandle_t debugTaskHandle;
 
+    static TaskHandle_t gvretTaskHandle;
     static TaskHandle_t lawicelTaskHandle;
+    static TaskHandle_t txCanTaskHandle;
 
 
     xTaskCreate(blinkTask, "Blink", configMINIMAL_STACK_SIZE, nullptr, 2,
@@ -198,6 +224,11 @@ int main() {
     xTaskCreate(lawicel_task, "Lawicel", configMINIMAL_STACK_SIZE, nullptr, 5,
                 &lawicelTaskHandle);
 
+    xTaskCreate(gvret_task, "Gvret", configMINIMAL_STACK_SIZE, nullptr, 5,
+                &gvretTaskHandle);
+    xTaskCreate(can_recieveTask, "CAN RX", configMINIMAL_STACK_SIZE, nullptr, 5,
+                &txCanTaskHandle);
+
     static TaskHandle_t canTaskHandle = piccante::can::createTask(nullptr);
 
     vTaskCoreAffinitySet(blinkTaskHandle, 0x01); // Set the task to run on core 1
@@ -206,6 +237,8 @@ int main() {
     vTaskCoreAffinitySet(debugTaskHandle, 0x01); // Set the task to run on core 1
     vTaskCoreAffinitySet(canTaskHandle, 0x02);   // Set the task to run on core 2
     vTaskCoreAffinitySet(lawicelTaskHandle, 0x01);
+    vTaskCoreAffinitySet(gvretTaskHandle, 0x01);
+    vTaskCoreAffinitySet(txCanTaskHandle, 0x01);
 
 
     vTaskStartScheduler();
