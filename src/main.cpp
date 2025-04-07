@@ -118,52 +118,9 @@ static void lawicel_task(void* parameter) {
 
         can2040_msg msg{};
         while (piccante::can::receive(0, msg) >= 0) {
-            // Process received message
             piccante::gvret::comm_can_frame(0, msg, piccante::usb_cdc::out0);
             handler.handleCanFrame(msg);
         }
-
-
-        // char cmdBuffer[128];
-        // int serialCnt = 0;
-
-        // serialCnt = 0;
-        // while (tud_cdc_n_available(1) > 0) {
-        //     char c = tud_cdc_n_read_char(1);
-        //     cmdBuffer[serialCnt++] = c;
-        //     if (serialCnt >= sizeof(cmdBuffer) - 1) {
-        //         break; // Prevent buffer overflow
-        //     }
-        //     if (c == '\r' || c == '\n') {
-        //         break; // End of command
-        //     }
-        // }
-        // if (serialCnt == 2 && (cmdBuffer[1] == '\r' || cmdBuffer[1] == '\n')) {
-        //     // Handle single character commands
-        //     char cmd = cmdBuffer[0];
-        //     handler.handleShortCmd(cmd);
-        // }
-        // if (serialCnt > 2) {
-        //     cmdBuffer[serialCnt] = '\0'; // Null terminate
-        //     serialCnt = 0;
-        //     // Process command
-        //     handler.handleLongCmd(cmdBuffer);
-        // }
-
-        // // get buffered frames from can
-        // can2040_msg msg;
-        // while (receive_can0(msg) >= 0) {
-        //     // Process received message
-
-        //     Log::Debug("CAN0: Received message ID:",
-        //                fmt::sprintf("0x%x,", msg.id),
-        //                "Data:",
-        //                fmt::sprintf("0x%x", msg.data32[0]));
-
-        //     // TODO:
-        //     handler.handleCanFrame(msg, 0);
-        // }
-
 
         vTaskDelay(pdMS_TO_TICKS(10)); // shorter delay for more responsive TX
     }
