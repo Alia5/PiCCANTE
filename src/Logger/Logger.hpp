@@ -83,7 +83,8 @@ class Log {
         }
 
             public:
-        explicit LogSink(Level log_level) : level(log_level) {}
+        explicit LogSink() : level(LEVEL_DEBUG) {}
+        void set_writing_level(Level level) { this->level = level; }
 
         void write(const char* value, std::size_t size) override {
             output_message(value, size);
@@ -92,15 +93,29 @@ class Log {
         void flush() override { out.get().flush(); }
     };
 
-    inline static LogSink debug_sink = LogSink(LEVEL_DEBUG);
-    inline static LogSink info_sink = LogSink(LEVEL_INFO);
-    inline static LogSink warning_sink = LogSink(LEVEL_WARNING);
-    inline static LogSink error_sink = LogSink(LEVEL_ERROR);
+    class LogStream {
+            private:
+        LogSink& sink;
+        out::stream stream;
+        Level level;
+
+            public:
+        LogStream(Level l, LogSink& s) : sink(s), stream(s), level(l) {}
+
+        template <typename T> LogStream& operator<<(const T& value) {
+            sink.set_writing_level(level);
+            stream << value;
+            return *this;
+        }
+    };
+
+
+    inline static LogSink log_sink = LogSink();
 
         public:
-    inline static out::stream debug = out::stream(debug_sink);
-    inline static out::stream info = out::stream(info_sink);
-    inline static out::stream warning = out::stream(warning_sink);
-    inline static out::stream error = out::stream(error_sink);
+    inline static LogStream debug{LEVEL_DEBUG, log_sink};
+    inline static LogStream info{LEVEL_INFO, log_sink};
+    inline static LogStream warning{LEVEL_WARNING, log_sink};
+    inline static LogStream error{LEVEL_ERROR, log_sink};
 };
 }
