@@ -1,9 +1,27 @@
+/*
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
+ * Copyright (C) 2025 Peter Repukat
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #pragma once
 
 #include <string_view>
 #include <cstdint>
 #include <functional>
 #include "outstream/stream.hpp"
+#include <map>
 
 struct can2040_msg;
 
@@ -52,8 +70,8 @@ class handler {
 
     void handleShortCmd(char cmd);
     void handleLongCmd(const std::string_view& cmd);
-    void sendFrameToBuffer(can2040_msg& frame, uint8_t bus);
     void handleCmd(const std::string_view& cmd);
+    void handleCanFrame(const can2040_msg& frame);
 
 
         private:
@@ -65,7 +83,10 @@ class handler {
     bool time_stamping = false;
     uint32_t poll_counter = 0;
 
-    void printBusName(int bus) const;
+    void printBusName() const;
+    std::map<uint8_t, uint32_t> bus_speeds = {{0, 10000},  {1, 20000},  {2, 50000},
+                                              {3, 100000}, {4, 125000}, {5, 250000},
+                                              {6, 500000}, {7, 750000}, {8, 1000000}};
 };
 
 } // namespace piccante::lawicel

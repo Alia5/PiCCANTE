@@ -97,14 +97,13 @@ static void lawicel_task(void* parameter) {
 
     auto gvret_handler = piccante::gvret::handler(piccante::usb_cdc::out0);
 
-    uint8_t const buff[128] = {0};
     for (;;) {
         while (tud_cdc_n_available(0) > 0) {
             char c = tud_cdc_n_read_char(0);
             gvret_handler.process_byte(c);
         }
 
-        std::string lawicel_cmd = {0};
+        std::string lawicel_cmd;
         while (tud_cdc_n_available(1) > 0) {
             char const c = tud_cdc_n_read_char(1);
             lawicel_cmd += c;
@@ -121,6 +120,7 @@ static void lawicel_task(void* parameter) {
         while (piccante::can::receive(0, msg) >= 0) {
             // Process received message
             piccante::gvret::comm_can_frame(0, msg, piccante::usb_cdc::out0);
+            handler.handleCanFrame(msg);
         }
 
 
@@ -161,7 +161,7 @@ static void lawicel_task(void* parameter) {
         //                fmt::sprintf("0x%x", msg.data32[0]));
 
         //     // TODO:
-        //     handler.sendFrameToBuffer(msg, 0);
+        //     handler.handleCanFrame(msg, 0);
         // }
 
 

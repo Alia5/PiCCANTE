@@ -47,13 +47,10 @@ static unsigned int parse(char byte) {
  * @param len The length of the hex string. If 0, the length is determined automatically.
  * @return The integer value of the hex string.
  */
-static unsigned int parse(const std::string_view& str, size_t len = 0) {
+static unsigned int parse(const std::string_view& str) {
     unsigned int res = 0;
-    if (len == 0) {
-        len = str.length();
-    }
-    for (size_t i = 0; i < len; i++) {
-        res += parse(str[i]) << (sizeof(unsigned int) * (len - 1 - i));
+    for (size_t i = 0; i < str.length(); i++) {
+        res += parse(str[i]) << (sizeof(unsigned int) * (str.length() - 1 - i));
     }
     return res;
 }
