@@ -79,7 +79,7 @@ class handler {
     uint8_t bus = 0;
 
     bool extended_mode = false;
-    bool auto_poll = false;
+    bool auto_poll = true;
     bool time_stamping = false;
     uint32_t poll_counter = 0;
 

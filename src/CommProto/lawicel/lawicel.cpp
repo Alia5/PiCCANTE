@@ -298,7 +298,7 @@ void handler::handleLongCmd(const std::string_view& cmd) {
 void handler::handleCanFrame(const can2040_msg& frame) {
     uint32_t const millis = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
-    if (poll_counter <= 0) {
+    if (poll_counter <= 0 && !auto_poll) {
         return;
     }
 
