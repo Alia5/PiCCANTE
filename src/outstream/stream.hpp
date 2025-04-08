@@ -46,6 +46,10 @@ class stream {
         sink_.write(str.data(), str.size());
         return *this;
     }
+    stream& operator<<(const std::string& str) {
+        sink_.write(str.data(), strlen(str.data()));
+        return *this;
+    }
 
     stream& operator<<(const char* str) {
         if (str) {
