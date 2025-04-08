@@ -31,7 +31,7 @@ constexpr uint8_t NUM_BUSSES = piccanteNUM_CAN_BUSSES;
 
 constexpr uint8_t CAN_QUEUE_SIZE = piccanteCAN_QUEUE_SIZE;
 
-constexpr uint8_t CAN_IDLE_SLEEP_TIME_MS = piccanteCAN_IDLE_SLEEP_MS;
+constexpr uint8_t CAN_IDLE_SLEEP_TIME_MS = piccanteIDLE_SLEEP_MS;
 constexpr uint8_t CAN_QUEUE_TIMEOUT_MS = piccanteCAN_QUEUE_TIMEOUT_MS;
 
 constexpr UBaseType_t CAN_TASK_PRIORITY = configMAX_PRIORITIES - 5;
