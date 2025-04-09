@@ -6,6 +6,7 @@
 
 #include <tusb.h>
 #include <bsp/board_api.h>
+#include "config/tusb_config.h"
 
 // set some example Vendor and Product ID
 // the board will use to identify at the host
@@ -63,19 +64,35 @@ enum {
 #define EPNUM_CDC_1_IN 0x85    // in endpoint for CDC 1
 
 // configure descriptor (for 2 CDC interfaces)
-uint8_t const desc_configuration[] = {
+uint8_t const desc_fs_configuration[] = {
     // config descriptor | how much power in mA, count of interfaces, ...
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
 
     // CDC 0: Communication Interface - TODO: get 64 from tusb_config.h
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0, 4, EPNUM_CDC_0_NOTIF, 8, EPNUM_CDC_0_OUT,
-                       EPNUM_CDC_0_IN, 64),
+                       EPNUM_CDC_0_IN, CFG_TUD_ENDPOINT0_SIZE),
     // CDC 0: Data Interface
     // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0_DATA, 4, 0x01, 0x02),
 
     // CDC 1: Communication Interface - TODO: get 64 from tusb_config.h
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 4, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
-                       EPNUM_CDC_1_IN, 64),
+                       EPNUM_CDC_1_IN, CFG_TUD_ENDPOINT0_SIZE),
+    // CDC 1: Data Interface
+    // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1_DATA, 4, 0x03, 0x04),
+};
+uint8_t const desc_hs_configuration[] = {
+    // config descriptor | how much power in mA, count of interfaces, ...
+    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
+
+    // CDC 0: Communication Interface - TODO: get 64 from tusb_config.h
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0, 4, EPNUM_CDC_0_NOTIF, 8, EPNUM_CDC_0_OUT,
+                       EPNUM_CDC_0_IN, 512),
+    // CDC 0: Data Interface
+    // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0_DATA, 4, 0x01, 0x02),
+
+    // CDC 1: Communication Interface - TODO: get 64 from tusb_config.h
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 4, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
+                       EPNUM_CDC_1_IN, 512),
     // CDC 1: Data Interface
     // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1_DATA, 4, 0x03, 0x04),
 };
@@ -111,6 +128,18 @@ enum {
     STRID_CDC_1,        // 5: CDC Interface 1
 };
 
+// Invoked when received GET OTHER SEED CONFIGURATION DESCRIPTOR request
+// Application return pointer to descriptor, whose contents must exist long enough for
+// transfer to complete Configuration descriptor in the other speed e.g if high speed then
+// this is for full speed and vice versa
+uint8_t const* tud_descriptor_other_speed_configuration_cb(uint8_t index) {
+    (void)index; // for multiple configurations
+
+    // if link speed is high return fullspeed config, and vice versa
+    return (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_fs_configuration
+                                                : desc_hs_configuration;
+}
+
 // array of pointer to string descriptors
 char const* string_desc_arr[] = {
     // switched because board is little endian
@@ -144,7 +173,7 @@ uint8_t const* tud_descriptor_configuration_cb(uint8_t index) {
     // avoid unused parameter warning and keep function signature consistent
     (void)index;
 
-    return desc_configuration;
+    return desc_fs_configuration;
 }
 
 uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {

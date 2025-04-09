@@ -37,6 +37,13 @@ if(NOT DEFINED PICO_PLATFORM)
     set(PICO_PLATFORM rp2350-arm-s)
 endif()
 
+set(TINYUSB_OPT_OS OPT_OS_FREERTOS)
+set(LOG 0) # TINYUSB Logging
+set(CFG_TUSB_OS_INC_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/FreeRTOS-Kernel/include/)
+
+set(PICO_TINYUSB_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/tinyusb)
+set(TINYUSB_CONFIG_PATH ${CMAKE_CURRENT_LIST_DIR}/src/config/tusb_config.h)
+
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -131,6 +138,9 @@ add_compile_definitions(
     piccanteCAN_NUM_1=1
     piccanteCAN_NUM_2=2
     piccanteCAN_NUM_3=3
+
+    #
+    CFG_TUSB_OS_INC_PATH=${CFG_TUSB_OS_INC_PATH}
 )
 
 
@@ -160,7 +170,12 @@ ENDIF()
 
 target_link_options(${target_name} PRIVATE -Xlinker --print-memory-usage)
 
-pico_enable_stdio_uart(${target_name} 0)
+if(DEFINED LOG AND LOG GREATER 0)
+    pico_enable_stdio_uart(${target_name} 1)
+else()
+    pico_enable_stdio_uart(${target_name} 0)
+endif()
+
 pico_enable_stdio_usb(${target_name} 0)
 
 # Add the standard library to the build

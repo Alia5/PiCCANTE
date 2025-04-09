@@ -7,3 +7,6 @@
 [submodule "ext/littlefs"]
 	path = ext/littlefs
 	url = git@github.com:littlefs-project/littlefs.git
+[submodule "ext/tinyusb"]
+	path = ext/tinyusb
+	url = https://github.com/hathach/tinyusb
