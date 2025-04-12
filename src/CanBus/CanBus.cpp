@@ -26,6 +26,7 @@
 #include "projdefs.h"
 #include "FreeRTOSConfig.h"
 #include "queue.h"
+#include "semphr.h"
 #include "Logger/Logger.hpp"
 #include <array>
 #include "fmt.hpp"
@@ -91,6 +92,7 @@ struct can_settings_file {
 #pragma pack(pop)
 
 namespace {
+
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 can_settings_file settings = {};
 
@@ -178,7 +180,20 @@ void PIOx_IRQHandler_CAN2() {
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
 #endif
-void canbus_setup(uint8_t bus, uint32_t bitrate) {
+
+
+std::array<bool, 3> canbus_initial_setup_done = {
+    false,
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
+    piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
+    false,
+#endif
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
+    false,
+#endif
+};
+
+void canbus_setup_initial(uint8_t bus) {
     can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
 
@@ -231,18 +246,57 @@ void canbus_setup(uint8_t bus, uint32_t bitrate) {
 
     irq_set_priority(CAN_GPIO[bus].pio_irq, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
     irq_set_enabled(CAN_GPIO[bus].pio_irq, true);
+    canbus_initial_setup_done[bus] = true;
+}
+
+void canbus_setup(uint8_t bus, uint32_t bitrate) {
+    if (!canbus_initial_setup_done[bus]) {
+        canbus_setup_initial(bus);
+    }
 
     can2040_start(&(can_buses[bus]), SYS_CLK_HZ, bitrate, CAN_GPIO[bus].pin_rx,
                   CAN_GPIO[bus].pin_tx);
 }
-} // namespace
 
+SemaphoreHandle_t settings_mutex = nullptr;
 
-namespace {
+void store_settings() {
+    Log::debug << "Storing CAN settings...\n";
+    if (settings_mutex == nullptr ||
+        xSemaphoreTake(settings_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        Log::error << "Failed to take settings mutex for store_settings\n";
+        return;
+    }
+
+    lfs_file_t writeFile;
+    const int err = lfs_file_open(&piccante::fs::lfs, &writeFile, "can_settings",
+                                  LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
+    if (err == LFS_ERR_OK) {
+        if (lfs_file_write(&piccante::fs::lfs, &writeFile, &settings, sizeof(settings)) <
+            0) {
+            Log::error << "Failed to write CAN settings file\n";
+        }
+        if (const auto err = lfs_file_close(&piccante::fs::lfs, &writeFile);
+            err != LFS_ERR_OK) {
+            Log::error << "Failed to close CAN settings file: " << fmt::sprintf("%d", err)
+                       << "\n";
+        }
+    } else {
+        Log::error << "Failed to write CAN settings file\n";
+    }
+    xSemaphoreGive(settings_mutex);
+}
+
 void canTask(void* parameters) {
     (void)parameters;
 
     Log::info << "Starting CAN task...\n";
+
+    settings_mutex = xSemaphoreCreateMutex();
+    if (settings_mutex == nullptr) {
+        Log::error << "Failed to create settings mutex\n";
+        return;
+    }
 
     lfs_file_t readFile;
     const int err =
@@ -275,6 +329,7 @@ void canTask(void* parameters) {
             return;
         }
     }
+
 
     can2040_msg msg = {};
     for (;;) {
@@ -353,27 +408,6 @@ int get_can_tx_buffered_frames(uint8_t bus) {
     }
     return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].tx);
 }
-
-namespace {
-void store_settings() {
-    lfs_file_t writeFile;
-    const int err = lfs_file_open(&piccante::fs::lfs, &writeFile, "can_settings",
-                                  LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
-    if (err == LFS_ERR_OK) {
-        if (lfs_file_write(&piccante::fs::lfs, &writeFile, &settings, sizeof(settings)) <
-            0) {
-            Log::error << "Failed to write CAN settings file\n";
-        }
-        if (const auto err = lfs_file_close(&piccante::fs::lfs, &writeFile);
-            err != LFS_ERR_OK) {
-            Log::error << "Failed to close CAN settings file: " << fmt::sprintf("%d", err)
-                       << "\n";
-        }
-    } else {
-        Log::error << "Failed to write CAN settings file\n";
-    }
-}
-} // namespace
 
 void enable(uint8_t bus, uint32_t bitrate) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
