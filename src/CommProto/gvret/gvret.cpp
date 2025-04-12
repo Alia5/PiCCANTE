@@ -24,6 +24,7 @@
 #include "can2040.h"
 #include "proto.hpp"
 #include "util/bin.hpp"
+#include <pico/time.h>
 namespace piccante::gvret {
 
 uint8_t check_sum(const std::span<uint8_t>& buff) {
@@ -31,9 +32,8 @@ uint8_t check_sum(const std::span<uint8_t>& buff) {
 }
 
 void comm_can_frame(uint busnumber, const can2040_msg& frame, out::stream& out) {
-    // TODO: can only cause trouble to output MICROS as 4 byte value, but oh well...
-    // I don't think it is implemented anyway anywhere, just use millis for now...
-    uint32_t const time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    // TODO: MICROS as 4 byte value, but oh well... SavvyCAN only uses relative value should be fine
+    uint32_t const time = to_us_since_boot(get_absolute_time());
 
     auto id = frame.id;
     // remove flags from id copy
