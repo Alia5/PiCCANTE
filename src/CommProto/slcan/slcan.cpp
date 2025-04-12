@@ -25,11 +25,13 @@
  */
 
 #include "slcan.hpp"
+#include <can2040.h>
 #include <cstddef>
 #include <cstdint>
 #include <cctype>
 #include <algorithm>
 #include <charconv>
+#include <projdefs.h>
 #include <ranges>
 #include <system_error>
 #include <functional>
@@ -48,8 +50,8 @@ constexpr uint8_t NUM_BUSES = 1; // For now a single bus per slcan interface
 
 
 TaskHandle_t& handler::create_task(UBaseType_t priority) {
-    xTaskCreate(handler::task_dispatcher, "CAN", configMINIMAL_STACK_SIZE, this, priority,
-                &task_handle);
+    xTaskCreate(handler::task_dispatcher, fmt::sprintf("SLCAN%d", bus).c_str(),
+                configMINIMAL_STACK_SIZE, this, priority, &task_handle);
     return task_handle;
 }
 void handler::handle_short_cmd(char cmd) {
@@ -373,8 +375,8 @@ void handler::printBusName() const {
     host_out.flush();
 }
 
-void handler::task_dispatcher(void* p) {
-    auto* h = static_cast<handler*>(p);
+void handler::task_dispatcher(void* p) { // NOLINT
+    auto* h = static_cast<handler*>(p);  // NOLINT
     h->task();
 }
 

@@ -4,9 +4,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include <tusb.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <string.h>
 #include <bsp/board_api.h>
+#include "common/tusb_types.h"
 #include "config/tusb_config.h"
+#include "device/usbd.h"
 
 // set some example Vendor and Product ID
 // the board will use to identify at the host

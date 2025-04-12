@@ -17,13 +17,11 @@
  */
 #pragma once
 
-#include <string_view>
 #include <cstdint>
-#include <functional>
 #include "outstream/stream.hpp"
-#include <map>
 #include "FreeRTOS.h"
 #include <task.h>
+#include <map>
 
 struct can2040_msg;
 

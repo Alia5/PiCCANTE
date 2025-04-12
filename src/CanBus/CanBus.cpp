@@ -30,9 +30,9 @@
 #include "Logger/Logger.hpp"
 #include <array>
 #include "fmt.hpp"
+#include <hardware/structs/pio.h>
 #include <lfs.h>
 #include <fs/littlefs_driver.hpp>
-#include <hardware/pio.h>
 
 namespace piccante::can {
 
@@ -354,9 +354,7 @@ void canTask(void* parameters) {
 TaskHandle_t canTaskHandle; // NOLINT
 } // namespace
 
-TaskHandle_t& createTask(void* parameters) {
-    (void)parameters;
-
+TaskHandle_t& create_task() {
     xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
                 &canTaskHandle);
     return canTaskHandle;
@@ -388,7 +386,7 @@ int receive(uint8_t bus, can2040_msg& msg) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
         return -1;
     }
-    if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
+    if (xQueueReceive(can_queues[bus].rx, &msg, configTICK_RATE_HZ) == pdTRUE) {
         return get_can_rx_buffered_frames(bus);
     }
     return -1;

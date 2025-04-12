@@ -45,7 +45,7 @@ struct CanSettings {
 };
 #pragma pack(pop)
 
-TaskHandle_t& createTask(void* parameters);
+TaskHandle_t& create_task();
 
 int send_can(uint8_t bus, can2040_msg& msg);
 int receive(uint8_t bus, can2040_msg& msg);
