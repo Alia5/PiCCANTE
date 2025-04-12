@@ -31,6 +31,8 @@
 #include "fmt.hpp"
 #include <lfs.h>
 #include <fs/littlefs_driver.hpp>
+#include <hardware/pio.h>
+
 namespace piccante::can {
 
 
@@ -203,6 +205,30 @@ void canbus_setup(uint8_t bus, uint32_t bitrate) {
             Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
             return;
     }
+
+    irq_set_enabled(CAN_GPIO[bus].pio_irq, false);
+    // Set core affinity for this interrupt
+
+    if (CAN_GPIO[bus].pio_num == 0) {
+        // For PIO0 interrupts
+        hw_set_bits(&pio0_hw->inte1, (1u << CAN_GPIO[bus].pio_irq)); // Enable on core 1
+        hw_clear_bits(&pio0_hw->inte0,
+                      (1u << CAN_GPIO[bus].pio_irq)); // Disable on core 0
+    } else if (CAN_GPIO[bus].pio_num == 1) {
+        // For PIO1 interrupts
+        hw_set_bits(&pio1_hw->inte1, (1u << CAN_GPIO[bus].pio_irq)); // Enable on core 1
+        hw_clear_bits(&pio1_hw->inte0,
+                      (1u << CAN_GPIO[bus].pio_irq)); // Disable on core 0
+    }
+#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
+    else if (CAN_GPIO[bus].pio_num == 2) {
+        // For PIO2 interrupts if your board supports it
+        hw_set_bits(&pio2_hw->inte1, (1u << CAN_GPIO[bus].pio_irq)); // Enable on core 1
+        hw_clear_bits(&pio2_hw->inte0,
+                      (1u << CAN_GPIO[bus].pio_irq)); // Disable on core 0
+    }
+#endif
+
     irq_set_priority(CAN_GPIO[bus].pio_irq, configMAX_SYSCALL_INTERRUPT_PRIORITY + 1);
     irq_set_enabled(CAN_GPIO[bus].pio_irq, true);
 
