@@ -22,13 +22,15 @@
 #include <functional>
 #include "outstream/stream.hpp"
 #include <map>
+#include "FreeRTOS.h"
+#include <task.h>
 
 struct can2040_msg;
 
-namespace piccante::lawicel {
+namespace piccante::slcan {
 
 
-enum SHORT_CMD {
+enum SHORT_CMD : uint8_t {
     OPEN = 'O',
     CLOSE = 'C',
     OPEN_LISTEN_ONLY = 'L',
@@ -43,7 +45,7 @@ enum SHORT_CMD {
     //
 };
 
-enum LONG_CMD {
+enum LONG_CMD : uint8_t {
     TX_STANDARD_FRAME = 't',
     TX_EXTENDED_FRAME = 'T',
     SET_SPEED_OR_PACKET = 'S',
@@ -57,26 +59,35 @@ enum LONG_CMD {
     HALT_RECEPTION = 'H',
     SET_UART_SPEED = 'U',
     TOGGLE_TIMESTAMP = 'Z',
+    TOGGLE_TIMESTAMP_ALT = 'Y',
     TOGGLE_AUTO_START = 'Q',
     CONFIGURE_BUS = 'C',
 };
 
+
+static inline std::map<uint8_t, uint32_t> bus_speeds = {
+    {0, 10000},  {1, 20000},  {2, 50000},  {3, 100000}, {4, 125000},
+    {5, 250000}, {6, 500000}, {7, 750000}, {8, 1000000}};
 class handler {
         public:
-    explicit handler(out::stream& out_stream, uint8_t bus_num = 0)
-        : host_out(out_stream), bus(bus_num) {};
+    explicit handler(out::stream& out_stream, uint8_t read_itf, uint8_t bus_num = 0)
+        : host_out(out_stream), read_itf(read_itf), bus(bus_num) {};
     virtual ~handler() = default;
 
+    TaskHandle_t& create_task(UBaseType_t priority = configMAX_PRIORITIES - 10);
 
-    void handleShortCmd(char cmd);
-    void handleLongCmd(const std::string_view& cmd);
-    void handleCmd(const std::string_view& cmd);
-    void handleCanFrame(const can2040_msg& frame);
+    void handle_short_cmd(char cmd);
+    void handle_long_cmd(const std::string_view& cmd);
+    void handle_command(const std::string_view& cmd);
+    void comm_can_frame(const can2040_msg& frame);
 
 
         private:
-    std::reference_wrapper<out::stream> host_out;
+    out::stream& host_out;
+    uint8_t read_itf = 0;
     uint8_t bus = 0;
+
+    TaskHandle_t task_handle = nullptr;
 
     bool extended_mode = false;
     bool auto_poll = true;
@@ -84,9 +95,8 @@ class handler {
     uint32_t poll_counter = 0;
 
     void printBusName() const;
-    std::map<uint8_t, uint32_t> bus_speeds = {{0, 10000},  {1, 20000},  {2, 50000},
-                                              {3, 100000}, {4, 125000}, {5, 250000},
-                                              {6, 500000}, {7, 750000}, {8, 1000000}};
+    static void task_dispatcher(void* param);
+    void task();
 };
 
-} // namespace piccante::lawicel
+} // namespace piccante::slcan
