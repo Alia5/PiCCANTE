@@ -42,8 +42,8 @@ static void usbDeviceTask(void* parameters) {
     }
 }
 
-static std::array<piccante::slcan::handler*, piccanteNUM_CAN_BUSSES> slcan_handler = {
-    nullptr};
+static std::array<std::unique_ptr<piccante::slcan::handler>, piccanteNUM_CAN_BUSSES>
+    slcan_handler = {nullptr};
 static void can_recieveTask(void* parameter) {
     (void)parameter;
     // Wait until can is up.
@@ -95,9 +95,9 @@ int main() {
     xTaskCreate(can_recieveTask, "CAN RX", configMINIMAL_STACK_SIZE, nullptr, 5,
                 &txCanTaskHandle);
 
-    // TODO: NumCanbusses
-    for (uint8_t i = 0; i < 1; i++) {
-        slcan_handler[i] = new piccante::slcan::handler(piccante::usb_cdc::out0, 0, i);
+    for (uint8_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
+        slcan_handler[i] = std::make_unique<piccante::slcan::handler>(
+            piccante::usb_cdc::out(i + 1), 0, i);
         auto slcanTaskHandle = slcan_handler[i]->create_task();
         vTaskCoreAffinitySet(slcanTaskHandle, 0x01);
     }

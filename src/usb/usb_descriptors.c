@@ -1,7 +1,19 @@
-/**
- * Copyright (c) 2023 Raspberry Pi (Trading) Ltd.
+/*
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
+ * Copyright (C) 2025 Peter Repukat
  *
- * SPDX-License-Identifier: BSD-3-Clause
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <stdint.h>
@@ -13,12 +25,15 @@
 #include "config/tusb_config.h"
 #include "device/usbd.h"
 
-// set some example Vendor and Product ID
-// the board will use to identify at the host
-#define _PID_MAP(itf, n) ((CFG_TUD_##itf) << (n))
+
 #define CDC_RASPBERRY_VID 0x2E8A
-// use _PID_MAP to generate unique PID for each interface
-#define CDC_RASPBERRY_PID (0x0009 | _PID_MAP(CDC, 0))
+#if PICO_RP2350
+// For RP2350 boards
+#define CDC_RASPBERRY_PID 0x0009
+#else
+// For RP2040 boards
+#define CDC_RASPBERRY_PID 0x000A
+#endif
 // set USB 2.0
 #define CDC_BCD 0x0200
 
@@ -51,8 +66,18 @@ uint8_t const* tud_descriptor_device_cb(void);
 enum {
     ITF_NUM_CDC_0 = 0,
     ITF_NUM_CDC_0_DATA,
+#if CFG_TUD_CDC > 1
     ITF_NUM_CDC_1,
     ITF_NUM_CDC_1_DATA,
+#endif
+#if CFG_TUD_CDC > 2
+    ITF_NUM_CDC_2,
+    ITF_NUM_CDC_2_DATA,
+#endif
+#if CFG_TUD_CDC > 3
+    ITF_NUM_CDC_3,
+    ITF_NUM_CDC_3_DATA,
+#endif
     ITF_NUM_TOTAL
 };
 
@@ -68,38 +93,37 @@ enum {
 #define EPNUM_CDC_1_OUT 0x05   // out endpoint for CDC 1
 #define EPNUM_CDC_1_IN 0x85    // in endpoint for CDC 1
 
+#define EPNUM_CDC_2_NOTIF 0x88 // notification endpoint for CDC 2
+#define EPNUM_CDC_2_OUT 0x08   // out endpoint for CDC 2
+#define EPNUM_CDC_2_IN 0x89    // in endpoint for CDC 2
+
+#define EPNUM_CDC_3_NOTIF 0x8C // notification endpoint for CDC 3
+#define EPNUM_CDC_3_OUT 0x0B   // out endpoint for CDC 3
+#define EPNUM_CDC_3_IN 0x8D    // in endpoint for CDC 3
+
 // configure descriptor (for 2 CDC interfaces)
 uint8_t const desc_fs_configuration[] = {
     // config descriptor | how much power in mA, count of interfaces, ...
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
 
-    // CDC 0: Communication Interface - TODO: get 64 from tusb_config.h
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0, 4, EPNUM_CDC_0_NOTIF, 8, EPNUM_CDC_0_OUT,
                        EPNUM_CDC_0_IN, CFG_TUD_ENDPOINT0_SIZE),
-    // CDC 0: Data Interface
-    // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0_DATA, 4, 0x01, 0x02),
 
-    // CDC 1: Communication Interface - TODO: get 64 from tusb_config.h
-    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 4, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
+#if CFG_TUD_CDC > 1
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 5, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
                        EPNUM_CDC_1_IN, CFG_TUD_ENDPOINT0_SIZE),
-    // CDC 1: Data Interface
-    // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1_DATA, 4, 0x03, 0x04),
-};
-uint8_t const desc_hs_configuration[] = {
-    // config descriptor | how much power in mA, count of interfaces, ...
-    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
+#endif
 
-    // CDC 0: Communication Interface - TODO: get 64 from tusb_config.h
-    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0, 4, EPNUM_CDC_0_NOTIF, 8, EPNUM_CDC_0_OUT,
-                       EPNUM_CDC_0_IN, 512),
-    // CDC 0: Data Interface
-    // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0_DATA, 4, 0x01, 0x02),
+#if CFG_TUD_CDC > 2
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_2, 6, EPNUM_CDC_2_NOTIF, 8, EPNUM_CDC_2_OUT,
+                       EPNUM_CDC_2_IN, CFG_TUD_ENDPOINT0_SIZE),
+#endif
 
-    // CDC 1: Communication Interface - TODO: get 64 from tusb_config.h
-    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 4, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
-                       EPNUM_CDC_1_IN, 512),
-    // CDC 1: Data Interface
-    // TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1_DATA, 4, 0x03, 0x04),
+#if CFG_TUD_CDC > 3
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_3, 7, EPNUM_CDC_3_NOTIF, 8, EPNUM_CDC_3_OUT,
+                       EPNUM_CDC_3_IN, CFG_TUD_ENDPOINT0_SIZE),
+#endif
+
 };
 
 // called when host requests to get configuration descriptor
@@ -131,6 +155,8 @@ enum {
     STRID_SERIAL,       // 3: Serials
     STRID_CDC_0,        // 4: CDC Interface 0
     STRID_CDC_1,        // 5: CDC Interface 1
+    STRID_CDC_2,        // 6: CDC Interface 2
+    STRID_CDC_3,        // 7: CDC Interface 3
 };
 
 // Invoked when received GET OTHER SEED CONFIGURATION DESCRIPTOR request
@@ -141,8 +167,7 @@ uint8_t const* tud_descriptor_other_speed_configuration_cb(uint8_t index) {
     (void)index; // for multiple configurations
 
     // if link speed is high return fullspeed config, and vice versa
-    return (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_fs_configuration
-                                                : desc_hs_configuration;
+    return desc_fs_configuration;
 }
 
 // array of pointer to string descriptors
@@ -152,9 +177,18 @@ char const* string_desc_arr[] = {
     "Alia5",                    // 1: Manufacturer
     "PiCCANTE",                 // 2: Product
     NULL,                       // 3: Serials (null so it uses unique ID if available)
-    "PiCCANTE GVRET Device"     // 4: CDC Interface 0
-    "PiCCANTE SLCAN0",          // 5: CDC Interface 1,
-    "RPiReset"                  // 6: Reset Interface
+    "PiCCANTE + GVRET",         // 4: CDC Interface 0
+#if CFG_TUD_CDC > 1
+    "PiCCANTE SLCAN0", // 5: CDC Interface 1
+#endif
+
+#if CFG_TUD_CDC > 2
+    "PiCCANTE SLCAN1", // 6: CDC Interface 2
+#endif
+
+#if CFG_TUD_CDC > 3
+    "PiCCANTE SLCAN2", // 7: CDC Interface 3
+#endif
 };
 
 // buffer to hold the string descriptor during the request | plus 1 for the null

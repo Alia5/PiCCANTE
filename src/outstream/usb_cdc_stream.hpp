@@ -19,6 +19,9 @@
 
 #include "stream.hpp"
 #include <tusb.h>
+#include <vector>
+#include <memory>
+#include "Logger/Logger.hpp"
 
 namespace piccante::usb_cdc {
 class USB_CDC_Sink : public out::base_sink {
@@ -32,11 +35,26 @@ class USB_CDC_Sink : public out::base_sink {
     uint8_t itf = 0;
 };
 
+namespace {
+// Internal storage for dynamic streams
+std::vector<std::unique_ptr<USB_CDC_Sink>> sinks;
+std::vector<std::unique_ptr<out::stream>> streams;
+} // namespace
 
-inline USB_CDC_Sink usb_cdc_sink0(0);
-inline out::stream out0(usb_cdc_sink0);
+inline out::stream& out(uint8_t itf) {
+    if (itf >= CFG_TUD_CDC) {
+        Log::error << "Invalid USB CDC interface number: " << itf << "\n";
+        return *streams[0];
+    }
+    while (itf >= streams.size()) {
+        uint8_t new_idx = streams.size();
+        sinks.push_back(std::make_unique<USB_CDC_Sink>(new_idx));
+        streams.push_back(std::make_unique<out::stream>(*sinks.back()));
+    }
 
-inline USB_CDC_Sink usb_cdc_sink1(1);
-inline out::stream out1(usb_cdc_sink1);
+    return *streams[itf];
+}
+
+inline out::stream& out0 = out(0);
 
 } // namespace usb_cdc

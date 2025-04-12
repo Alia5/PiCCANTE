@@ -1,18 +1,29 @@
-/**
- * Copyright (c) 2023 Raspberry Pi (Trading) Ltd.
+/*
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
+ * Copyright (C) 2025 Peter Repukat
  *
- * SPDX-License-Identifier: BSD-3-Clause
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#ifndef _TUSB_CONFIG_H_
+#define _TUSB_CONFIG_H_
 
- #ifndef _TUSB_CONFIG_H_
- #define _TUSB_CONFIG_H_
- 
- #ifdef __cplusplus
-  extern "C" {
- #endif
-  // #ifndef CFG_TUSB_DEBUG
-  // #define CFG_TUSB_DEBUG (2)
-  // #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+// #ifndef CFG_TUSB_DEBUG
+// #define CFG_TUSB_DEBUG (2)
+// #endif
 #define CFG_TUSB_OS OPT_OS_FREERTOS
 
 
@@ -30,7 +41,7 @@
   //------------------------
 
   // Enable 2 CDC classes
-#define CFG_TUD_CDC (2)
+#define CFG_TUD_CDC ((piccanteNUM_CAN_BUSSES + 1))
   // Set CDC FIFO buffer sizes
 #define CFG_TUD_CDC_RX_BUFSIZE (64)
 #define CFG_TUD_CDC_TX_BUFSIZE (64)

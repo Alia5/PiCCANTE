@@ -115,7 +115,8 @@
         "climits": "cpp",
         "cfenv": "cpp",
         "*.inc": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "tusb_config.h": "c"
     },
     "C_Cpp.default.compilerPath": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-g++",
     "cortex-debug.variableUseNaturalFormat": true,
