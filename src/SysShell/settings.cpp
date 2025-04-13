@@ -137,4 +137,11 @@ void set_log_level(uint8_t level) {
     Log::set_log_level(static_cast<Log::Level>(level));
 }
 
+void set_led_mode(led::Mode mode) {
+    cfg.led_mode = mode;
+    led::set_mode(mode);
+}
+
+led::Mode get_led_mode() { return led::Mode(); }
+
 } // namespace piccante::sys::settings

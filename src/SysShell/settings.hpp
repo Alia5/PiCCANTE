@@ -40,4 +40,8 @@ void set_echo(bool enabled);
 
 uint8_t get_log_level();
 void set_log_level(uint8_t level);
+
+void set_led_mode(led::Mode mode);
+led::Mode get_led_mode();
+
 } // namespace piccante::sys::settings

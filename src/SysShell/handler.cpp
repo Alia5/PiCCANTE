@@ -81,6 +81,9 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
      {"Set number of CAN buses (can_num_busses [number])", &handler::cmd_can_num_busses}},
     {"settings", {"Show current system settings", &handler::cmd_settings_show}},
     {"save", {"Save current settings to flash", &handler::cmd_settings_store}},
+    {"led_mode", //
+     {"Set LED mode (led_mode <0-3>) 0=OFF, 1=Power, 2=CAN Activity",
+      &handler::cmd_led_mode}},
     {"log_level",
      {"Set log level (log_level <0-3>). 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR",
       &handler::cmd_log_level}},
@@ -314,6 +317,20 @@ void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
         host_out << ' ';
     host_out << static_cast<int>(cfg.log_level) << " (" << level_str << ")\n";
 
+
+    std::string led_mode_str{};
+    if (cfg.led_mode == 0)
+        led_mode_str = "Off";
+    else if (cfg.led_mode == 1)
+        led_mode_str = "Power";
+    else if (cfg.led_mode == 2)
+        led_mode_str = "Can Activity";
+
+    host_out << "LED mode: ";
+    for (int i = 0; i < label_width - 10; i++)
+        host_out << ' ';
+    host_out << static_cast<int>(cfg.led_mode) << " (" << led_mode_str << ")\n";
+
     host_out << "CAN buses:";
     for (int i = 0; i < label_width - 10; i++)
         host_out << ' ';
@@ -326,6 +343,27 @@ void handler::cmd_settings_store([[maybe_unused]] const std::string_view& arg) {
     } else {
         host_out << "Failed to save settings\n";
     }
+}
+
+void handler::cmd_led_mode(const std::string_view& arg) {
+    led::Mode mode = led::MODE_OFF;
+    auto [ptr, ec] = std::from_chars(arg.data(), arg.data() + arg.size(),
+                                     reinterpret_cast<uint8_t&>(mode));
+    if (ec == std::errc()) {
+        if (mode >= led::MODE_OFF && mode <= led::Mode::MODE_CAN) {
+            settings::set_led_mode(mode);
+            host_out << "LED mode set to " << static_cast<int>(mode) << "\n";
+        } else {
+            host_out << "Invalid LED mode. Valid values: 0-3\n";
+        }
+    } else {
+        host_out << "Current LED mode: " << static_cast<int>(cfg.led_mode) << "\n";
+        host_out << "Usage: led_mode <0-3>\n";
+        host_out << "  0: OFF\n";
+        host_out << "  1: Power\n";
+        host_out << "  2: CAN Activity\n";
+    }
+    host_out.flush();
 }
 
 void handler::cmd_log_level(const std::string_view& arg) {

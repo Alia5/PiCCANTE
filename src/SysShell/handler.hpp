@@ -70,6 +70,7 @@ class handler {
     void cmd_can_num_busses(const std::string_view& arg);
     void cmd_settings_show(const std::string_view& arg);
     void cmd_settings_store(const std::string_view& arg);
+    void cmd_led_mode(const std::string_view& arg);
     void cmd_log_level(const std::string_view& arg);
     void cmd_sys_stats(const std::string_view& arg);
 };
