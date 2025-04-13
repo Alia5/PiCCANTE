@@ -23,6 +23,9 @@
 #include "task.h"
 #include "semphr.h"
 
+#include "fs/littlefs_driver.hpp"
+#include "lfs.h"
+
 namespace piccante::sys::stats {
 
 namespace {
@@ -226,6 +229,24 @@ UptimeInfo get_uptime() {
     info.seconds = seconds % 60;
 
     return info;
+}
+
+FilesystemStats get_filesystem_stats() {
+    FilesystemStats stats{};
+
+    stats.block_size = LFS_BLOCK_SIZE;
+    stats.block_count = LFS_BLOCK_COUNT;
+    stats.total_size = static_cast<size_t>(stats.block_size) * stats.block_count;
+
+    const auto used_blocks = lfs_fs_size(&fs::lfs);
+    if (used_blocks >= 0) {
+        stats.used_size = static_cast<size_t>(used_blocks) * stats.block_size;
+        stats.free_size = stats.total_size - stats.used_size;
+        stats.usage_percentage =
+            (static_cast<float>(stats.used_size) / stats.total_size) * 100.0f;
+    }
+
+    return stats;
 }
 
 } // namespace piccante::sys::stats

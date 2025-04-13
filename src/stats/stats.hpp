@@ -64,4 +64,14 @@ std::vector<TaskInfo> get_cpu_stats(bool momentary = true);
 UptimeInfo get_uptime();
 std::size_t num_digits(unsigned long num);
 
+struct FilesystemStats {
+    size_t total_size;      ///< Total size of filesystem in bytes
+    size_t used_size;       ///< Used space in bytes
+    size_t free_size;       ///< Free space in bytes
+    float usage_percentage; ///< Used space as percentage
+    int block_count;        ///< Total blocks
+    int block_size;         ///< Block size in bytes
+};
+FilesystemStats get_filesystem_stats();
+
 } // namespace piccante::sys::stats

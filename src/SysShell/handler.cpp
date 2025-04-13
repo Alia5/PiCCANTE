@@ -85,7 +85,8 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
      {"Set log level (log_level <0-3>). 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR",
       &handler::cmd_log_level}},
     {"sys_stats", //
-     {"Display system information and resource usage (sys_stats [cpu|heap|tasks|uptime])",
+     {"Display system information and resource usage (sys_stats "
+      "[cpu|heap|fs|tasks|uptime])",
       &handler::cmd_sys_stats}},
 };
 
@@ -364,12 +365,15 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
     bool show_tasks = show_all || arg == "tasks";
     bool show_cpu = show_all || arg == "cpu";
     bool show_uptime = show_all || arg == "uptime";
+    bool show_fs = show_all || arg == "fs";
+
 
     // Check for invalid argument
-    if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime) {
+    if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime &&
+        !show_fs) {
         host_out << "Unknown parameter: " << arg << "\n";
         host_out << "Usage: sys_stats [section]\n";
-        host_out << "Available sections: cpu, heap, tasks, uptime\n";
+        host_out << "Available sections: cpu, heap, fs, tasks, uptime\n";
         host_out << "If no section is specified, all information is displayed.\n";
         return;
     }
@@ -385,6 +389,22 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
         host_out << "  Heap used:       " << memory.heap_used << " bytes";
         host_out << " (" << memory.heap_usage_percentage << "%)\n\n";
     }
+
+    if (show_fs) {
+        const auto fs_stats = piccante::sys::stats::get_filesystem_stats();
+        host_out << "Filesystem (LittleFS):\n";
+        host_out << "  Total size:    " << fs_stats.total_size << " bytes";
+        host_out << " (" << (fs_stats.total_size / 1024) << " KiB)\n";
+        host_out << "  Used space:    " << fs_stats.used_size << " bytes";
+        host_out << " (" << (fs_stats.used_size / 1024) << " KiB)\n";
+        host_out << "  Free space:    " << fs_stats.free_size << " bytes";
+        host_out << " (" << (fs_stats.free_size / 1024) << " KiB)\n";
+        host_out << "  Usage:         " << static_cast<int>(fs_stats.usage_percentage)
+                 << "%\n";
+        host_out << "  Block size:    " << fs_stats.block_size << " bytes\n";
+        host_out << "  Block count:   " << fs_stats.block_count << "\n\n";
+    }
+
     if (show_tasks) {
         const auto tasks = piccante::sys::stats::get_task_stats();
         host_out << "Task Statistics:\n";
