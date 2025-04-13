@@ -160,6 +160,11 @@ int main() {
 #endif
     piccante::sys::stats::init_stats_collection();
 
+#ifndef WIFI_ENABLED
+    piccante::led::init(cfg.led_mode);
+#endif
+
+
     static TaskHandle_t usbTaskHandle;
     static TaskHandle_t txCanTaskHandle;
     static TaskHandle_t piccanteAndGvretTaskHandle;
