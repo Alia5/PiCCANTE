@@ -9,7 +9,7 @@
 
 # PiCCANTE 🌶️
 
-**Pi**ccante **C**ar **C**ontroller **A**rea **N**etwork **T**ool for **E**xploration
+**Pi**CCANTE **C**ar **C**ontroller **A**rea **N**etwork **T**ool for **E**xploration
 
 PiCCANTE is a powerful tool for exploring and reversing CAN busses of vehicles, based on Raspberry Pi Pico (any model)
 
