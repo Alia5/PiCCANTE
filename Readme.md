@@ -115,7 +115,9 @@ can_enable      - Enable CAN bus with specified bitrate (can_enable <bus> <bitra
 can_status      - Show status of CAN buses
 echo            - Toggle command echo (echo <on|off>)
 help            - Display this help message
+led_mode        - Set LED mode (led_mode <0-2>) 0=OFF, 1=Power, 2=CAN Activity
 log_level       - Set log level (log_level <0-3>). 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
+reset           - Reset the system (reset)
 save            - Save current settings to flash
 set_num_busses  - Set number of CAN buses (can_num_busses [number])
 settings        - Show current system settings
