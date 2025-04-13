@@ -49,7 +49,9 @@ jobs:
     strategy:
       matrix:
         board: [
+          { name: "pico", platform: "rp2040", board_type: "pico" },
           { name: "pico_w", platform: "rp2040", board_type: "pico_w" },
+          { name: "pico2", platform: "rp2350-arm-s", board_type: "pico2" },
           { name: "pico2_w", platform: "rp2350-arm-s", board_type: "pico2_w" }
         ]
       fail-fast: false
