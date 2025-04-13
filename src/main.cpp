@@ -26,6 +26,10 @@
 #include "SysShell/handler.hpp"
 #include "SysShell/settings.hpp"
 #include "stats/stats.hpp"
+#include "led/led.hpp"
+#ifdef WIFI_ENABLED
+#include <pico/cyw43_arch.h>
+#endif
 
 static void usbDeviceTask(void* parameters) {
     (void)parameters;
@@ -61,6 +65,7 @@ static void can_recieveTask(void* parameter) {
         auto received = false;
         for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES; bus++) {
             if (piccante::can::receive(bus, msg) >= 0) {
+                piccante::led::toggle();
                 gvret_handler->comm_can_frame(bus, msg);
                 auto handler = slcan_handler[bus].get();
                 if (handler != nullptr) {
@@ -105,6 +110,27 @@ static void cmd_gvret_task(void* parameter) {
     }
 }
 
+#ifdef WIFI_ENABLED
+// TODO: proper
+static void wifi_task(void* params) {
+    vTaskDelay(50);
+    const auto err = cyw43_arch_init();
+    if (err != PICO_OK) {
+        piccante::Log::error << "Failed to initialize cyw43: " << err << "\n";
+    } else {
+        piccante::Log::debug << "cyw43 initialized successfully\n";
+    }
+
+    const auto cfg = static_cast<piccante::sys::settings::system_settings*>(params);
+    piccante::led::init(cfg->led_mode);
+
+    for (;;) {
+        // TODO:
+        vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+    }
+}
+#endif
+
 int main() {
     piccante::uart::sink0.init(0, 1, piccanteUART_SPEED);
 
@@ -121,7 +147,7 @@ int main() {
 
     // littleFS
     if (piccante::fs::init()) {
-        piccante::Log::info << "LittleFS mounted successfully\n";
+        piccante::Log::debug << "LittleFS mounted successfully\n";
     } else {
         piccante::Log::error << "LittleFS mount failed\n";
     }
@@ -132,7 +158,6 @@ int main() {
 #else
     piccante::sys::settings::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
 #endif
-
     piccante::sys::stats::init_stats_collection();
 
     static TaskHandle_t usbTaskHandle;
@@ -156,10 +181,17 @@ int main() {
 
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
 
-    vTaskCoreAffinitySet(usbTaskHandle, 0x01); // Set the task to run on core 1
+    vTaskCoreAffinitySet(usbTaskHandle, 0x01);
     vTaskCoreAffinitySet(txCanTaskHandle, 0x01);
     vTaskCoreAffinitySet(piccanteAndGvretTaskHandle, 0x01);
-    vTaskCoreAffinitySet(canTaskHandle, 0x02); // Set the task to run on core 2
+    vTaskCoreAffinitySet(canTaskHandle, 0x02);
+
+#ifdef WIFI_ENABLED
+    static TaskHandle_t wifiTaskHandle;
+    xTaskCreate(wifi_task, "WIFI", configMINIMAL_STACK_SIZE, (void*)&cfg,
+                configMAX_PRIORITIES - 5, &wifiTaskHandle);
+    vTaskCoreAffinitySet(wifiTaskHandle, 0x01);
+#endif
 
     vTaskStartScheduler();
 

@@ -17,27 +17,17 @@
  */
 #pragma once
 #include <cstdint>
-#include "led/led.hpp"
 
-namespace piccante::sys::settings {
-#pragma pack(push, 1)
-struct system_settings {
-    bool echo;
-    uint8_t log_level;
-    led::Mode led_mode;
-    // bool wifi_enabled;
-    // bool bt_enabled; ...
+namespace piccante::led {
+
+enum Mode : uint8_t {
+    MODE_OFF,
+    MODE_PWR,
+    MODE_CAN,
 };
-#pragma pack(pop)
 
-bool load_settings();
-
-const system_settings& get();
-
-bool store();
-bool get_echo();
-void set_echo(bool enabled);
-
-uint8_t get_log_level();
-void set_log_level(uint8_t level);
-} // namespace piccante::sys::settings
+void init(Mode mode = MODE_CAN);
+void set_mode(Mode mode);
+Mode get_mode();
+void toggle();
+} // namespace piccante::led

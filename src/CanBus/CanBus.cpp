@@ -34,6 +34,7 @@
 #include <hardware/structs/pio.h>
 #include <lfs.h>
 #include <fs/littlefs_driver.hpp>
+#include "led/led.hpp"
 
 namespace piccante::can {
 
@@ -343,6 +344,7 @@ void canTask(void* parameters) {
         bool did_tx = false;
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
             while (xQueueReceive(can_queues[i].tx, &msg, 0) == pdTRUE) {
+                led::toggle();
                 did_tx = true;
                 int res = can2040_transmit(&(can_buses[i]), &msg);
                 if (res < 0) {

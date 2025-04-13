@@ -269,21 +269,41 @@ target_sources(${target_name} PRIVATE
 )
 
 # \ littlefs
+set(IS_WIFI_BOARD 0)
+
+if(PICO_BOARD MATCHES ".*w.*")
+    message(STATUS "WiFi-capable board detected: ${PICO_BOARD}")
+    set(IS_WIFI_BOARD 1)
+    add_compile_definitions(WIFI_ENABLED=1)
+endif()
 
 # Add any user requested libraries
 target_link_libraries(${target_name}
-
-    # pico_lwip_http
-    # pico_lwip_mdns
-    # pico_cyw43_arch_lwip_sys_freertos
-    pico_cyw43_arch_none
-
-    pico_async_context_freertos FreeRTOS-Kernel-Heap4
+    pico_async_context_freertos
+    FreeRTOS-Kernel-Heap4
     hardware_pio
-    pico_unique_id tinyusb_device tinyusb_board
+    pico_unique_id
+    tinyusb_device
+    tinyusb_board
 
     -lstdc++
 )
+
+if(IS_WIFI_BOARD)
+    target_link_libraries(${target_name}
+        pico_cyw43_arch_lwip_sys_freertos
+        pico_lwip_http
+        pico_lwip_mdns
+        pico_btstack_classic
+        pico_btstack_ble
+    )
+
+    # Make sure we include lwIP headers
+    target_include_directories(${target_name} PRIVATE
+        ${PICO_SDK_PATH}/lib/lwip/src/include
+        ${PICO_SDK_PATH}/lib/btstack/src
+    )
+endif()
 
 # pico_enable_stdio_usb(${target_name} 0)
 pico_add_extra_outputs(${target_name})

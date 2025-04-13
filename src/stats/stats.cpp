@@ -58,6 +58,9 @@ static void stats_collection_task(void*) {
         raw_snapshot.resize(task_count);
         temp_snapshot.clear();
         for (const auto& task : raw_snapshot) {
+            if (task.pcTaskName == nullptr) {
+                continue; // Skip tasks with no name
+            }
             temp_snapshot.emplace_back(task);
         }
 

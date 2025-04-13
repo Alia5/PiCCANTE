@@ -5,10 +5,13 @@
 // Common settings used in most of the pico_w examples
 // (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html for details)
 
-#define LWIP_TIMEVAL_PRIVATE 0
+
+#ifndef NO_SYS
+#define NO_SYS 0
+#endif
 
 #ifndef LWIP_SOCKET
-#define LWIP_SOCKET 1
+#define LWIP_SOCKET 0
 #endif
 #if PICO_CYW43_ARCH_POLL
 #define MEM_LIBC_MALLOC 1
@@ -85,5 +88,16 @@
 #define PPP_DEBUG LWIP_DBG_OFF
 #define SLIP_DEBUG LWIP_DBG_OFF
 #define DHCP_DEBUG LWIP_DBG_OFF
+
+#if !NO_SYS
+#define TCPIP_THREAD_STACKSIZE 1024
+#define DEFAULT_THREAD_STACKSIZE 1024
+#define DEFAULT_RAW_RECVMBOX_SIZE 8
+#define TCPIP_MBOX_SIZE 8
+#define LWIP_TIMEVAL_PRIVATE 0
+
+// not necessary, can be done either way
+#define LWIP_TCPIP_CORE_LOCKING_INPUT 1
+#endif
 
 #endif /* __LWIPOPTS_H__ */

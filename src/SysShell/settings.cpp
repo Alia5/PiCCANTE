@@ -30,18 +30,17 @@ system_settings cfg = {
     //
     .echo = true,                                              //
     .log_level = static_cast<uint8_t>(Log::Level::LEVEL_INFO), //
+    .led_mode = led::MODE_CAN,                                 //
 };
 
-// Thread safety
+namespace {
 SemaphoreHandle_t settings_mutex = nullptr;
 
-// Initialization flag
 bool initialized = false;
 
-// Constants
 constexpr auto SETTINGS_FILENAME = "sys_settings";
+} // namespace
 
-// Helper functions
 bool take_mutex(uint32_t timeout_ms = 100) {
     if (settings_mutex == nullptr) {
         settings_mutex = xSemaphoreCreateMutex();
@@ -129,7 +128,7 @@ bool store() {
 
 bool get_echo() { return cfg.echo; }
 
-void set_echo(bool echo) { cfg.echo = echo; }
+void set_echo(bool enabled) { cfg.echo = enabled; }
 
 uint8_t get_log_level() { return cfg.log_level; }
 
