@@ -1,12 +1,198 @@
+<img src="logo.svg" align="right" width="200"/>
+
 # 🌶️ PiCCANTE 🌶️
 
 **Pi**cante **C**ar **C**ontroller **A**rea **N**etwork **T**ool for **E**xploration
 
-PiCCANTE is a tool for exploring and reversing CAN busses of vehicles, based on Raspberry Pi Pico (any model)
+PiCCANTE is a powerful tool for exploring and reversing CAN busses of vehicles, based on Raspberry Pi Pico (any model)
 
-## WORK IN PROGRESS
+## 🚧 WORK IN PROGRESS 🚧
 
-## License
+## ℹ️ About PiCCANTE
+
+PiCCANTE is designed to be a dead-**simple**, dirt-**cheap**, and readily-**available** hardware platform for vehicle research and exploration.  
+As the automotive landscape becomes increasingly connected, while still relying on communication standards from the 1980s, independent vehicle research is becoming increasingly important.
+
+The project leverages Raspberry Pi Pico (2[W]) development boards, selected for their exceptional affordability, global availability, impressive specifications, and well-documented open-source SDK.
+
+⚠️ Always exercise caution when connecting to vehicle systems.
+
+## 📋 Quick Start
+
+### What You'll Need
+
+- 1× Raspberry Pi Pico (any model, RP2040 or RP2350)
+  - **Note:** The Pico 2 W (RP2350) is recommended for full feature support, including WiFi and Bluetooth.
+- 1-3× CAN transceivers (readily available SN65HVD23x or any other 3.3V compatible transceiver)
+  - **Note:** Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them, for research in a vehicle, you may need to remove it.
+- USB cable
+- Perfboard
+  - [**OPTIONAL**] or custom PCB 🔜
+- Soldering iron
+- Basic soldering skills
+- [**Optional**] Low dropout Buck-Converter module and OBD Plug for directly connecting to the vehicle's OBD-II port
+- [**Optional**] 3D printed case for the Pico and transceivers
+
+### Basic Usage Examples
+
+#### Linux with can-utils (slcan)
+
+```bash
+# Set up SLCAN interface
+sudo slcand -o -s6 -t hw -S 3000000 /dev/ttyACM1 can0
+sudo ip link set up can0
+
+# Monitor CAN traffic
+candump can0
+```
+
+#### Cross Platform with SavvyCAN
+
+1. Connect PiCCANTE to USB
+2. Open SavvyCAN
+3. Go to Connection ➡️ Open Connection Window ➡️ Add device Connection
+4. Select "Serial Connection (GVRET)" and choose the appropriate COM port / TTY
+5. Click "Create New Connection"
+
+### 🎯 Core Goals
+
+- **Dead-simple**:
+  - Simple enough to be soldered on perfboard with minimal components
+- **Dirt-cheap**:
+  - Minimal hardware requirements keep costs down
+  - Based on affordable, off-the-shelf components
+  - No specialty hardware needed
+- **Readily-Available**:
+  - Fully open-source hardware and software
+  - Uses widely available Raspberry Pi Pico boards as base
+- **Easy to use**:
+  - Pre-built firmware releases available for immediate use
+  - *Driverless* across all major operating systems
+  - Seamless integration with existing CAN tools
+  - 🔜 Documentation
+
+## ✨ Features
+
+- ✅ Up to 3× CAN 2.0B interfaces (2× on RP2040 (Pico[W]), 3× on RP2350 (Pico 2[W]))
+- ✅ 1× USB-CDC PiCCANTE command + GVRET (binary only) interface
+  - Compatible with [SavvyCAN](https://github.com/collin80/SavvyCAN) and other automotive tools
+- ✅ Up to 3× USB-CDC SLCAN interfaces (dedicated to each CAN channel)
+  - SocketCAN compatible via [can-utils (Linux)](https://github.com/linux-can/can-utils)
+- 🔜 ELM327 emulator
+- 🔜 WiFi / Bluetooth support (on Pico W models)
+- 🔜 MITM mode for advanced analysis / vehicle tuning
+- 🔜 Data logging to SD card (maybe)
+- 🔜 3D printable case designs for making PiCCANTE based OBD-II dongles
+
+## 🔧 Hardware
+
+Comprehensive documentation for self-built perfboard hardware is coming soon.
+Custom PCB designs may follow at a later date.
+
+## 💾 Software
+
+Pre-compiled binaries for all official Raspberry Pi Pico boards are available as CI action artifacts in the GitHub repository.
+
+When connected via USB, PiCCANTE exposes **up to** 4× USB-CDC interfaces:
+
+- 1× PiCCANTE command + GVRET (binary) interface
+- **Up to** 3× SLCAN interfaces (dedicated to each CAN channel)
+
+### PiCCANTE Commands
+
+```
+binary          - Toggle GVRET binary mode (binary <on|off>)
+can_bitrate     - Change CAN bus bitrate (can_bitrate <bus> <bitrate>)
+can_disable     - Disable CAN bus (can_disable <bus>)
+can_enable      - Enable CAN bus with specified bitrate (can_enable <bus> <bitrate>)
+can_status      - Show status of CAN buses
+echo            - Toggle command echo (echo <on|off>)
+help            - Display this help message
+log_level       - Set log level (log_level <0-3>). 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
+save            - Save current settings to flash
+set_num_busses  - Set number of CAN buses (can_num_busses [number])
+settings        - Show current system settings
+sys_stats       - Display system information and resource usage (sys_stats [cpu|heap|fs|tasks|uptime])
+```
+
+## ❓ Troubleshooting
+
+- **Issue**: CAN bus not receiving data  
+  *Solutions*:  
+  - Verify CAN status with `can_status` command
+  - Verify wiring and bitrate settings
+  - Check for proper bus termination resistance (remove resistor on the transceiver if connected to an existing CAN-bus)
+
+- **Issue**: LED not blinking  
+  *Solution*:
+  - Check USB connection and power
+
+## 🛠️ Development
+
+PiCCANTE is built using the Raspberry Pi Pico SDK and follows standard Pico development practices. This section covers how to set up your development environment, build the project, and extend its functionality.
+
+### Prerequisites
+
+- [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk)
+- [CMake](https://cmake.org/) (3.13 or newer)
+- C/C++ compiler (GCC ARM)
+- [Visual Studio Code](https://code.visualstudio.com/) with the [Pico extension](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) (recommended)
+
+### Environment Setup
+
+1. **Install the Pico SDK**:
+
+    Follow the instructions in the [Pico SDK documentation](https://github.com/raspberrypi/pico-sdk) to install the SDK
+
+2. **Clone PiCCANTE**:
+
+    ```bash
+    git clone <https://github.com/username/PiCCANTE.git>
+    cd PiCCANTE
+    git submodule update --init --recursive
+    ```
+
+### Building
+
+#### Command Line
+
+1. **Configure with CMake**:
+
+   ```bash
+   cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+   ```
+
+2. **Build the project**:
+
+   ```bash
+   cmake --build build --config Release
+   ```
+
+#### Using VS Code
+
+1. Open the PiCCANTE folder in VS Code
+2. Press F1 and select "CMake: Configure"
+3. Press F7 to build the project
+4. To flash, connect a Pico in BOOTSEL mode and press F5
+
+## 👥 Contributing
+
+Contributions to PiCCANTE are welcome! Whether it's bug reports, feature requests, documentation improvements, or code contributions, your help makes this project better.
+
+- **Bug Reports**: Open an issue describing the problem and steps to reproduce it
+- **Feature Requests**: Open an issue describing the desired functionality
+- **Code Contributions**: Fork the repository, make your changes, and submit a pull request
+
+### Extending PiCCANTE
+
+PiCCANTE is designed to be modular and extensible. Here are some key areas where you might want to extend functionality:
+
+- **Adding new commands**: Extend the command interpreter to add custom commands.
+- **Implementing new protocols**: Add new protocol handlers in their respective directories.
+- **Car-specific tools**: Fork PiCCANTE to create a car-specific tool and diagnostics dongle.
+- **Custom data logging**: Implement custom data logging to SD card to monitor your vehicle on a track day.
+
+## 📄 License
 
 ```
 PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
