@@ -1,4 +1,5 @@
 <img src="logo.svg" align="right" width="200"/>
+<br />
 
 # 🌶️ PiCCANTE 🌶️
 
@@ -13,7 +14,7 @@ PiCCANTE is a powerful tool for exploring and reversing CAN busses of vehicles, 
 PiCCANTE is designed to be a dead-**simple**, dirt-**cheap**, and readily-**available** hardware platform for vehicle research and exploration.  
 As the automotive landscape becomes increasingly connected, while still relying on communication standards from the 1980s, independent vehicle research is becoming increasingly important.
 
-The project leverages Raspberry Pi Pico (2[W]) development boards, selected for their exceptional affordability, global availability, impressive specifications, and well-documented open-source SDK.
+The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for their exceptional affordability, global availability, impressive specifications, and well-documented open-source SDK.
 
 ⚠️ Always exercise caution when connecting to vehicle systems.
 
