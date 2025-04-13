@@ -30,8 +30,9 @@ namespace piccante::gvret::state {
 // It's the same as send_can_frame, but instead of sending the frame, it just echoes it...
 class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
         public:
-    explicit echo_can_frame(out::stream& host_out)
-        : fsm::state<uint8_t, Protocol, bool>(ECHO_CAN_FRAME), out(host_out) {}
+    explicit echo_can_frame(
+        std::function<void(uint busnumber, const can2040_msg& frame)> comm_fn)
+        : fsm::state<uint8_t, Protocol, bool>(ECHO_CAN_FRAME), comm_fn(comm_fn) {}
 
 
     Protocol enter() override {
@@ -71,7 +72,7 @@ class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
                 if (step < frame.dlc + 6) {
                     frame.data[step - 6] = byte;
                 } else {
-                    comm_can_frame(out_bus, frame, out);
+                    comm_fn(out_bus, frame);
                     return {IDLE, true};
                 }
                 break;
@@ -82,9 +83,9 @@ class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         protected:
+    std::function<void(uint busnumber, const can2040_msg& frame)> comm_fn;
     uint8_t step = 0;
     can2040_msg frame = {};
     uint8_t out_bus = 0;
-    out::stream& out;
 };
 } // namespace piccante::gvret::state

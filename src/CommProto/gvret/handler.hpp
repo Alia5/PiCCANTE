@@ -18,11 +18,20 @@
 #pragma once
 
 #include <cstdint>
-
-
 #include "../../StateMachine/StateMachine.hpp"
 #include "proto.hpp"
 #include "states/states.hpp"
+
+// My implementation of the gvret protocol (afaik) originally by Collin Kidder (Collin80)
+// Based on the original code from:
+// Protocol details (implementations can be found at:
+// https://github.com/collin80/M2RET/blob/master/CommProtocol.txt
+// esp32 arduino impl: https://github.com/collin80/ESP32RET/blob/master/gvret_comm.h
+// SavvyCAN host impl:
+// https://github.com/collin80/SavvyCAN/blob/master/connections/gvretserial.cpp
+//
+// check handler and states for more details
+// binary protocol enum in proto.hpp
 
 namespace piccante::gvret {
 
@@ -38,9 +47,13 @@ class handler {
     handler& operator=(handler&&) = delete;
 
     bool process_byte(uint8_t byte);
+    void comm_can_frame(uint busnumber, const can2040_msg& frame);
+    void set_binary_mode(bool mode);
+    bool get_binary_mode() const;
 
         private:
     out::stream& host_out;
+    bool binary_mode = false;
     fsm::StateMachine<uint8_t, Protocol, bool> protocol_fsm{
         state::idle(),
         state::get_command(),
@@ -55,7 +68,9 @@ class handler {
         state::set_sw_mode(),
         state::keepalive(host_out),
         state::set_systype(),
-        state::echo_can_frame(host_out),
+        state::echo_can_frame([this](uint busnumber, const can2040_msg& frame) {
+            this->comm_can_frame(busnumber, frame);
+        }),
         state::get_num_buses(host_out),
         state::get_canbus_params_3_4_5(host_out),
         state::set_canbus_params_3_4_5(),

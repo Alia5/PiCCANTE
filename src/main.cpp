@@ -25,6 +25,7 @@
 #include "CommProto/gvret/handler.hpp"
 #include "SysShell/handler.hpp"
 #include "SysShell/settings.hpp"
+#include "stats/stats.hpp"
 
 static void usbDeviceTask(void* parameters) {
     (void)parameters;
@@ -47,6 +48,7 @@ static void usbDeviceTask(void* parameters) {
 
 static std::array<std::unique_ptr<piccante::slcan::handler>, piccanteNUM_CAN_BUSSES>
     slcan_handler = {nullptr};
+static std::unique_ptr<piccante::gvret::handler> gvret_handler = nullptr;
 static void can_recieveTask(void* parameter) {
     (void)parameter;
     // Wait until can is up.
@@ -59,7 +61,7 @@ static void can_recieveTask(void* parameter) {
         auto received = false;
         for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES; bus++) {
             if (piccante::can::receive(bus, msg) >= 0) {
-                piccante::gvret::comm_can_frame(bus, msg, piccante::usb_cdc::out(0));
+                gvret_handler->comm_can_frame(bus, msg);
                 auto handler = slcan_handler[bus].get();
                 if (handler != nullptr) {
                     handler->comm_can_frame(msg);
@@ -81,15 +83,16 @@ static void cmd_gvret_task(void* parameter) {
     vTaskDelay(60);
     piccante::Log::info << ("Starting PiCCANTE CMD + GVRET Task!\n");
 
-    piccante::gvret::handler gvret_handler(piccante::usb_cdc::out(0));
-    piccante::sys::shell::handler shell_handler(piccante::usb_cdc::out(0));
+    gvret_handler = std::make_unique<piccante::gvret::handler>(piccante::usb_cdc::out(0));
+    piccante::sys::shell::handler shell_handler(*gvret_handler.get(),
+                                                piccante::usb_cdc::out(0));
 
     for (;;) {
         auto received = false;
         while (tud_cdc_n_available(0) > 0) {
             received = true;
             const auto c = tud_cdc_n_read_char(0);
-            const auto used = gvret_handler.process_byte(c);
+            const auto used = gvret_handler->process_byte(c);
             if (!used) {
                 shell_handler.process_byte(c);
             }
@@ -130,6 +133,8 @@ int main() {
     piccante::sys::settings::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
 #endif
 
+    piccante::sys::stats::init_stats_collection();
+
     static TaskHandle_t usbTaskHandle;
     static TaskHandle_t txCanTaskHandle;
     static TaskHandle_t piccanteAndGvretTaskHandle;
@@ -139,7 +144,7 @@ int main() {
                 configMAX_PRIORITIES - 6, &usbTaskHandle);
     xTaskCreate(can_recieveTask, "CAN RX", configMINIMAL_STACK_SIZE, nullptr, 5,
                 &txCanTaskHandle);
-    xTaskCreate(cmd_gvret_task, "PiCCANTE + GVRET", configMINIMAL_STACK_SIZE, nullptr, 6,
+    xTaskCreate(cmd_gvret_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE, nullptr, 6,
                 &piccanteAndGvretTaskHandle);
 
     for (uint8_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {

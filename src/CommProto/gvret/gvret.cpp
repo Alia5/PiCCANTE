@@ -31,23 +31,5 @@ uint8_t check_sum(const std::span<uint8_t>& buff) {
     return std::accumulate(buff.begin(), buff.end(), 0);
 }
 
-void comm_can_frame(uint busnumber, const can2040_msg& frame, out::stream& out) {
-    // TODO: MICROS as 4 byte value, but oh well... SavvyCAN only uses relative value should be fine
-    uint32_t const time = to_us_since_boot(get_absolute_time());
-
-    auto id = frame.id;
-    // remove flags from id copy
-    id &= ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
-
-
-    out << GET_COMMAND << SEND_CAN_FRAME << piccante::bin(time) << piccante::bin(id)
-        << static_cast<uint8_t>(frame.dlc + uint8_t(busnumber << 4));
-    for (uint8_t i = 0; i < frame.dlc; i++) {
-        out << frame.data[i];
-    }
-    // TODO: Checksum, seems not to be implemented anyway...
-    out << uint8_t(0);
-    out.flush();
-}
 
 } // namespace piccante::gvret

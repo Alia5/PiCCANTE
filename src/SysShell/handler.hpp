@@ -23,15 +23,16 @@
 #include <functional>
 #include "outstream/stream.hpp"
 #include "settings.hpp"
+#include "CommProto/gvret/handler.hpp"
 
 namespace piccante::sys::shell {
 
 
 class handler {
         public:
-    explicit handler(out::stream& out_stream,
+    explicit handler(gvret::handler& gvret, out::stream& out_stream,
                      const settings::system_settings& cfg = settings::get())
-        : host_out(out_stream), cfg(cfg) {};
+        : gvret(gvret), host_out(out_stream), cfg(cfg) {};
     ~handler() = default;
 
     // Disable copy and move operations
@@ -44,6 +45,7 @@ class handler {
     void handle_cmd(const std::string_view& cmd);
 
         private:
+    gvret::handler& gvret;
     out::stream& host_out;
     std::vector<char> buffer{};
     const settings::system_settings& cfg;
@@ -57,10 +59,10 @@ class handler {
     };
     static std::map<std::string_view, CommandInfo, std::less<>> commands;
 
-
     // Command handlers
     void cmd_echo(const std::string_view& arg);
     void cmd_help(const std::string_view& arg);
+    void cmd_toggle_binary(const std::string_view& arg);
     void cmd_can_enable(const std::string_view& arg);
     void cmd_can_disable(const std::string_view& arg);
     void cmd_can_bitrate(const std::string_view& arg);
@@ -69,5 +71,6 @@ class handler {
     void cmd_settings_show(const std::string_view& arg);
     void cmd_settings_store(const std::string_view& arg);
     void cmd_log_level(const std::string_view& arg);
+    void cmd_sys_stats(const std::string_view& arg);
 };
 } // namespace piccante::sys::shell

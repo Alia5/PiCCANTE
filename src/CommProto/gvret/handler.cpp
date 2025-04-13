@@ -17,8 +17,45 @@
  */
 #include "handler.hpp"
 #include <cstdint>
+#include <pico/time.h>
+#include "util/bin.hpp"
+#include "proto.hpp"
+#include "can2040.h"
+
 
 namespace piccante::gvret {
-bool handler::process_byte(uint8_t byte) { return protocol_fsm.tick(byte); }
+bool handler::process_byte(uint8_t byte) {
+    if (byte == ENABLE_BINARY_MODE) {
+        binary_mode = true;
+    }
+    return protocol_fsm.tick(byte);
+}
+
+void handler::comm_can_frame(uint busnumber, const can2040_msg& frame) {
+    if (!binary_mode) {
+        return;
+    }
+    // TODO: MICROS as 4 byte value, but oh well... SavvyCAN only uses relative value
+    // should be fine
+    uint32_t const time = to_us_since_boot(get_absolute_time());
+
+    auto id = frame.id;
+    // remove flags from id copy
+    id &= ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
+
+
+    host_out << GET_COMMAND << SEND_CAN_FRAME << piccante::bin(time) << piccante::bin(id)
+             << static_cast<uint8_t>(frame.dlc + uint8_t(busnumber << 4));
+    for (uint8_t i = 0; i < frame.dlc; i++) {
+        host_out << frame.data[i];
+    }
+    // TODO: Checksum, seems not to be implemented anyway...
+    host_out << uint8_t(0);
+    host_out.flush();
+}
+
+void handler::set_binary_mode(bool mode) { binary_mode = mode; }
+
+bool handler::get_binary_mode() const { return binary_mode; }
 
 } // namespace gvret
