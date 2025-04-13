@@ -87,7 +87,7 @@ candump can0
 
 ## 🔧 Hardware
 
-Comprehensive documentation for self-built perfboard hardware is coming soon.
+Comprehensive documentation for self-built perfboard hardware is coming soon.  
 Custom PCB designs may follow at a later date.
 
 ## 💾 Software
