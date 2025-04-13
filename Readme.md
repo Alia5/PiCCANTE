@@ -143,8 +143,8 @@ PiCCANTE is built using the Raspberry Pi Pico SDK and follows standard Pico deve
 ### Prerequisites
 
 - [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk)
-- [CMake](https://cmake.org/) (3.13 or newer)
-- C/C++ compiler (GCC ARM)
+- [CMake](https://cmake.org/) (3.13 or newer) [Windows: bundled with PicoSDK]
+- C/C++ compiler (GCC ARM) [Windows: bundled with PicoSDK]
 - [Visual Studio Code](https://code.visualstudio.com/) with the [Pico extension](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) (recommended)
 
 ### Environment Setup
