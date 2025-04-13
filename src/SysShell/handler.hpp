@@ -73,5 +73,6 @@ class handler {
     void cmd_led_mode(const std::string_view& arg);
     void cmd_log_level(const std::string_view& arg);
     void cmd_sys_stats(const std::string_view& arg);
+    void cmd_reset(const std::string_view& arg);
 };
 } // namespace piccante::sys::shell

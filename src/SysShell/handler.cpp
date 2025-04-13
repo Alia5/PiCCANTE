@@ -26,6 +26,7 @@
 #include "task.h"
 #include "stats/stats.hpp"
 #include "CommProto/gvret/handler.hpp"
+#include <hardware/watchdog.h>
 
 namespace piccante::sys::shell {
 
@@ -91,6 +92,8 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
      {"Display system information and resource usage (sys_stats "
       "[cpu|heap|fs|tasks|uptime])",
       &handler::cmd_sys_stats}},
+    {"reset", //
+     {"Reset the system (reset)", &handler::cmd_reset}},
 };
 
 void handler::cmd_echo(const std::string_view& arg) {
@@ -566,6 +569,12 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
                  << uptime.seconds << " seconds\n\n";
     }
     host_out.flush();
+}
+
+void handler::cmd_reset([[maybe_unused]] const std::string_view& arg) {
+    host_out << "Resetting system...\n";
+    host_out.flush();
+    watchdog_reboot(0, SRAM_END, 10);
 }
 
 } // namespace piccante::sys::shell
