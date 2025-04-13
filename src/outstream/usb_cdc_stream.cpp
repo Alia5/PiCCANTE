@@ -20,6 +20,28 @@
 #include <cstddef>
 
 namespace piccante::usb_cdc {
-void USB_CDC_Sink::write(const char* v, std::size_t s) { tud_cdc_n_write(itf, v, s); }
+void USB_CDC_Sink::write(const char* v, std::size_t s) {
+    size_t remaining = s;
+    const char* data = v;
+
+    while (remaining > 0) {
+        uint32_t available = tud_cdc_n_write_available(itf);
+
+        if (available == 0) {
+            tud_cdc_n_write_flush(itf);
+            continue;
+        }
+
+        uint32_t chunk_size = (remaining < available) ? remaining : available;
+        uint32_t written = tud_cdc_n_write(itf, data, chunk_size);
+
+        data += written;
+        remaining -= written;
+
+        if (written < chunk_size) {
+            tud_cdc_n_write_flush(itf);
+        }
+    }
+}
 void USB_CDC_Sink::flush() { tud_cdc_n_write_flush(itf); }
 } // namespace usb_cdc

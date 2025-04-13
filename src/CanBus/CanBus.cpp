@@ -24,6 +24,7 @@
 #include <hardware/regs/intctrl.h>
 #include "can2040.h"
 #include "projdefs.h"
+#include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "queue.h"
 #include "semphr.h"
@@ -93,6 +94,9 @@ struct can_settings_file {
 
 namespace {
 
+
+std::array<uint32_t, piccanteNUM_CAN_BUSSES> rx_overflow_counts = {0};
+
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 can_settings_file settings = {};
 
@@ -104,8 +108,9 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
         // Process received message - add to queue from ISR
         if (xQueueSendFromISR(can_queues[0].rx, msg, &higher_priority_task_woken) !=
             pdTRUE) {
-            // Queue is full - log overflow
-            // Can't directly call logger from ISR, so set a flag or counter
+            UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+            rx_overflow_counts[0]++;
+            taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
@@ -125,8 +130,9 @@ void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
         // Process received message - add to queue from ISR
         if (xQueueSendFromISR(can_queues[1].rx, msg, &higher_priority_task_woken) !=
             pdTRUE) {
-            // Queue is full - log overflow
-            // Can't directly call logger from ISR, so set a flag or counter
+            UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+            rx_overflow_counts[1]++;
+            taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
@@ -146,8 +152,9 @@ void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
         // Process received message - add to queue from ISR
         if (xQueueSendFromISR(can_queues[2].rx, msg, &higher_priority_task_woken) !=
             pdTRUE) {
-            // Queue is full - log overflow
-            // Can't directly call logger from ISR, so set a flag or counter
+            UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+            rx_overflow_counts[2]++;
+            taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
@@ -386,7 +393,7 @@ int receive(uint8_t bus, can2040_msg& msg) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
         return -1;
     }
-    if (xQueueReceive(can_queues[bus].rx, &msg, configTICK_RATE_HZ) == pdTRUE) {
+    if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
         return get_can_rx_buffered_frames(bus);
     }
     return -1;
@@ -406,6 +413,36 @@ int get_can_tx_buffered_frames(uint8_t bus) {
     }
     return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].tx);
 }
+
+
+uint32_t get_can_rx_overflow_count(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES) {
+        return 0;
+    }
+    return rx_overflow_counts[bus];
+}
+
+bool get_statistics(uint8_t bus, can2040_stats& stats) {
+    if (bus >= piccanteNUM_CAN_BUSSES) {
+        Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        return false;
+    }
+
+    // Access the can2040 instance for the specified bus
+    can2040_get_statistics(&can_buses[bus], &stats);
+    return true;
+}
+
+void set_num_busses(uint8_t num_busses) {
+    if (num_busses > NUM_BUSSES) {
+        Log::error << "Invalid number of CAN buses: " << fmt::sprintf("%d", num_busses)
+                   << "\n";
+        return;
+    }
+    settings.num_busses = num_busses;
+    store_settings();
+}
+uint8_t get_num_busses() { return settings.num_busses; }
 
 void enable(uint8_t bus, uint32_t bitrate) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {

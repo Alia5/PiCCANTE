@@ -1,7 +1,6 @@
 
 // NOLINTNEXTLINE
 #include <array>
-#include <boards/pico2_w.h>
 #include <cstdint>
 #include <cstring>
 #include <bsp/board_api.h>
@@ -22,6 +21,10 @@
 
 #include "fs/littlefs_driver.hpp"
 #include "CommProto/slcan/slcan.hpp"
+#include "CommProto/gvret/gvret.hpp"
+#include "CommProto/gvret/handler.hpp"
+#include "SysShell/handler.hpp"
+#include "SysShell/settings.hpp"
 
 static void usbDeviceTask(void* parameters) {
     (void)parameters;
@@ -35,7 +38,7 @@ static void usbDeviceTask(void* parameters) {
     for (;;) {
         tud_task();
         if (tud_suspended() || !tud_connected()) {
-            xTaskDelayUntil(&wake, 10);
+            xTaskDelayUntil(&wake, piccanteIDLE_SLEEP_MS);
         } else if (!tud_task_event_ready()) {
             xTaskDelayUntil(&wake, 1);
         }
@@ -53,19 +56,54 @@ static void can_recieveTask(void* parameter) {
 
     can2040_msg msg{};
     for (;;) {
-        while (piccante::can::receive(0, msg) >= 0) {
-            for (auto& handler : slcan_handler) {
+        auto received = false;
+        for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES; bus++) {
+            if (piccante::can::receive(bus, msg) >= 0) {
+                piccante::gvret::comm_can_frame(bus, msg, piccante::usb_cdc::out(0));
+                auto handler = slcan_handler[bus].get();
                 if (handler != nullptr) {
                     handler->comm_can_frame(msg);
                 }
+                received = true;
             }
         }
-        // receive blocks waiting for a queue, no need to yield
+        if (received) {
+            taskYIELD();
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+        }
+    }
+}
+
+
+static void cmd_gvret_task(void* parameter) {
+    (void)parameter;
+    vTaskDelay(60);
+    piccante::Log::info << ("Starting PiCCANTE CMD + GVRET Task!\n");
+
+    piccante::gvret::handler gvret_handler(piccante::usb_cdc::out(0));
+    piccante::sys::shell::handler shell_handler(piccante::usb_cdc::out(0));
+
+    for (;;) {
+        auto received = false;
+        while (tud_cdc_n_available(0) > 0) {
+            received = true;
+            const auto c = tud_cdc_n_read_char(0);
+            const auto used = gvret_handler.process_byte(c);
+            if (!used) {
+                shell_handler.process_byte(c);
+            }
+        }
+        if (received) {
+            taskYIELD();
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+        }
     }
 }
 
 int main() {
-    piccante::uart::sink0.init(0, 1, 115200);
+    piccante::uart::sink0.init(0, 1, piccanteUART_SPEED);
 
     // Initialize TinyUSB stack
     board_init();
@@ -74,39 +112,49 @@ int main() {
 
     board_init_after_tusb();
 
+#ifdef DEBUG
     piccante::Log::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
-    piccante::Log::info << "Starting up...\n";
-
+#endif
 
     // littleFS
-
     if (piccante::fs::init()) {
         piccante::Log::info << "LittleFS mounted successfully\n";
     } else {
         piccante::Log::error << "LittleFS mount failed\n";
     }
 
+    const auto& cfg = piccante::sys::settings::get();
+#ifndef DEBUG
+    piccante::Log::set_log_level(static_cast<piccante::Log::Level>(cfg.log_level));
+#else
+    piccante::sys::settings::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
+#endif
+
     static TaskHandle_t usbTaskHandle;
     static TaskHandle_t txCanTaskHandle;
+    static TaskHandle_t piccanteAndGvretTaskHandle;
 
 
     xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE, nullptr,
                 configMAX_PRIORITIES - 6, &usbTaskHandle);
     xTaskCreate(can_recieveTask, "CAN RX", configMINIMAL_STACK_SIZE, nullptr, 5,
                 &txCanTaskHandle);
+    xTaskCreate(cmd_gvret_task, "PiCCANTE + GVRET", configMINIMAL_STACK_SIZE, nullptr, 6,
+                &piccanteAndGvretTaskHandle);
 
     for (uint8_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
         slcan_handler[i] = std::make_unique<piccante::slcan::handler>(
-            piccante::usb_cdc::out(i + 1), 0, i);
+            piccante::usb_cdc::out(i + 1), i + 1, i);
         auto slcanTaskHandle = slcan_handler[i]->create_task();
         vTaskCoreAffinitySet(slcanTaskHandle, 0x01);
     }
 
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
 
-    vTaskCoreAffinitySet(usbTaskHandle, 0x01);   // Set the task to run on core 1
-    vTaskCoreAffinitySet(canTaskHandle, 0x02);   // Set the task to run on core 2
+    vTaskCoreAffinitySet(usbTaskHandle, 0x01); // Set the task to run on core 1
     vTaskCoreAffinitySet(txCanTaskHandle, 0x01);
+    vTaskCoreAffinitySet(piccanteAndGvretTaskHandle, 0x01);
+    vTaskCoreAffinitySet(canTaskHandle, 0x02); // Set the task to run on core 2
 
     vTaskStartScheduler();
 

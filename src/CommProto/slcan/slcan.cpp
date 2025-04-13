@@ -401,7 +401,7 @@ void handler::task() {
         if (received) {
             taskYIELD();
         } else {
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
         }
     }
 }

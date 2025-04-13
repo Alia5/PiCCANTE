@@ -15,10 +15,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "handler.hpp"
+#pragma once
 #include <cstdint>
 
-namespace piccante::gvret {
-bool handler::process_byte(uint8_t byte) { return protocol_fsm.tick(byte); }
+namespace piccante::sys::settings {
+#pragma pack(push, 1)
+struct system_settings {
+    bool echo;
+    uint8_t log_level;
+    // bool wifi_enabled;
+    // bool bt_enabled; ...
+};
+#pragma pack(pop)
 
-} // namespace gvret
+bool load_settings();
+
+const system_settings& get();
+
+bool store();
+bool get_echo();
+void set_echo(bool enabled);
+
+uint8_t get_log_level();
+void set_log_level(uint8_t level);
+} // namespace piccante::sys::settings

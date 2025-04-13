@@ -122,6 +122,11 @@ if(NOT DEFINED CAN_QUEUE_SIZE)
     set(CAN_QUEUE_SIZE 32)
 endif()
 
+if(NOT DEFINED UART_SPEED)
+    message(STATUS "UART_SPEED not defined, defaulting to 115200")
+    set(UART_SPEED 115200)
+endif()
+
 add_compile_definitions(
     piccanteNUM_CAN_BUSSES=${NUM_CAN_BUSSES}
     piccanteCAN0_RX_PIN=${CAN0_RX_PIN}
@@ -138,6 +143,9 @@ add_compile_definitions(
     piccanteCAN_NUM_1=1
     piccanteCAN_NUM_2=2
     piccanteCAN_NUM_3=3
+
+    #
+    piccanteUART_SPEED=${UART_SPEED}
 
     #
     CFG_TUSB_OS_INC_PATH=${CFG_TUSB_OS_INC_PATH}
@@ -163,7 +171,7 @@ pico_set_program_version(${target_name} "0.1")
 
 if(DEFINED ENV{PICO_DEBUG} OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(PICO_DEOPTIMIZED_DEBUG 1)
-    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Og)
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra -Og -DDEBUG)
 ELSE()
     target_compile_options(${target_name} PRIVATE -Wall -Wextra -O3)
 ENDIF()
