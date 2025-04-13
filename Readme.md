@@ -3,7 +3,7 @@
 
 # 🌶️ PiCCANTE 🌶️
 
-**Pi**cante **C**ar **C**ontroller **A**rea **N**etwork **T**ool for **E**xploration
+**Pi**ccante **C**ar **C**ontroller **A**rea **N**etwork **T**ool for **E**xploration
 
 PiCCANTE is a powerful tool for exploring and reversing CAN busses of vehicles, based on Raspberry Pi Pico (any model)
 
@@ -17,6 +17,36 @@ As the automotive landscape becomes increasingly connected, while still relying 
 The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for their exceptional affordability, global availability, impressive specifications, and well-documented open-source SDK.
 
 ⚠️ Always exercise caution when connecting to vehicle systems.
+
+### 🎯 Core Goals
+
+- **Dead-simple**:
+  - Simple enough to be soldered on perfboard with minimal components
+- **Dirt-cheap**:
+  - Minimal hardware requirements keep costs down
+  - Based on affordable, off-the-shelf components
+  - No specialty hardware needed
+- **Readily-Available**:
+  - Fully open-source hardware and software
+  - Uses widely available Raspberry Pi Pico boards as base
+- **Easy to use**:
+  - Pre-built firmware releases available for immediate use
+  - *Driverless* across all major operating systems
+  - Seamless integration with existing CAN tools
+  - 🔜 Documentation
+
+### ✨ Features
+
+- ✅ Up to 3× CAN 2.0B interfaces (2× on RP2040 (Pico[W]), 3× on RP2350 (Pico 2[W]))
+- ✅ 1× USB-CDC PiCCANTE command + GVRET (binary only) interface
+  - Compatible with [SavvyCAN](https://github.com/collin80/SavvyCAN) and other automotive tools
+- ✅ Up to 3× USB-CDC SLCAN interfaces (dedicated to each CAN channel)
+  - SocketCAN compatible via [can-utils (Linux)](https://github.com/linux-can/can-utils)
+- 🔜 ELM327 emulator
+- 🔜 WiFi / Bluetooth support (on Pico W models)
+- 🔜 MITM mode for advanced analysis / vehicle tuning
+- 🔜 Data logging to SD card (maybe)
+- 🔜 3D printable case designs for making PiCCANTE based OBD-II dongles
 
 ## 📋 Quick Start
 
@@ -54,36 +84,6 @@ candump can0
 3. Go to Connection ➡️ Open Connection Window ➡️ Add device Connection
 4. Select "Serial Connection (GVRET)" and choose the appropriate COM port / TTY
 5. Click "Create New Connection"
-
-### 🎯 Core Goals
-
-- **Dead-simple**:
-  - Simple enough to be soldered on perfboard with minimal components
-- **Dirt-cheap**:
-  - Minimal hardware requirements keep costs down
-  - Based on affordable, off-the-shelf components
-  - No specialty hardware needed
-- **Readily-Available**:
-  - Fully open-source hardware and software
-  - Uses widely available Raspberry Pi Pico boards as base
-- **Easy to use**:
-  - Pre-built firmware releases available for immediate use
-  - *Driverless* across all major operating systems
-  - Seamless integration with existing CAN tools
-  - 🔜 Documentation
-
-## ✨ Features
-
-- ✅ Up to 3× CAN 2.0B interfaces (2× on RP2040 (Pico[W]), 3× on RP2350 (Pico 2[W]))
-- ✅ 1× USB-CDC PiCCANTE command + GVRET (binary only) interface
-  - Compatible with [SavvyCAN](https://github.com/collin80/SavvyCAN) and other automotive tools
-- ✅ Up to 3× USB-CDC SLCAN interfaces (dedicated to each CAN channel)
-  - SocketCAN compatible via [can-utils (Linux)](https://github.com/linux-can/can-utils)
-- 🔜 ELM327 emulator
-- 🔜 WiFi / Bluetooth support (on Pico W models)
-- 🔜 MITM mode for advanced analysis / vehicle tuning
-- 🔜 Data logging to SD card (maybe)
-- 🔜 3D printable case designs for making PiCCANTE based OBD-II dongles
 
 ## 🔧 Hardware
 
