@@ -16,8 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "stats.hpp"
+#include <hardware/adc.h>
+#include <hardware/gpio.h>
 #include <algorithm>
 #include <cstring>
+#include <cstdint>
 #include <unordered_map>
 #include "FreeRTOS.h"
 #include "task.h"
@@ -250,6 +253,91 @@ FilesystemStats get_filesystem_stats() {
     }
 
     return stats;
+}
+
+
+std::vector<AdcStats> get_adc_stats() {
+    static bool adc_initialized = false;
+    if (!adc_initialized) {
+        adc_init();
+        adc_initialized = true;
+    }
+
+    std::vector<AdcStats> results;
+
+    // ADC0 (GPIO26) - Usually general purpose ADC
+    adc_gpio_init(26);
+    adc_select_input(0);
+    uint16_t raw0 = adc_read();
+    float voltage0 = (raw0 * 3.3f) / 4095.0f;
+    results.push_back({.value = voltage0,
+                       .raw_value = raw0,
+                       .channel = 0,
+                       .name = "ADC0",
+                       .unit = "V"});
+
+    // ADC1 (GPIO27) - Usually general purpose ADC
+    adc_gpio_init(27);
+    adc_select_input(1);
+    uint16_t raw1 = adc_read();
+    float voltage1 = (raw1 * 3.3f) / 4095.0f;
+    results.push_back({.value = voltage1,
+                       .raw_value = raw1,
+                       .channel = 1,
+                       .name = "ADC1",
+                       .unit = "V"});
+
+    // ADC2 (GPIO28) - Usually general purpose ADC
+    adc_gpio_init(28);
+    adc_select_input(2);
+    uint16_t raw2 = adc_read();
+    float voltage2 = (raw2 * 3.3f) / 4095.0f;
+    results.push_back({.value = voltage2,
+                       .raw_value = raw2,
+                       .channel = 2,
+                       .name = "ADC2",
+                       .unit = "V"});
+
+    // ADC3 (GPIO29) - Connected to VSYS/3
+    adc_gpio_init(29);
+    adc_select_input(3);
+    uint16_t raw3 = adc_read();
+    float voltage3 = (raw3 * 3.3f) / 4095.0f;
+    float vsys = voltage3 * 3.0f; // VSYS has 1:3 voltage divider
+    results.push_back({.value = vsys,
+                       .raw_value = raw3,
+                       .channel = 3,
+                       .name = "System Voltage",
+                       .unit = "V"});
+
+    // ADC4 - Internal temperature sensor
+    adc_set_temp_sensor_enabled(true);
+    vTaskDelay(1); // Brief pause to let sensor stabilize
+
+    constexpr int num_samples = 8;
+    uint32_t temp_sum = 0;
+
+    for (int i = 0; i < num_samples; i++) {
+        adc_select_input(4);
+        temp_sum += adc_read();
+        vTaskDelay(10);
+    }
+
+    uint16_t raw4 = temp_sum / num_samples;
+    float voltage4 = (raw4 * 3.3f) / 4095.0f;
+
+    // based on typical RP2040/RP2350 calibration
+    // T = 27 - (ADC_voltage - 0.706)/0.001721
+    float temp_c = 27.0f - (voltage4 - 0.706f) / 0.001721f;
+
+    results.push_back({.value = temp_c,
+                       .raw_value = raw4,
+                       .channel = 4,
+                       .name = "CPU Temperature",
+                       .unit = "°C"});
+
+    adc_set_temp_sensor_enabled(false);
+    return results;
 }
 
 } // namespace piccante::sys::stats

@@ -106,9 +106,9 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
     {"sys_stats", //
      {"Display system information and resource usage (sys_stats "
 #ifdef WIFI_ENABLED
-      "[cpu|heap|fs|tasks|uptime|wifi])",
+      "[cpu|heap|fs|tasks|uptime|adc|wifi])",
 #else
-      "[cpu|heap|fs|tasks|uptime])",
+      "[cpu|heap|fs|tasks|uptime|adc])",
 #endif
       &handler::cmd_sys_stats}},
 #ifdef WIFI_ENABLED
@@ -433,6 +433,7 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
     bool show_cpu = show_all || arg == "cpu";
     bool show_uptime = show_all || arg == "uptime";
     bool show_fs = show_all || arg == "fs";
+    bool show_adc = show_all || arg == "adc";
 #ifdef WIFI_ENABLED
 
     bool show_wifi = show_all || arg == "wifi";
@@ -440,14 +441,15 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
 
 
     // Check for invalid argument
-    if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime && !show_fs
+    if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime &&
+        !show_fs && !show_adc
 #ifdef WIFI_ENABLED
         && !show_wifi
 #endif
     ) {
         host_out << "Unknown parameter: " << arg << "\n";
         host_out << "Usage: sys_stats [section]\n";
-        host_out << "Available sections: cpu, heap, fs, tasks, uptime";
+        host_out << "Available sections: cpu, heap, fs, tasks, uptime, adc";
 #ifdef WIFI_ENABLED
         host_out << ", wifi";
 #endif
@@ -594,6 +596,32 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
         }
         host_out << "\n\n";
     }
+
+    if (show_adc) {
+        host_out << "ADC Stats: \n";
+        host_out << "-------------\n";
+
+        const auto adc_stats = stats::get_adc_stats();
+        for (const auto& stat : adc_stats) {
+            if (stat.channel == 3) {
+                // System voltage with extra detail
+                host_out << fmt::sprintf("%s: %.3f %s (Raw: %d, GPIO%d)\n",
+                                         stat.name.c_str(), stat.value, stat.unit.c_str(),
+                                         stat.raw_value, stat.channel + 26);
+            } else if (stat.channel == 4) {
+                // Temperature sensor (no GPIO)
+                host_out << fmt::sprintf("%s: %.1f %s (Raw: %d)\n", stat.name.c_str(),
+                                         stat.value, stat.unit.c_str(), stat.raw_value);
+            } else {
+                // Regular ADC channels
+                host_out << fmt::sprintf("%s: %.3f %s (Raw: %d, GPIO%d)\n",
+                                         stat.name.c_str(), stat.value, stat.unit.c_str(),
+                                         stat.raw_value, stat.channel + 26);
+            }
+        }
+        host_out << "\n";
+    }
+
 #ifdef WIFI_ENABLED
     if (show_wifi) {
         const auto wifi_mode = static_cast<wifi::Mode>(sys::settings::get_wifi_mode());

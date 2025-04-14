@@ -285,6 +285,7 @@ target_link_libraries(${target_name}
     pico_unique_id
     tinyusb_device
     tinyusb_board
+    hardware_adc
 
     -lstdc++
 )

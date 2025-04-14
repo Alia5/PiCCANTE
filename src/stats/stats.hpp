@@ -57,6 +57,14 @@ struct UptimeInfo {
     TickType_t total_ticks; ///< Total tick count
 };
 
+struct AdcStats {
+    float value; // The processed measurement value
+    uint16_t raw_value;
+    uint8_t channel;
+    std::string name;
+    std::string unit;
+};
+
 void init_stats_collection();
 MemoryStats get_memory_stats();
 std::vector<TaskInfo> get_task_stats();
@@ -73,5 +81,7 @@ struct FilesystemStats {
     int block_size;         ///< Block size in bytes
 };
 FilesystemStats get_filesystem_stats();
+
+std::vector<AdcStats> get_adc_stats();
 
 } // namespace piccante::sys::stats
