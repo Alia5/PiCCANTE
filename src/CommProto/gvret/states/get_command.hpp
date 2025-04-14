@@ -88,7 +88,7 @@ class get_command : public fsm::state<uint8_t, Protocol, bool> {
                 return {IDLE, false};
         }
 
-        return {static_cast<Protocol>(byte), false};
+        return {static_cast<Protocol>(byte), true};
     }
 };
 
