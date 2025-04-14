@@ -24,11 +24,22 @@ void USB_CDC_Sink::write(const char* v, std::size_t s) {
     size_t remaining = s;
     const char* data = v;
 
+    static auto retries = 0;
+    constexpr auto max_retries = 1000;
     while (remaining > 0) {
         uint32_t available = tud_cdc_n_write_available(itf);
 
         if (available == 0) {
             tud_cdc_n_write_flush(itf);
+            if (++retries > max_retries) {
+                retries = max_retries;
+                // Log::error << "USB CDC write timeout on itf: " << itf
+                //            << "; Discarding...\n";
+                return;
+            }
+            if (available > 0) {
+                retries = 0;
+            }
             continue;
         }
 
