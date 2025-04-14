@@ -26,20 +26,22 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 
 ### 🎯 Core Goals
 
-- **Dead-simple**:
-  - Simple enough to be soldered on perfboard with minimal components
-- **Dirt-cheap**:
-  - Minimal hardware requirements keep costs down
-  - Based on affordable, off-the-shelf components
-  - No specialty hardware needed
-- **Readily-Available**:
-  - Fully open-source hardware and software
-  - Uses widely available Raspberry Pi Pico boards as base
-- **Easy to use**:
-  - Pre-built firmware releases available for immediate use
-  - *Driverless* across all major operating systems
-  - Seamless integration with existing CAN tools
-  - 🔜 Documentation
+<sub>Keep it D.I.R.T.Y 😉</sub>  
+- **D**ead-Simple  
+   - Simple enough for perfboard soldering with minimal components.
+- **I**nexpensive  
+   - Minimal hardware requirements to keep costs dirt-cheap.  
+   - Based on affordable, off-the-shelf components.
+- **R**eadily-Available  
+   - Fully open-source hardware and software.  
+   - Uses widely available Raspberry Pi Pico boards.
+- **T**ool-Compatible  
+   - Seamless integration with existing CAN tools.  
+   - Pre-built firmware releases for immediate use.
+- **Y**our-First Choice  
+   - Driverless across all major operating systems.  
+   - Easy to use for beginners and experts alike.
+   - 🔜 Documentation
 
 ### ✨ Features
 
