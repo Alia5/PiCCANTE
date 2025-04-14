@@ -161,6 +161,26 @@ file(GLOB_RECURSE srcFiles CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
 )
 
+set(IS_WIFI_BOARD 0)
+
+if(PICO_BOARD MATCHES ".*w.*")
+    message(STATUS "WiFi-capable board detected: ${PICO_BOARD}")
+    set(IS_WIFI_BOARD 1)
+    add_compile_definitions(WIFI_ENABLED=1)
+endif()
+
+if(NOT IS_WIFI_BOARD)
+    foreach(srcFile ${srcFiles})
+        if(NOT "${srcFile}" MATCHES ".*/wifi/.*")
+            list(APPEND filteredSrcFiles ${srcFile})
+        else()
+            message(STATUS "Excluding WiFi file from build: ${srcFile}")
+        endif()
+    endforeach()
+
+    set(srcFiles ${filteredSrcFiles})
+endif()
+
 target_sources(${target_name} PRIVATE
     src/main.cpp
     ${srcFiles}
@@ -200,11 +220,13 @@ target_sources(
     ${CAN2040_PATH}/src/can2040.c
 )
 
+
 file(GLOB_RECURSE extFiles CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/ext/**/*.c"
     "${PICO_SDK_PATH}/**/*.c"
     "${PICO_SDK_PATH}/**/*.h"
 )
+
 
 set_source_files_properties(
     ${extFiles}
@@ -269,13 +291,6 @@ target_sources(${target_name} PRIVATE
 )
 
 # \ littlefs
-set(IS_WIFI_BOARD 0)
-
-if(PICO_BOARD MATCHES ".*w.*")
-    message(STATUS "WiFi-capable board detected: ${PICO_BOARD}")
-    set(IS_WIFI_BOARD 1)
-    add_compile_definitions(WIFI_ENABLED=1)
-endif()
 
 # Add any user requested libraries
 target_link_libraries(${target_name}
