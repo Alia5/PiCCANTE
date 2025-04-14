@@ -48,8 +48,9 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
   - Compatible with [SavvyCAN](https://github.com/collin80/SavvyCAN) and other automotive tools
 - ✅ Up to 3× USB-CDC SLCAN interfaces (dedicated to each CAN channel)
   - SocketCAN compatible via [can-utils (Linux)](https://github.com/linux-can/can-utils)
-- 🔜 ELM327 emulator
 - 🔜 WiFi / Bluetooth support (on Pico W models)
+- 🔜 ELM327 emulator
+- 🔜 (Software) CAN filters
 - 🔜 MITM mode for advanced analysis / vehicle tuning
 - 🔜 Data logging to SD card (maybe)
 - 🔜 3D printable case designs for making PiCCANTE based OBD-II dongles
