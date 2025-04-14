@@ -48,6 +48,15 @@ void handler::process_byte(char byte) {
         return;
     }
 
+    if (byte == 3) { // Ctrl+C
+        cancel_requested = true;
+        if (cfg.echo) {
+            host_out << "\n";
+            host_out.flush();
+        }
+        return;
+    }
+
     if (cfg.echo) {
         host_out << byte;
         host_out.flush();
@@ -59,6 +68,13 @@ void handler::process_byte(char byte) {
         buffer.push_back(byte);
     }
 }
+
+bool handler::check_and_reset_cancel() {
+    bool was_cancelled = cancel_requested;
+    cancel_requested = false;
+    return was_cancelled;
+}
+
 
 void handler::handle_cmd(const std::string_view& cmd) {
     if (cmd.empty()) {

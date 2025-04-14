@@ -44,11 +44,15 @@ class handler {
     void process_byte(char byte);
     void handle_cmd(const std::string_view& cmd);
 
+    bool check_and_reset_cancel();
+
         private:
     gvret::handler& gvret;
     out::stream& host_out;
     std::vector<char> buffer{};
     const settings::system_settings& cfg;
+
+    bool cancel_requested = false;
 
     struct CommandInfo {
         std::string_view description;

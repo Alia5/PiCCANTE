@@ -77,28 +77,47 @@ void handler::cmd_wifi(const std::string_view& arg) {
 
 
         host_out << "Connecting to WiFi network: " << ssid << "\n";
-        const auto result = wifi::connect_to_network(ssid, password);
-        if (result < 0) {
-            std::string status_str{};
-            switch (result) {
-                case CYW43_LINK_FAIL:
-                    status_str = "Connection failed";
-                    break;
-                case CYW43_LINK_NONET:
-                    status_str = "No matching SSID found";
-                    break;
-                case CYW43_LINK_BADAUTH:
-                    status_str = "Authentication failed";
-                    break;
-                default:
-                    status_str = "Unknown error code: " + std::to_string(result);
-                    break;
-            }
-            host_out << "Failed to connect to WiFi network: " << status_str << "\n";
-        } else {
-            host_out << "Connected to WiFi network: " << ssid << "\n";
-        }
         host_out.flush();
+        TaskHandle_t current_task = xTaskGetCurrentTaskHandle();
+        const auto result = wifi::connect_to_network(ssid, password, 30000, current_task);
+
+        uint8_t dots = 0;
+        bool cancelled = false;
+
+        vTaskDelay(pdMS_TO_TICKS(200));
+        auto status = wifi::get_connection_status();
+
+        while (status.state != "CONNECTED") {
+            if (check_and_reset_cancel()) {
+                if (wifi::cancel_connection()) {
+                    cancelled = true;
+                    host_out << "Cancelled\n";
+                    break;
+                }
+            }
+
+            host_out << ".";
+            if (++dots >= 50) {
+                host_out << "\n";
+                dots = 0;
+            }
+            host_out.flush();
+
+            vTaskDelay(pdMS_TO_TICKS(10));
+            status = wifi::get_connection_status();
+        }
+
+        if (!cancelled) {
+            if (result < 0) {
+                std::string status_str{};
+                host_out << "\nFailed to connect to WiFi network: " << status_str << "\n";
+            } else {
+                host_out << "\nConnected to WiFi network: " << ssid << "\n";
+            }
+        }
+
+        host_out.flush();
+
     } else if (command == "ap") {
         auto ssid_end = params.find(' ');
         if (ssid_end == std::string_view::npos) {
@@ -123,7 +142,6 @@ void handler::cmd_wifi(const std::string_view& arg) {
             return;
         }
 
-        // Check if there's a space after the password (indicating a channel parameter)
         auto password_end = params.find(' ', password_start);
         uint8_t channel = 1; // Default channel
         std::string_view password;

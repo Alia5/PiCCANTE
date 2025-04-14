@@ -34,13 +34,26 @@
 #include "led/led.hpp"
 #include "Logger/Logger.hpp"
 #include "SysShell/settings.hpp"
+#include "telnet/telnet.hpp"
 
 
 namespace piccante::wifi {
 
 namespace {
+
+enum class ConnectionState { IDLE, CONNECTING, CONNECTED, FAILED };
+
+ConnectionState connection_state = ConnectionState::IDLE;
+int connection_error = 0;
+std::string connecting_ssid;
+TaskHandle_t connecting_task = nullptr;
+bool cancel_requested = false;
+
 TaskHandle_t handle = nullptr;
 SemaphoreHandle_t mutex = nullptr;
+
+bool was_connected = false;
+bool auto_reconnect = true;
 
 void wifi_task(void*) {
     vTaskDelay(50);
@@ -61,55 +74,117 @@ void wifi_task(void*) {
 
     const auto& wifi_cfg = sys::settings::get_wifi_settings();
     auto mode = static_cast<Mode>(cfg.wifi_mode);
-    auto success = false;
 
-    while (!success && mode != Mode::NONE) {
-        switch (mode) {
-            case Mode::CLIENT: {
-                const auto& result = connect_to_network(wifi_cfg.ssid.c_str(),
-                                                        wifi_cfg.password.c_str(), 10000);
-                if (result >= 0) {
-                    success = true;
-                }
-                break;
+    switch (mode) {
+        case Mode::CLIENT: {
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+                connection_state = ConnectionState::CONNECTING;
+                connecting_ssid = wifi_cfg.ssid;
+                connection_error = 0;
+                cancel_requested = false;
+                xSemaphoreGive(mutex);
             }
-            case Mode::ACCESS_POINT: {
-                success = start_ap(wifi_cfg.ssid.c_str(), wifi_cfg.password.c_str(),
-                                   wifi_cfg.channel);
-                break;
+
+            cyw43_arch_enable_sta_mode();
+            if (cyw43_arch_wifi_connect_async(wifi_cfg.ssid.c_str(),
+                                              wifi_cfg.password.c_str(),
+                                              CYW43_AUTH_WPA2_AES_PSK) != 0) {
+                Log::error << "Failed to start WiFi reconnection\n";
+                connection_state = ConnectionState::IDLE;
             }
-            default:
-                break;
+            was_connected = true; // enable autoreconn
+            break;
         }
-        vTaskDelay(pdMS_TO_TICKS(5000));
-        mode = static_cast<Mode>(cfg.wifi_mode);
+        case Mode::ACCESS_POINT: {
+            start_ap(wifi_cfg.ssid.c_str(), wifi_cfg.password.c_str(), wifi_cfg.channel);
+            break;
+        }
+        default:
+            break;
     }
 
-    bool is_connected_flag = false;
     for (;;) {
         const auto mode = static_cast<Mode>(sys::settings::get_wifi_mode());
         if (mode == Mode::CLIENT && mutex != nullptr) {
             if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                const auto was_connected = is_connected_flag;
-                is_connected_flag = (cyw43_tcpip_link_status(
-                                         &cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP);
+                if (connection_state == ConnectionState::CONNECTING) {
+                    if (cancel_requested) {
+                        Log::info << "WiFi connection cancelled\n";
+                        cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+                        connection_state = ConnectionState::IDLE;
+                        cancel_requested = false;
 
-                if (was_connected && !is_connected_flag) {
-                    piccante::Log::info
-                        << "WiFi connection lost, attempting to reconnect\n";
-                    if (wifi_cfg.ssid != "") {
-                        cyw43_arch_wifi_connect_timeout_ms(
-                            wifi_cfg.ssid.c_str(),
-                            wifi_cfg.password == "" ? nullptr : wifi_cfg.password.c_str(),
-                            CYW43_AUTH_WPA2_AES_PSK,
-                            10000);
+                        if (connecting_task != nullptr) {
+                            xTaskNotify(connecting_task, CYW43_LINK_FAIL,
+                                        eSetValueWithOverwrite);
+                            connecting_task = nullptr;
+                        }
+                    } else {
+                        const auto link_status =
+                            cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+
+                        if (link_status >=
+                            0 /* == CYW43_LINK_UP */) { // TODO: WTF?! I dunno either,
+                                                        // sometimes I get link down
+                                                        // on connection ¯\_(ツ)_/¯
+                            connection_state = ConnectionState::CONNECTED;
+                            Log::info << "WiFi connected to: " << connecting_ssid << "\n";
+
+                            if (connecting_task != nullptr) {
+                                xTaskNotify(connecting_task, 0, eNoAction);
+                                connecting_task = nullptr;
+                            }
+
+                            if (!telnet::is_running() &&
+                                sys::settings::telnet_enabled()) {
+                                telnet::reconfigure();
+                            }
+
+                        } else if (link_status < 0) {
+                            connection_state = ConnectionState::FAILED;
+                            connection_error = link_status;
+                            Log::error
+                                << "WiFi connection failed with code: " << link_status
+                                << "\n";
+
+                            if (connecting_task != nullptr) {
+                                xTaskNotify(connecting_task, link_status,
+                                            eSetValueWithOverwrite);
+                                connecting_task = nullptr;
+                            }
+                        }
+                    }
+                } else if (connection_state == ConnectionState::CONNECTED) {
+                    const auto link_status =
+                        cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+                    if (link_status != CYW43_LINK_UP) {
+                        Log::warning << "WiFi connection lost\n";
+                        connection_state = ConnectionState::IDLE;
+                        was_connected = true;
+                    } else {
+                        was_connected = true;
+                    }
+                } else if (connection_state == ConnectionState::IDLE && was_connected &&
+                           auto_reconnect) {
+                    Log::info << "Attempting to reconnect to WiFi...\n";
+
+                    const auto& wifi_cfg = sys::settings::get_wifi_settings();
+                    connection_state = ConnectionState::CONNECTING;
+                    connecting_ssid = wifi_cfg.ssid;
+                    connection_error = 0;
+                    cancel_requested = false;
+
+                    cyw43_arch_enable_sta_mode();
+                    if (cyw43_arch_wifi_connect_async(wifi_cfg.ssid.c_str(),
+                                                      wifi_cfg.password.c_str(),
+                                                      CYW43_AUTH_WPA2_AES_PSK) != 0) {
+                        Log::error << "Failed to start WiFi reconnection\n";
+                        connection_state = ConnectionState::IDLE;
                     }
                 }
-
                 xSemaphoreGive(mutex);
             }
         }
-
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
@@ -124,10 +199,29 @@ TaskHandle_t task() {
 }
 
 int connect_to_network(const std::string_view& ssid, const std::string_view& password,
-                       uint32_t timeout_ms) {
-    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+                       uint32_t timeout_ms, TaskHandle_t task_handle) {
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+        if (connection_state == ConnectionState::CONNECTING &&
+            connecting_task != nullptr &&
+            connecting_task != xTaskGetCurrentTaskHandle()) {
+            cancel_requested = true;
+
+            xSemaphoreGive(mutex);
+            vTaskDelay(pdMS_TO_TICKS(500)); // Brief delay for cancellation to complete
+
+            if (xSemaphoreTake(mutex, pdMS_TO_TICKS(800)) != pdTRUE) {
+                return -10;
+            }
+        }
+    } else {
         return -10;
     }
+
+    connection_state = ConnectionState::CONNECTING;
+    connection_error = 0;
+    connecting_ssid = std::string(ssid);
+    connecting_task = task_handle ? task_handle : xTaskGetCurrentTaskHandle();
+    cancel_requested = false;
 
     const auto mode = static_cast<Mode>(sys::settings::get_wifi_mode());
     if (mode == Mode::ACCESS_POINT) {
@@ -149,18 +243,25 @@ int connect_to_network(const std::string_view& ssid, const std::string_view& pas
     cyw43_arch_enable_sta_mode();
 
 
-    const auto result = cyw43_arch_wifi_connect_timeout_ms(
-        ssid_str.c_str(), password_str.c_str(), CYW43_AUTH_WPA2_AES_PSK, timeout_ms);
-
-    if (result < 0) {
-        Log::error << "Failed to connect to WiFi network: " << result << "\n";
+    if (cyw43_arch_wifi_connect_async(ssid_str.c_str(), password_str.c_str(),
+                                      CYW43_AUTH_WPA2_AES_PSK) != 0) {
+        Log::error << "Failed to start WiFi connection\n";
+        connection_state = ConnectionState::FAILED;
+        connection_error = -1;
+        connecting_task = nullptr;
         xSemaphoreGive(mutex);
-        return result;
+        return -1;
     }
-    Log::info << "Connected to WiFi network: " << ssid << "\n";
 
     xSemaphoreGive(mutex);
-    return result;
+    uint32_t notification;
+    if (xTaskNotifyWait(0, ULONG_MAX, &notification, pdMS_TO_TICKS(timeout_ms)) ==
+        pdTRUE) {
+        return notification;
+    }
+
+    cancel_connection();
+    return CYW43_LINK_FAIL;
 }
 
 bool start_ap(const std::string_view& ssid, const std::string_view& password,
@@ -293,6 +394,55 @@ void stop() {
     Log::info << "WiFi stopped\n";
 
     xSemaphoreGive(mutex);
+}
+
+// Add to wifi.cpp
+ConnectionStatus get_connection_status() {
+    ConnectionStatus status;
+
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        status.state = "BUSY";
+        return status;
+    }
+
+    switch (connection_state) {
+        case ConnectionState::IDLE:
+            status.state = "IDLE";
+            break;
+        case ConnectionState::CONNECTING:
+            status.state = "CONNECTING";
+            status.ssid = connecting_ssid;
+            break;
+        case ConnectionState::CONNECTED:
+            status.state = "CONNECTED";
+            status.ssid = connecting_ssid;
+            break;
+        case ConnectionState::FAILED:
+            status.state = "FAILED";
+            status.ssid = connecting_ssid;
+            status.error_code = connection_error;
+            break;
+    }
+
+    xSemaphoreGive(mutex);
+    return status;
+}
+
+bool cancel_connection() {
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return false;
+    }
+
+    if (connection_state != ConnectionState::CONNECTING) {
+        xSemaphoreGive(mutex);
+        return false; // Nothing to cancel
+    }
+
+    // Set cancel flag - will be processed in wifi_task
+    cancel_requested = true;
+
+    xSemaphoreGive(mutex);
+    return true;
 }
 
 } // namespace piccante::wifi

@@ -43,14 +43,22 @@ struct WifiStats {
     std::string mac_address;
 };
 
+struct ConnectionStatus {
+    std::string state;
+    std::string ssid;
+    int error_code = 0;
+};
+
 TaskHandle_t task();
 int connect_to_network(const std::string_view& ssid, const std::string_view& password,
-                       uint32_t timeout_ms = 10000);
+                       uint32_t timeout_ms = 10000, TaskHandle_t task_handle = nullptr);
 bool start_ap(const std::string_view& ssid, const std::string_view& password = "",
               uint8_t channel = 1);
 bool is_connected();
 
 std::optional<WifiStats> wifi_stats();
 void stop();
+ConnectionStatus get_connection_status();
+bool cancel_connection();
 
 } // namespace piccante::wifi
