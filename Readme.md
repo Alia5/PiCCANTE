@@ -55,8 +55,8 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 - ✅ LED status indicators
 - ✅ Command line interface for configuration and diagnostics
 - ✅ WiFi support (on Pico W models)
-  - ✅ Create WiFi access point (wifi ap <ssid> <password> <channel>)
-  - ✅ Connect to existing WiFi networks (wifi connect <ssid> <password>)
+  - ✅ Create WiFi access point (`wifi ap <ssid> <password> <channel>`)
+  - ✅ Connect to existing WiFi networks (`wifi connect <ssid> <password>`)
   - ✅ WiFi status and configuration commands
   - ✅ [Configurable] PiCCANTE configuration + GVRET as Telnet server
 - 🔜 Web-based configuration interface (on Pico W models)
