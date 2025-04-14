@@ -77,6 +77,7 @@ class handler {
 
 #ifdef WIFI_ENABLED
     void cmd_wifi(const std::string_view& arg);
+    void cmd_telnet(const std::string_view& arg);
 #endif
 };
 } // namespace piccante::sys::shell

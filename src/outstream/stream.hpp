@@ -17,12 +17,19 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string_view>
 #include <type_traits>
+#include <functional>
+#include <vector>
 #include "fmt.hpp"
+
+#ifdef write
+#undef write
+#endif
 
 namespace piccante::out {
 
@@ -33,6 +40,31 @@ class base_sink {
     virtual void flush() = 0;
 
     virtual ~base_sink() = default;
+};
+
+class sink_mux : public base_sink {
+        public:
+    explicit sink_mux() = default;
+
+    void add_sink(base_sink* sink) { sinks_.push_back(sink); }
+    void remove_sink(base_sink* sink) {
+        sinks_.erase(std::remove(sinks_.begin(), sinks_.end(), sink), sinks_.end());
+    }
+
+    void write(const char* v, std::size_t s) override {
+        for (auto& sink : sinks_) {
+            sink->write(v, s);
+        }
+    }
+
+    void flush() override {
+        for (auto& sink : sinks_) {
+            sink->flush();
+        }
+    }
+
+        private:
+    std::vector<base_sink*> sinks_;
 };
 
 class stream {

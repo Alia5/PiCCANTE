@@ -17,15 +17,19 @@
  */
 #include "settings.hpp"
 #include <array>
-#include <algorithm>
+#include <projdefs.h>
+#include <cstddef>
 #include <string>
-#include <vector>
 #include <cstdint>
 #include <lfs.h>
 #include "fs/littlefs_driver.hpp"
+#include "led/led.hpp"
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "Logger/Logger.hpp"
+#ifdef WIFI_ENABLED
+#include "wifi/telnet/telnet.hpp"
+#endif
 
 namespace piccante::sys::settings {
 
@@ -115,7 +119,7 @@ bool load_settings() {
         wifi_cfg.channel = wifi_buffer[0];
 
         size_t pos_term = 0;
-        for (size_t i = 1; i < bytesRead; i++) {
+        for (size_t i = 1; i < size_t(bytesRead); i++) {
             if (wifi_buffer[i] == 0) {
                 pos_term = i;
                 break;
@@ -128,7 +132,7 @@ bool load_settings() {
         }
 
         size_t pos_pwd_term = 0;
-        for (size_t i = pos_term + 1; i < bytesRead; i++) {
+        for (size_t i = pos_term + 1; i < size_t(bytesRead); i++) {
             if (wifi_buffer[i] == 0) {
                 pos_pwd_term = i;
                 break;
@@ -150,6 +154,10 @@ bool load_settings() {
         if (pwd_len > 0) {
             memcpy(&wifi_cfg.password[0], &wifi_buffer[pos_term + 1], pwd_len);
         }
+
+        wifi_cfg.telnet.port = (wifi_buffer[pos_pwd_term + 1] & 0xFF) |
+                               ((wifi_buffer[pos_pwd_term + 2] & 0xFF) << 8);
+        wifi_cfg.telnet.enabled = (wifi_buffer[pos_pwd_term + 3] != 0);
 
         Log::debug << "Loaded SSID: '" << wifi_cfg.ssid << "'\n";
     }
@@ -217,6 +225,10 @@ bool store() {
         Log::debug << "Storing SSID: '" << wifi_cfg.ssid
                    << "', size=" << wifi_cfg.ssid.size() << "\n";
 
+        wifi_buffer.push_back(wifi_cfg.telnet.port & 0xFF);
+        wifi_buffer.push_back((wifi_cfg.telnet.port >> 8) & 0xFF);
+        wifi_buffer.push_back(wifi_cfg.telnet.enabled ? 1 : 0);
+
         if (lfs_file_write(&piccante::fs::lfs, &writeFile, wifi_buffer.data(),
                            wifi_buffer.size()) > 0) {
             success = true;
@@ -228,8 +240,14 @@ bool store() {
             Log::error << "Failed to close wifi settings file\n";
             success = false;
         }
+
+
     } else {
         Log::error << "Failed to open wifi settings file for writing\n";
+    }
+
+    if (wifi_cfg.telnet.enabled) {
+        wifi::telnet::reconfigure();
     }
 
 #endif
@@ -265,6 +283,10 @@ const wifi_settings& get_wifi_settings() { return wifi_cfg; }
 void set_wifi_ssid(const std::string& ssid) { wifi_cfg.ssid = ssid; }
 void set_wifi_password(const std::string& password) { wifi_cfg.password = password; }
 void set_wifi_channel(uint8_t channel) { wifi_cfg.channel = channel; }
+uint16_t get_telnet_port() { return wifi_cfg.telnet.port; }
+void set_telnet_port(uint16_t port) { wifi_cfg.telnet.port = port; }
+bool telnet_enabled() { return wifi_cfg.telnet.enabled; }
+void set_telnet_enabled(bool enabled) { wifi_cfg.telnet.enabled = enabled; }
 #endif
 
 } // namespace piccante::sys::settings

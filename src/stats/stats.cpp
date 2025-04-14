@@ -17,11 +17,13 @@
  */
 #include "stats.hpp"
 #include <hardware/adc.h>
-#include <hardware/gpio.h>
 #include <algorithm>
 #include <cstring>
 #include <cstdint>
 #include <unordered_map>
+#include <string>
+#include <projdefs.h>
+#include <portable.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"

@@ -17,15 +17,18 @@
  */
 #include "wifi.hpp"
 
+#include <array>
 #include <cstdint>
+#include <optional>
 #include <pico/cyw43_arch.h>
 #include <cyw43.h>
 #include <cyw43_ll.h>
-#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
 #include "task.h"
 #include "semphr.h"
+#include <pico/error.h>
+#include <projdefs.h>
 #include <string>
-#include <string_view>
 
 
 #include "led/led.hpp"
@@ -57,7 +60,7 @@ void wifi_task(void*) {
     }
 
     const auto& wifi_cfg = sys::settings::get_wifi_settings();
-    const auto mode = static_cast<Mode>(cfg.wifi_mode);
+    auto mode = static_cast<Mode>(cfg.wifi_mode);
     auto success = false;
 
     while (!success && mode != Mode::NONE) {
@@ -79,6 +82,7 @@ void wifi_task(void*) {
                 break;
         }
         vTaskDelay(pdMS_TO_TICKS(5000));
+        mode = static_cast<Mode>(cfg.wifi_mode);
     }
 
     bool is_connected_flag = false;

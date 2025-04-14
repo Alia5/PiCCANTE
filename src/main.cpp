@@ -15,7 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <array>
 #include <cstdint>
 #include <cstring>
 #include <bsp/board_api.h>
@@ -23,20 +22,22 @@
 #include "Logger/Logger.hpp"
 #include "CanBus/CanBus.hpp"
 #include "FreeRTOSConfig.h"
+#include "class/cdc/cdc_device.h"
 #include "device/usbd.h"
+#include "portmacrocommon.h"
 #include "queue.h"
 #include "task.h"
 
 #include "timers.h"
 #include "tusb.h"
 #include <portable.h>
+#include <projdefs.h>
 
 #include "outstream/usb_cdc_stream.hpp"
 #include "outstream/uart_stream.hpp"
 
 #include "fs/littlefs_driver.hpp"
 #include "CommProto/slcan/slcan.hpp"
-#include "CommProto/gvret/gvret.hpp"
 #include "CommProto/gvret/handler.hpp"
 #include "SysShell/handler.hpp"
 #include "SysShell/settings.hpp"
@@ -44,6 +45,7 @@
 #include "led/led.hpp"
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
+#include "wifi/telnet/telnet.hpp"
 #endif
 
 static void usbDeviceTask(void* parameters) {
@@ -103,20 +105,41 @@ static void cmd_gvret_task(void* parameter) {
     vTaskDelay(60);
     piccante::Log::info << ("Starting PiCCANTE CMD + GVRET Task!\n");
 
-    gvret_handler = std::make_unique<piccante::gvret::handler>(piccante::usb_cdc::out(0));
-    piccante::sys::shell::handler shell_handler(*gvret_handler.get(),
-                                                piccante::usb_cdc::out(0));
+#ifdef WIFI_ENABLED
+    auto sink = piccante::wifi::telnet::mux_sink({piccante::usb_cdc::sinks[0].get()});
+    auto outstream = piccante::out::stream{sink};
+#else
+    const auto sink = piccante::usb_cdc::sinks[0].get();
+    auto outstream = piccante::out::stream{*sink};
+#endif
+
+    gvret_handler = std::make_unique<piccante::gvret::handler>(outstream);
+    piccante::sys::shell::handler shell_handler(*gvret_handler.get(), outstream);
 
     for (;;) {
         auto received = false;
         while (tud_cdc_n_available(0) > 0) {
             received = true;
-            const auto c = tud_cdc_n_read_char(0);
-            const auto used = gvret_handler->process_byte(c);
+            const auto byte = tud_cdc_n_read_char(0);
+            const auto used = gvret_handler->process_byte(byte);
             if (!used) {
-                shell_handler.process_byte(c);
+                shell_handler.process_byte(byte);
             }
         }
+
+#ifdef WIFI_ENABLED
+        const auto telnet_queue = piccante::wifi::telnet::get_rx_queue();
+        if (telnet_queue) {
+            uint8_t byte;
+            while (xQueueReceive(telnet_queue, &byte, 0) == pdTRUE) {
+                received = true;
+                const auto used = gvret_handler->process_byte(byte);
+                if (!used) {
+                    shell_handler.process_byte(byte);
+                }
+            }
+        }
+#endif
         if (received) {
             taskYIELD();
         } else {

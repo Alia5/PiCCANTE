@@ -36,6 +36,10 @@ struct wifi_settings {
     std::string ssid;
     std::string password;
     uint8_t channel;
+    struct telnet_settings {
+        uint16_t port;
+        bool enabled;
+    } telnet{};
 };
 #endif
 
@@ -62,6 +66,10 @@ const wifi_settings& get_wifi_settings();
 void set_wifi_ssid(const std::string& ssid);
 void set_wifi_password(const std::string& password);
 void set_wifi_channel(uint8_t channel);
+uint16_t get_telnet_port();
+void set_telnet_port(uint16_t port);
+bool telnet_enabled();
+void set_telnet_enabled(bool enabled);
 
 #endif
 
