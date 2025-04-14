@@ -27,10 +27,25 @@
 #include "stats/stats.hpp"
 #include "CommProto/gvret/handler.hpp"
 #include <hardware/watchdog.h>
+#ifdef WIFI_ENABLED
+#include "wifi/wifi.hpp"
+#include <cyw43.h>
+#endif
 
 namespace piccante::sys::shell {
 
 void handler::process_byte(char byte) {
+    if (byte == '\b' || byte == 127) {
+        if (!buffer.empty()) {
+            buffer.pop_back();
+            if (cfg.echo) {
+                host_out << "\b \b";
+                host_out.flush();
+            }
+        }
+        return;
+    }
+
     if (cfg.echo) {
         host_out << byte;
         host_out.flush();
@@ -90,8 +105,19 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
       &handler::cmd_log_level}},
     {"sys_stats", //
      {"Display system information and resource usage (sys_stats "
+#ifdef WIFI_ENABLED
+      "[cpu|heap|fs|tasks|uptime|wifi])",
+#else
       "[cpu|heap|fs|tasks|uptime])",
+#endif
       &handler::cmd_sys_stats}},
+#ifdef WIFI_ENABLED
+    {"wifi", //
+     {"Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> "
+      "<password> "
+      "<channel> | wifi disable)",
+      &handler::cmd_wifi}},
+#endif
     {"reset", //
      {"Reset the system (reset)", &handler::cmd_reset}},
 };
@@ -407,14 +433,25 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
     bool show_cpu = show_all || arg == "cpu";
     bool show_uptime = show_all || arg == "uptime";
     bool show_fs = show_all || arg == "fs";
+#ifdef WIFI_ENABLED
+
+    bool show_wifi = show_all || arg == "wifi";
+#endif
 
 
     // Check for invalid argument
-    if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime &&
-        !show_fs) {
+    if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime && !show_fs
+#ifdef WIFI_ENABLED
+        && !show_wifi
+#endif
+    ) {
         host_out << "Unknown parameter: " << arg << "\n";
         host_out << "Usage: sys_stats [section]\n";
-        host_out << "Available sections: cpu, heap, fs, tasks, uptime\n";
+        host_out << "Available sections: cpu, heap, fs, tasks, uptime";
+#ifdef WIFI_ENABLED
+        host_out << ", wifi";
+#endif
+        host_out << "\n";
         host_out << "If no section is specified, all information is displayed.\n";
         return;
     }
@@ -557,6 +594,32 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
         }
         host_out << "\n\n";
     }
+#ifdef WIFI_ENABLED
+    if (show_wifi) {
+        const auto wifi_mode = static_cast<wifi::Mode>(sys::settings::get_wifi_mode());
+        if (wifi_mode == wifi::Mode::NONE) {
+            host_out << "WiFi is disabled\n";
+        } else {
+            const auto wifi_stats = wifi::wifi_stats();
+            if (wifi_stats) {
+                host_out << "WiFi Mode: ";
+                if (wifi_mode == wifi::Mode::CLIENT) {
+                    host_out << "Client\n";
+                } else {
+                    host_out << "Access Point\n";
+                }
+                host_out << "SSID: " << wifi_stats->ssid << "\n";
+                host_out << "Channel: " << static_cast<int>(wifi_stats->channel) << "\n";
+                host_out << "RSSI: " << wifi_stats->rssi << "\n";
+                host_out << "IP Address: " << wifi_stats->ip_address << "\n";
+                host_out << "MAC Address: " << wifi_stats->mac_address << "\n\n";
+            } else {
+                host_out << "Failed to retrieve WiFi statistics\n";
+            }
+        }
+    }
+    host_out << "\n";
+#endif
 
     if (show_uptime) {
         auto uptime = piccante::sys::stats::get_uptime();
@@ -576,5 +639,141 @@ void handler::cmd_reset([[maybe_unused]] const std::string_view& arg) {
     host_out.flush();
     watchdog_reboot(0, SRAM_END, 10);
 }
+
+#ifdef WIFI_ENABLED
+void handler::cmd_wifi(const std::string_view& arg) {
+    const auto command = arg.substr(0, arg.find(' '));
+    const auto params = arg.substr(arg.find(' ') + 1);
+    if (command == "info") {
+        const auto wifi_mode = static_cast<wifi::Mode>(sys::settings::get_wifi_mode());
+        if (wifi_mode == wifi::Mode::NONE) {
+            host_out << "WiFi is disabled\n";
+        } else {
+            const auto wifi_stats = wifi::wifi_stats();
+            if (wifi_stats) {
+                host_out << "WiFi Mode: ";
+                if (wifi_mode == wifi::Mode::CLIENT) {
+                    host_out << "Client\n";
+                } else {
+                    host_out << "Access Point\n";
+                }
+                host_out << "SSID: " << wifi_stats->ssid << "\n";
+                host_out << "Channel: " << static_cast<int>(wifi_stats->channel) << "\n";
+                host_out << "RSSI: " << wifi_stats->rssi << "\n";
+                host_out << "IP Address: " << wifi_stats->ip_address << "\n";
+                host_out << "MAC Address: " << wifi_stats->mac_address << "\n\n";
+            } else {
+                host_out << "Failed to retrieve WiFi statistics\n";
+            }
+        }
+    } else if (command == "connect") {
+        auto ssid_end = params.find(' ');
+        if (ssid_end == std::string_view::npos) {
+            host_out
+                << "Error: Missing password. Usage: wifi connect <ssid> <password>\n";
+            host_out.flush();
+            return;
+        }
+
+        std::string ssid{params.substr(0, ssid_end).begin(),
+                         params.substr(0, ssid_end).end()};
+        if (ssid.empty()) {
+            host_out << "Error: SSID cannot be empty\n";
+            host_out.flush();
+            return;
+        }
+
+        std::string password{params.substr(ssid_end + 1).begin(),
+                             params.substr(ssid_end + 1).end()};
+
+
+        host_out << "Connecting to WiFi network: " << ssid << "\n";
+        const auto result = wifi::connect_to_network(ssid, password);
+        if (result < 0) {
+            std::string status_str{};
+            switch (result) {
+                case CYW43_LINK_FAIL:
+                    status_str = "Connection failed";
+                    break;
+                case CYW43_LINK_NONET:
+                    status_str = "No matching SSID found";
+                    break;
+                case CYW43_LINK_BADAUTH:
+                    status_str = "Authentication failed";
+                    break;
+                default:
+                    status_str = "Unknown error code: " + std::to_string(result);
+                    break;
+            }
+            host_out << "Failed to connect to WiFi network: " << status_str << "\n";
+        } else {
+            host_out << "Connected to WiFi network: " << ssid << "\n";
+        }
+        host_out.flush();
+    } else if (command == "ap") {
+        auto ssid_end = params.find(' ');
+        if (ssid_end == std::string_view::npos) {
+            host_out
+                << "Error: Invalid format. Usage: wifi ap <ssid> <password> [channel]\n";
+            host_out.flush();
+            return;
+        }
+
+        const auto ssid = params.substr(0, ssid_end);
+        if (ssid.empty()) {
+            host_out << "Error: SSID cannot be empty\n";
+            host_out.flush();
+            return;
+        }
+
+        auto password_start = ssid_end + 1;
+        if (password_start >= params.size()) {
+            host_out << "Error: Missing password. Usage: wifi ap <ssid> <password> "
+                        "[channel]\n";
+            host_out.flush();
+            return;
+        }
+
+        // Check if there's a space after the password (indicating a channel parameter)
+        auto password_end = params.find(' ', password_start);
+        uint8_t channel = 1; // Default channel
+        std::string_view password;
+
+        if (password_end == std::string_view::npos) {
+            // No channel specified, use all remaining text as password
+            password = params.substr(password_start);
+        } else {
+            // Channel specified, parse password and channel
+            password = params.substr(password_start, password_end - password_start);
+
+            auto channel_start = password_end + 1;
+            if (channel_start < params.size()) {
+                const auto channel_str = params.substr(channel_start);
+
+                int ch = 0;
+                auto [ch_ptr, ch_ec] = std::from_chars(
+                    channel_str.data(), channel_str.data() + channel_str.size(), ch);
+
+                if (ch_ec != std::errc() || ch < 1 || ch > 13) {
+                    host_out << "Error: Channel must be between 1 and 13 - Defaulting to "
+                                "channel 1\n";
+                } else {
+                    channel = static_cast<uint8_t>(ch);
+                }
+            }
+        }
+
+        host_out << "Starting AP with SSID: " << ssid
+                 << ", Channel: " << static_cast<int>(channel) << "\n";
+        wifi::start_ap(ssid, password, channel);
+    } else if (command == "disable") {
+        wifi::stop();
+    } else {
+        host_out << "Usage: wifi connect <ssid> <password> | wifi ap <ssid> <password> "
+                    "<channel> | wifi disable\n";
+    }
+    host_out.flush();
+}
+#endif
 
 } // namespace piccante::sys::shell

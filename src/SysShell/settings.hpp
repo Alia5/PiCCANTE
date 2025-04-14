@@ -17,6 +17,7 @@
  */
 #pragma once
 #include <cstdint>
+#include <string>
 #include "led/led.hpp"
 
 namespace piccante::sys::settings {
@@ -25,10 +26,18 @@ struct system_settings {
     bool echo;
     uint8_t log_level;
     led::Mode led_mode;
-    // bool wifi_enabled;
+    uint8_t wifi_mode;
     // bool bt_enabled; ...
 };
 #pragma pack(pop)
+
+#ifdef WIFI_ENABLED
+struct wifi_settings {
+    std::string ssid;
+    std::string password;
+    uint8_t channel;
+};
+#endif
 
 bool load_settings();
 
@@ -43,5 +52,17 @@ void set_log_level(uint8_t level);
 
 void set_led_mode(led::Mode mode);
 led::Mode get_led_mode();
+
+#ifdef WIFI_ENABLED
+
+uint8_t get_wifi_mode();
+void set_wifi_mode(uint8_t mode);
+const wifi_settings& get_wifi_settings();
+
+void set_wifi_ssid(const std::string& ssid);
+void set_wifi_password(const std::string& password);
+void set_wifi_channel(uint8_t channel);
+
+#endif
 
 } // namespace piccante::sys::settings

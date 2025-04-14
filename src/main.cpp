@@ -1,5 +1,20 @@
-
-// NOLINTNEXTLINE
+/*
+ * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
+ * Copyright (C) 2025 Peter Repukat
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -28,7 +43,7 @@
 #include "stats/stats.hpp"
 #include "led/led.hpp"
 #ifdef WIFI_ENABLED
-#include <pico/cyw43_arch.h>
+#include "wifi/wifi.hpp"
 #endif
 
 static void usbDeviceTask(void* parameters) {
@@ -110,26 +125,6 @@ static void cmd_gvret_task(void* parameter) {
     }
 }
 
-#ifdef WIFI_ENABLED
-// TODO: proper
-static void wifi_task(void* params) {
-    vTaskDelay(50);
-    const auto err = cyw43_arch_init();
-    if (err != PICO_OK) {
-        piccante::Log::error << "Failed to initialize cyw43: " << err << "\n";
-    } else {
-        piccante::Log::debug << "cyw43 initialized successfully\n";
-    }
-
-    const auto cfg = static_cast<piccante::sys::settings::system_settings*>(params);
-    piccante::led::init(cfg->led_mode);
-
-    for (;;) {
-        // TODO:
-        vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
-    }
-}
-#endif
 
 int main() {
     piccante::uart::sink0.init(0, 1, piccanteUART_SPEED);
@@ -192,10 +187,7 @@ int main() {
     vTaskCoreAffinitySet(canTaskHandle, 0x02);
 
 #ifdef WIFI_ENABLED
-    static TaskHandle_t wifiTaskHandle;
-    xTaskCreate(wifi_task, "WIFI", configMINIMAL_STACK_SIZE, (void*)&cfg,
-                configMAX_PRIORITIES - 5, &wifiTaskHandle);
-    vTaskCoreAffinitySet(wifiTaskHandle, 0x01);
+    static TaskHandle_t wifiTaskHandle = piccante::wifi::task();
 #endif
 
     vTaskStartScheduler();

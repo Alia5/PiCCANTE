@@ -16,6 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "settings.hpp"
+#include <array>
+#include <algorithm>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include <lfs.h>
 #include "fs/littlefs_driver.hpp"
 #include "FreeRTOS.h"
@@ -25,21 +30,28 @@
 namespace piccante::sys::settings {
 
 namespace {
-// Default settings
 system_settings cfg = {
     //
     .echo = true,                                              //
     .log_level = static_cast<uint8_t>(Log::Level::LEVEL_INFO), //
-    .led_mode = led::MODE_CAN,                                 //
+    .led_mode = led::MODE_CAN,
+    .wifi_mode = 0, //
 };
 
-namespace {
+#ifdef WIFI_ENABLED
+wifi_settings wifi_cfg = {
+    .ssid{},
+    .password{},
+    .channel = 1,
+};
+#endif
+
 SemaphoreHandle_t settings_mutex = nullptr;
 
 bool initialized = false;
 
-constexpr auto SETTINGS_FILENAME = "sys_settings";
-} // namespace
+constexpr auto SETTINGS_FILENAME = "system_settings";
+constexpr auto WIFI_DATA_FILENAME = "wifi_data";
 
 bool take_mutex(uint32_t timeout_ms = 100) {
     if (settings_mutex == nullptr) {
@@ -67,8 +79,8 @@ void give_mutex() {
 
 bool load_settings() {
     lfs_file_t readFile;
-    const int err =
-        lfs_file_open(&piccante::fs::lfs, &readFile, "system_settings", LFS_O_RDONLY);
+    int err =
+        lfs_file_open(&piccante::fs::lfs, &readFile, SETTINGS_FILENAME, LFS_O_RDONLY);
     if (err == LFS_ERR_OK) {
         lfs_ssize_t const bytesRead =
             lfs_file_read(&piccante::fs::lfs, &readFile, &cfg, sizeof(cfg));
@@ -82,6 +94,68 @@ bool load_settings() {
         Log::error << "Failed to read system settings file\n";
         return false;
     }
+#ifdef WIFI_ENABLED
+    std::array<char, 128> wifi_buffer{};
+    lfs_ssize_t bytesRead = 0;
+    err = lfs_file_open(&piccante::fs::lfs, &readFile, WIFI_DATA_FILENAME, LFS_O_RDONLY);
+    if (err == LFS_ERR_OK) {
+        bytesRead = lfs_file_read(&piccante::fs::lfs, &readFile, wifi_buffer.data(),
+                                  wifi_buffer.size());
+        if (bytesRead <= 0) {
+            Log::error << "Failed to read wifi settings file\n";
+            lfs_file_close(&piccante::fs::lfs, &readFile);
+            return false;
+        }
+        lfs_file_close(&piccante::fs::lfs, &readFile);
+    } else {
+        Log::error << "Failed to read wifi settings file\n";
+        return false;
+    }
+    if (bytesRead > 0) {
+        wifi_cfg.channel = wifi_buffer[0];
+
+        size_t pos_term = 0;
+        for (size_t i = 1; i < bytesRead; i++) {
+            if (wifi_buffer[i] == 0) {
+                pos_term = i;
+                break;
+            }
+        }
+
+        if (pos_term == 0) {
+            Log::error << "Invalid wifi settings file: missing SSID terminator\n";
+            return false;
+        }
+
+        size_t pos_pwd_term = 0;
+        for (size_t i = pos_term + 1; i < bytesRead; i++) {
+            if (wifi_buffer[i] == 0) {
+                pos_pwd_term = i;
+                break;
+            }
+        }
+
+        if (pos_pwd_term == 0) {
+            Log::error << "Invalid wifi settings file: missing password terminator\n";
+            return false;
+        }
+        size_t ssid_len = pos_term - 1;
+        wifi_cfg.ssid.resize(ssid_len);
+        if (ssid_len > 0) {
+            memcpy(&wifi_cfg.ssid[0], &wifi_buffer[1], ssid_len);
+        }
+
+        size_t pwd_len = pos_pwd_term - pos_term - 1;
+        wifi_cfg.password.resize(pwd_len);
+        if (pwd_len > 0) {
+            memcpy(&wifi_cfg.password[0], &wifi_buffer[pos_term + 1], pwd_len);
+        }
+
+        Log::debug << "Loaded SSID: '" << wifi_cfg.ssid << "'\n";
+    }
+
+#endif
+
     initialized = true;
     return true;
 }
@@ -102,8 +176,8 @@ bool store() {
     }
 
     lfs_file_t writeFile;
-    int err = lfs_file_open(&piccante::fs::lfs, &writeFile, SETTINGS_FILENAME,
-                            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
+    auto err = lfs_file_open(&piccante::fs::lfs, &writeFile, SETTINGS_FILENAME,
+                             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
     bool success = false;
 
     if (err == LFS_ERR_OK) {
@@ -120,6 +194,45 @@ bool store() {
     } else {
         Log::error << "Failed to open system settings file for writing\n";
     }
+
+#ifdef WIFI_ENABLED
+    err = lfs_file_open(&piccante::fs::lfs, &writeFile, WIFI_DATA_FILENAME,
+                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
+    success = false;
+
+    if (err == LFS_ERR_OK) {
+        std::vector<uint8_t> wifi_buffer;
+        wifi_buffer.push_back(wifi_cfg.channel);
+
+        for (size_t i = 0; i < wifi_cfg.ssid.size(); i++) {
+            wifi_buffer.push_back(static_cast<uint8_t>(wifi_cfg.ssid[i]));
+        }
+        wifi_buffer.push_back(0);
+
+        for (size_t i = 0; i < wifi_cfg.password.size(); i++) {
+            wifi_buffer.push_back(static_cast<uint8_t>(wifi_cfg.password[i]));
+        }
+        wifi_buffer.push_back(0);
+
+        Log::debug << "Storing SSID: '" << wifi_cfg.ssid
+                   << "', size=" << wifi_cfg.ssid.size() << "\n";
+
+        if (lfs_file_write(&piccante::fs::lfs, &writeFile, wifi_buffer.data(),
+                           wifi_buffer.size()) > 0) {
+            success = true;
+        } else {
+            Log::error << "Failed to write wifi settings file\n";
+        }
+
+        if (lfs_file_close(&piccante::fs::lfs, &writeFile) != LFS_ERR_OK) {
+            Log::error << "Failed to close wifi settings file\n";
+            success = false;
+        }
+    } else {
+        Log::error << "Failed to open wifi settings file for writing\n";
+    }
+
+#endif
 
     give_mutex();
     return success;
@@ -143,5 +256,15 @@ void set_led_mode(led::Mode mode) {
 }
 
 led::Mode get_led_mode() { return led::Mode(); }
+
+#ifdef WIFI_ENABLED
+
+uint8_t get_wifi_mode() { return cfg.wifi_mode; }
+void set_wifi_mode(uint8_t mode) { cfg.wifi_mode = mode; }
+const wifi_settings& get_wifi_settings() { return wifi_cfg; }
+void set_wifi_ssid(const std::string& ssid) { wifi_cfg.ssid = ssid; }
+void set_wifi_password(const std::string& password) { wifi_cfg.password = password; }
+void set_wifi_channel(uint8_t channel) { wifi_cfg.channel = channel; }
+#endif
 
 } // namespace piccante::sys::settings
