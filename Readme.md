@@ -122,7 +122,8 @@ reset           - Reset the system (reset)
 save            - Save current settings to flash
 set_num_busses  - Set number of CAN buses (can_num_busses [number])
 settings        - Show current system settings
-sys_stats       - Display system information and resource usage (sys_stats [cpu|heap|fs|tasks|uptime])
+sys_stats       - Display system information and resource usage (sys_stats [cpu|heap|fs|tasks|uptime|adc|wifi])
+wifi            - Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> <password> <channel> | wifi disable)
 ```
 
 ## ❓ Troubleshooting
@@ -133,9 +134,10 @@ sys_stats       - Display system information and resource usage (sys_stats [cpu|
   - Verify wiring and bitrate settings
   - Check for proper bus termination resistance (remove resistor on the transceiver if connected to an existing CAN-bus)
 
-- **Issue**: LED not blinking  
-  *Solution*:
+- **Issue**: LED not lighting up / blinking  
+  *Solutions*:
   - Check USB connection and power
+  - Check led_mode command on the first USB CDC device
 
 ## 🛠️ Development
 
