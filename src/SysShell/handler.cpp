@@ -452,6 +452,7 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
     bool show_memory = show_all || arg == "heap" || arg == "memory";
     bool show_tasks = show_all || arg == "tasks";
     bool show_cpu = show_all || arg == "cpu";
+    bool show_cpu_total = arg == "cpu_total";
     bool show_uptime = show_all || arg == "uptime";
     bool show_fs = show_all || arg == "fs";
     bool show_adc = show_all || arg == "adc";
@@ -463,7 +464,7 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
 
     // Check for invalid argument
     if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime &&
-        !show_fs && !show_adc
+        !show_fs && !show_adc && !show_cpu_total
 #ifdef WIFI_ENABLED
         && !show_wifi
 #endif
@@ -567,8 +568,8 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
         host_out << "\n";
     }
 
-    if (show_cpu) {
-        const auto cpu_stats = piccante::sys::stats::get_cpu_stats(true);
+    if (show_cpu || show_cpu_total) {
+        const auto cpu_stats = piccante::sys::stats::get_cpu_stats(!show_cpu_total);
         host_out << "CPU Usage:\n";
         host_out << "----------\n";
         host_out << "Task            Current %\n";
