@@ -28,18 +28,19 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 ### 🎯 Core Goals
 
 <sub>Keep it D.I.R.T.Y 😉</sub>  
-- **D**ead-Simple  
+
+- **D**ead-Simple 🔨  
    - Simple enough for perfboard soldering with minimal components.
-- **I**nexpensive  
+- **I**nexpensive 💰  
    - Minimal hardware requirements to keep costs dirt-cheap.  
    - Based on affordable, off-the-shelf components.
-- **R**eadily-Available  
+- **R**eadily-Available 🌎
    - Fully open-source hardware and software.  
    - Uses widely available Raspberry Pi Pico boards.
-- **T**ool-Compatible  
+- **T**ool-Compatible 🔌
    - Seamless integration with existing CAN tools.  
    - Pre-built firmware releases for immediate use.
-- **Y**our-First Choice  
+- **Y**our-First Choice 💡
    - Driverless across all major operating systems.  
    - Easy to use for beginners and experts alike.
    - 🔜 Documentation
@@ -51,7 +52,15 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
   - Compatible with [SavvyCAN](https://github.com/collin80/SavvyCAN) and other automotive tools
 - ✅ Up to 3× USB-CDC SLCAN interfaces (dedicated to each CAN channel)
   - SocketCAN compatible via [can-utils (Linux)](https://github.com/linux-can/can-utils)
-- 🔜 WiFi / Bluetooth support (on Pico W models)
+- ✅ LED status indicators
+- ✅ Command line interface for configuration and diagnostics
+- ✅ WiFi support (on Pico W models)
+  - ✅ Create WiFi access point (wifi ap <ssid> <password> <channel>)
+  - ✅ Connect to existing WiFi networks (wifi connect <ssid> <password>)
+  - ✅ WiFi status and configuration commands
+  - ✅ [Configurable] PiCCANTE configuration + GVRET as Telnet server
+- 🔜 Web-based configuration interface (on Pico W models)
+- 🔜 Bluetooth support (on Pico W models)
 - 🔜 ELM327 emulator
 - 🔜 (Software) CAN filters
 - 🔜 MITM mode for advanced analysis / vehicle tuning
@@ -60,7 +69,7 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 
 ## 📋 Quick Start
 
-### What You'll Need
+### 🛒 What You'll Need
 
 - 1× Raspberry Pi Pico (any model, RP2040 or RP2350)
   - **Note:** The Pico 2 W (RP2350) is recommended for full feature support, including WiFi and Bluetooth.
@@ -74,9 +83,9 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 - [**Optional**] Low dropout Buck-Converter module and OBD Plug for directly connecting to the vehicle's OBD-II port
 - [**Optional**] 3D printed case for the Pico and transceivers
 
-### Basic Usage Examples
+### 🚀 Basic Usage Examples
 
-#### Linux with can-utils (slcan)
+#### 🐧 Linux with can-utils (slcan)
 
 ```bash
 # Set up SLCAN interface
@@ -87,7 +96,7 @@ sudo ip link set up can0
 candump can0
 ```
 
-#### Cross Platform with SavvyCAN
+#### 🖥️ Cross Platform with SavvyCAN
 
 1. Connect PiCCANTE to USB
 2. Open SavvyCAN
@@ -106,10 +115,12 @@ Pre-compiled binaries for all official Raspberry Pi Pico boards are available as
 
 When connected via USB, PiCCANTE exposes **up to** 4× USB-CDC interfaces:
 
-- 1× PiCCANTE command + GVRET (binary) interface
+- 1× Combined PiCCANTE command + GVRET (binary) interface
+  - Always the _first_ exposed CDC device.
+  - Also exposed via telnet if enabled on WiFi enabled boards.
 - **Up to** 3× SLCAN interfaces (dedicated to each CAN channel)
 
-### PiCCANTE Commands
+### ⌨️ PiCCANTE Commands
 
 ```
 binary          - Toggle GVRET binary mode (binary <on|off>)
@@ -119,13 +130,14 @@ can_enable      - Enable CAN bus with specified bitrate (can_enable <bus> <bitra
 can_status      - Show status of CAN buses
 echo            - Toggle command echo (echo <on|off>)
 help            - Display this help message
-led_mode        - Set LED mode (led_mode <0-2>) 0=OFF, 1=Power, 2=CAN Activity
+led_mode        - Set LED mode (led_mode <0-3>) 0=OFF, 1=Power, 2=CAN Activity
 log_level       - Set log level (log_level <0-3>). 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
 reset           - Reset the system (reset)
 save            - Save current settings to flash
 set_num_busses  - Set number of CAN buses (can_num_busses [number])
 settings        - Show current system settings
 sys_stats       - Display system information and resource usage (sys_stats [cpu|heap|fs|tasks|uptime|adc|wifi])
+telnet          - Enable or disable Telnet and set port (telnet enable|disable | telnet <port>)
 wifi            - Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> <password> <channel> | wifi disable)
 ```
 
@@ -146,14 +158,14 @@ wifi            - Manage WiFi settings (wifi info | wifi connect <ssid> <passwor
 
 PiCCANTE is built using the Raspberry Pi Pico SDK and follows standard Pico development practices. This section covers how to set up your development environment, build the project, and extend its functionality.
 
-### Prerequisites
+### 🧰 Prerequisites
 
 - [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk)
 - [CMake](https://cmake.org/) (3.13 or newer) [Windows: bundled with PicoSDK]
 - C/C++ compiler (GCC ARM) [Windows: bundled with PicoSDK]
 - [Visual Studio Code](https://code.visualstudio.com/) with the [Pico extension](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug) (recommended)
 
-### Environment Setup
+### 🔄 Environment Setup
 
 1. **Install the Pico SDK**:
 
@@ -167,9 +179,9 @@ PiCCANTE is built using the Raspberry Pi Pico SDK and follows standard Pico deve
     git submodule update --init --recursive
     ```
 
-### Building
+### 🏗️ Building
 
-#### Command Line
+#### 💻 Command Line
 
 1. **Configure with CMake**:
 
@@ -183,7 +195,7 @@ PiCCANTE is built using the Raspberry Pi Pico SDK and follows standard Pico deve
    cmake --build build --config Release
    ```
 
-#### Using VS Code
+#### 🖥️ Using VS Code
 
 1. Open the PiCCANTE folder in VS Code
 2. Press F1 and select "CMake: Configure"
