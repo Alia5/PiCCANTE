@@ -23,7 +23,7 @@
 #ifndef MEM_SIZE
 #define MEM_SIZE 4000
 #endif
-#define MEMP_NUM_TCP_SEG 32
+#define MEMP_NUM_TCP_SEG 64
 #define MEMP_NUM_ARP_QUEUE 10
 #define PBUF_POOL_SIZE 24
 #define LWIP_ARP 1
@@ -32,7 +32,7 @@
 #define LWIP_RAW 1
 #define TCP_WND (8 * TCP_MSS)
 #define TCP_MSS 1460
-#define TCP_SND_BUF (8 * TCP_MSS)
+#define TCP_SND_BUF (16 * TCP_MSS)
 #define TCP_SND_QUEUELEN ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
 #define LWIP_NETIF_STATUS_CALLBACK 1
 #define LWIP_NETIF_LINK_CALLBACK 1

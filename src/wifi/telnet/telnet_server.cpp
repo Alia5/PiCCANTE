@@ -34,7 +34,6 @@
 #include <utility>
 
 #include "lwip/sockets.h"
-#include "portmacrocommon.h"
 
 namespace piccante::wifi::telnet {
 
@@ -85,9 +84,9 @@ bool server::start() {
 
     BaseType_t task_created = xTaskCreate(server_task,
                                           "TelnetServer",
-                                          configMINIMAL_STACK_SIZE,
+                                          configMINIMAL_STACK_SIZE * 2,
                                           this,
-                                          tskIDLE_PRIORITY + 1,
+                                          tskIDLE_PRIORITY + 5,
                                           &server_task_handle);
 
     if (task_created != pdPASS) {
@@ -168,9 +167,9 @@ bool server::create_socket() {
     }
 
     int opt = 1;
-    // if (lwip_setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) <
+    // if (lwip_setsockopt(server_socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) <
     // 0) {
-    //     Log::error << "Failed to set SO_REUSEADDR on telnet server socket\n";
+    //     Log::error << "Failed to set TCP_NODELAY on telnet server socket\n";
     //     close_socket();
     //     return false;
     // }
@@ -270,6 +269,12 @@ void server::accept_connections() {
                   << ((client_addr.sin_addr.s_addr >> 24) & 0xFF) << ":"
                   << ntohs(client_addr.sin_port) << "\n";
 
+        // int flag = 1;
+        // lwip_setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+
+        int sendbuf = 4096;
+        lwip_setsockopt(client_socket, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf));
+
         int opt = 1;
         if (lwip_ioctl(client_socket, FIONBIO, &opt) < 0) {
             Log::error << "Failed to set telnet client socket to non-blocking\n";
@@ -295,9 +300,9 @@ void server::accept_connections() {
         BaseType_t task_created =
             xTaskCreate(client_handler_task,
                         "TelnetClient",
-                        configMINIMAL_STACK_SIZE,
+                        configMINIMAL_STACK_SIZE * 2,
                         new std::pair<server*, int>(this, client_socket),
-                        tskIDLE_PRIORITY + 1,
+                        tskIDLE_PRIORITY + 5,
                         &client_task_handle);
 
         if (task_created != pdPASS) {
@@ -335,7 +340,7 @@ void server::send_telnet_will_echo(int client_socket) {
     uint8_t will_sga[] = {IAC, WILL, SGA};
     lwip_send(client_socket, will_sga, sizeof(will_sga), 0);
 
-    uint8_t do_echo[] = {IAC, DO, ECHO};
+    uint8_t do_echo[] = {IAC, DONT, ECHO};
     lwip_send(client_socket, do_echo, sizeof(do_echo), 0);
 }
 
@@ -406,8 +411,8 @@ void server::client_handler_task(void* params) {
         bool has_command = false;
         for (int i = 0; i < bytes_read - 1; i++) {
             if (buffer[i] == IAC) {
-                server_instance->process_telnet_command(
-                    client_socket, buffer.data() + i, bytes_read - i);
+                server_instance->process_telnet_command(client_socket, buffer.data() + i,
+                                                        bytes_read - i);
                 has_command = true;
                 break;
             }
@@ -487,5 +492,11 @@ void sink::write(const char* data, size_t len) {
 }
 
 int sink::get_socket() const { return client_socket; }
+
+void sink::flush() {
+    if (client_socket >= 0) {
+        lwip_send(client_socket, nullptr, 0, MSG_DONTWAIT);
+    }
+}
 
 } // namespace piccante::wifi::telnet

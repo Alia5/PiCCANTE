@@ -97,7 +97,7 @@ class sink : public out::base_sink {
     ~sink() override;
     void write(const char* data, std::size_t len) override;
     int get_socket() const;
-    void flush() override {}
+    void flush() override;
 
         private:
     int client_socket;

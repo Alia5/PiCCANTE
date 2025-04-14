@@ -47,7 +47,24 @@ class telnet_sink : public out::base_sink {
         xSemaphoreGive(telnet_server->get_clients_mutex());
     }
 
-    void flush() override {}
+    void flush() override {
+        if (!telnet_server || !telnet_server->is_running()) {
+            return;
+        }
+
+        if (xSemaphoreTake(telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
+            pdTRUE) {
+            return;
+        }
+
+        for (const auto& client : telnet_server->get_clients()) {
+            if (client.sink) {
+                client.sink->flush();
+            }
+        }
+
+        xSemaphoreGive(telnet_server->get_clients_mutex());
+    }
 };
 
 namespace {
