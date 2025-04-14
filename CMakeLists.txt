@@ -303,6 +303,9 @@ if(IS_WIFI_BOARD)
         ${PICO_SDK_PATH}/lib/lwip/src/include
         ${PICO_SDK_PATH}/lib/btstack/src
     )
+
+    add_compile_definitions(CYW43_HOST_NAME="PiCCANTE")
+
 endif()
 
 # pico_enable_stdio_usb(${target_name} 0)
