@@ -24,7 +24,6 @@
 #include "FreeRTOSConfig.h"
 #include "class/cdc/cdc_device.h"
 #include "device/usbd.h"
-#include "portmacrocommon.h"
 #include "queue.h"
 #include "task.h"
 
