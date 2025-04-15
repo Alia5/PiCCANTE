@@ -351,7 +351,7 @@ void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
     host_out << "\nSystem Settings:\n";
     host_out << "--------------\n\n";
 
-    constexpr int label_width = 15;
+    constexpr int label_width = 30;
 
     host_out << "Echo:";
     for (int i = 0; i < label_width - 5; i++)
@@ -390,7 +390,40 @@ void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
     host_out << "CAN buses:";
     for (int i = 0; i < label_width - 10; i++)
         host_out << ' ';
-    host_out << static_cast<int>(piccante::can::get_num_busses()) << "\n\n";
+    host_out << static_cast<int>(piccante::can::get_num_busses()) << "\n";
+
+    host_out << "Idle timeout:";
+    for (int i = 0; i < label_width - 13; i++)
+        host_out << ' ';
+    host_out << (settings::get_idle_sleep_minutes() == 0
+                     ? "off"
+                     : std::to_string(settings::get_idle_sleep_minutes()))
+             << " minutes\n";
+#ifdef WIFI_ENABLED
+    host_out << "WiFi mode:";
+    for (int i = 0; i < label_width - 10; i++)
+        host_out << ' ';
+    host_out << (cfg.wifi_mode == 0 ? "off" : std::to_string(cfg.wifi_mode)) << "\n";
+    host_out << "WiFi SSID:";
+    for (int i = 0; i < label_width - 10; i++)
+        host_out << ' ';
+    host_out << settings::get_wifi_settings().ssid << "\n";
+    host_out << "WiFi Channel (AP):";
+    for (int i = 0; i < label_width - 18; i++)
+        host_out << ' ';
+    host_out << static_cast<int>(settings::get_wifi_settings().channel) << "\n";
+    host_out << "Telnet:";
+    for (int i = 0; i < label_width - 7; i++)
+        host_out << ' ';
+    host_out << (settings::get_wifi_settings().telnet.enabled ? "Enabled" : "Disabled")
+             << "\n";
+    host_out << "Telnet port:";
+    for (int i = 0; i < label_width - 12; i++)
+        host_out << ' ';
+    host_out << static_cast<int>(settings::get_wifi_settings().telnet.port) << "\n";
+#endif
+
+    host_out << "\n";
 }
 
 void handler::cmd_settings_store([[maybe_unused]] const std::string_view& arg) {
