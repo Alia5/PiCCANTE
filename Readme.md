@@ -239,6 +239,7 @@ PiCCANTE is designed to be modular and extensible. Here are some key areas where
 - **Adding new commands**: Extend the command interpreter to add custom commands.
 - **Implementing new protocols**: Add new protocol handlers in their respective directories.
 - **Car-specific tools**: Fork PiCCANTE to create a car-specific tool and diagnostics dongle.
+- **Custom gauges**: Fork PiCCANTE and use it as a base controller to implement custom gauges.
 - **Custom data logging**: Implement custom data logging to SD card to monitor your vehicle on a track day.
 
 ## 📄 License
