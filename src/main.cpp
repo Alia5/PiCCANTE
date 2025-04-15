@@ -42,6 +42,7 @@
 #include "SysShell/settings.hpp"
 #include "stats/stats.hpp"
 #include "led/led.hpp"
+#include "power/sleep.hpp"
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
@@ -88,6 +89,7 @@ static void can_recieveTask(void* parameter) {
                     handler->comm_can_frame(msg);
                 }
                 received = true;
+                piccante::power::sleep::reset_idle_timer();
             }
         }
         if (received) {
@@ -200,6 +202,8 @@ int main() {
         auto slcanTaskHandle = slcan_handler[i]->create_task();
         vTaskCoreAffinitySet(slcanTaskHandle, 0x01);
     }
+
+    piccante::power::sleep::init();
 
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
 

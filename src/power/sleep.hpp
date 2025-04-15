@@ -19,6 +19,8 @@
 
 namespace piccante::power::sleep {
 
+void init();
+void reset_idle_timer();
 void enter_sleep_mode();
 void wake_up();
 

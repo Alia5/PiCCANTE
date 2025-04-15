@@ -144,6 +144,9 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
      {"Reset the system (reset)", &handler::cmd_reset}},
     {"sleep", //
      {"Enter deep sleep mode (sleep)", &handler::cmd_sleep}},
+    {"idle_timeout", //
+     {"Set idle timeout in minutes (idle_timeout disable|<minutes>)",
+      &handler::cmd_idle_timeout}},
 };
 
 void handler::cmd_echo(const std::string_view& arg) {
@@ -697,6 +700,30 @@ void handler::cmd_sleep([[maybe_unused]] const std::string_view& arg) {
     host_out << "Entering deep sleep mode...\n";
     host_out.flush();
     piccante::power::sleep::enter_sleep_mode();
+}
+
+void handler::cmd_idle_timeout(const std::string_view& arg) {
+    if (arg == "disable") {
+        settings::set_idle_sleep_minutes(0);
+        host_out << "Idle timeout disabled\n";
+    } else {
+        int timeout = 0;
+        auto [ptr, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), timeout);
+        if (ec == std::errc()) {
+            if (timeout > 0) {
+                settings::set_idle_sleep_minutes(timeout);
+                host_out << "Idle timeout set to " << timeout << " minutes\n";
+            } else {
+                host_out << "Invalid timeout value. Must be greater than 0.\n";
+            }
+        } else {
+            host_out << "Current idle timeout: "
+                     << std::to_string(settings::get_idle_sleep_minutes())
+                     << " minutes\n";
+            host_out << "Usage: idle_timeout disable|<minutes>\n";
+        }
+    }
+    host_out.flush();
 }
 
 } // namespace piccante::sys::shell

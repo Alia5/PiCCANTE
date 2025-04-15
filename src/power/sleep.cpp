@@ -40,7 +40,83 @@ namespace piccante::power::sleep {
 
 namespace {
 bool sleeping = false;
+TimerHandle_t idle_timer = nullptr;
+TaskHandle_t idle_task_handle = nullptr;
+
+void idle_timer_callback(TimerHandle_t timer) {
+    if (!sleeping) {
+        Log::info << "CAN idle timeout reached, entering sleep mode\n";
+        enter_sleep_mode();
+    }
 }
+
+void idle_detection_task(void* params) {
+    (void)params;
+
+    Log::info << "Idle detection task started\n";
+
+    for (;;) {
+        const auto idle_minutes = sys::settings::get_idle_sleep_minutes();
+        if (idle_minutes > 0 && !sleeping) {
+            if (idle_timer == nullptr) {
+                idle_timer = xTimerCreate("IdleTimer",
+                                          pdMS_TO_TICKS(idle_minutes * 60 * 1000),
+                                          pdFALSE, // One-shot timer
+                                          nullptr,
+                                          idle_timer_callback);
+
+                if (idle_timer == nullptr) {
+                    Log::error << "Failed to create idle timer\n";
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    continue;
+                }
+
+                if (xTimerStart(idle_timer, 0) != pdPASS) {
+                    Log::warning << "Failed to start idle timer\n";
+                }
+
+                Log::info << "Idle timer started: " << idle_minutes << " minutes\n";
+            } else {
+                xTimerChangePeriod(
+                    idle_timer, pdMS_TO_TICKS(idle_minutes * 60 * 1000), 0);
+            }
+        } else if (idle_timer != nullptr && (idle_minutes == 0 || sleeping)) {
+            xTimerStop(idle_timer, 0);
+            xTimerDelete(idle_timer, 0);
+            idle_timer = nullptr;
+
+            if (idle_minutes == 0) {
+                Log::info << "Idle timeout disabled\n";
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+} // namespace
+
+void init() {
+    BaseType_t result = xTaskCreate(idle_detection_task,
+                                    "IdleDetect",
+                                    configMINIMAL_STACK_SIZE,
+                                    nullptr,
+                                    tskIDLE_PRIORITY + 1,
+                                    &idle_task_handle);
+
+    if (result != pdPASS) {
+        Log::error << "Failed to create idle detection task\n";
+        return;
+    }
+
+    vTaskCoreAffinitySet(idle_task_handle, 0x01);
+}
+
+void reset_idle_timer() {
+    if (!sleeping && idle_timer != nullptr) {
+        xTimerReset(idle_timer, 0);
+    }
+}
+
 
 void enter_sleep_mode() {
     if (sleeping) {

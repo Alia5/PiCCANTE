@@ -275,6 +275,9 @@ void set_led_mode(led::Mode mode) {
 
 led::Mode get_led_mode() { return led::Mode(); }
 
+uint8_t get_idle_sleep_minutes() { return cfg.idle_sleep_minutes; }
+void set_idle_sleep_minutes(uint8_t minutes) { cfg.idle_sleep_minutes = minutes; }
+
 #ifdef WIFI_ENABLED
 
 uint8_t get_wifi_mode() { return cfg.wifi_mode; }

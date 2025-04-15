@@ -27,6 +27,7 @@ struct system_settings {
     uint8_t log_level;
     led::Mode led_mode;
     uint8_t wifi_mode;
+    uint8_t idle_sleep_minutes;
     // bool bt_enabled; ...
 };
 #pragma pack(pop)
@@ -56,6 +57,9 @@ void set_log_level(uint8_t level);
 
 void set_led_mode(led::Mode mode);
 led::Mode get_led_mode();
+
+uint8_t get_idle_sleep_minutes();
+void set_idle_sleep_minutes(uint8_t minutes);
 
 #ifdef WIFI_ENABLED
 

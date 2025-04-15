@@ -79,6 +79,7 @@ class handler {
     void cmd_sys_stats(const std::string_view& arg);
     void cmd_reset(const std::string_view& arg);
     void cmd_sleep(const std::string_view& arg);
+    void cmd_idle_timeout(const std::string_view& arg);
 
 #ifdef WIFI_ENABLED
     void cmd_wifi(const std::string_view& arg);
