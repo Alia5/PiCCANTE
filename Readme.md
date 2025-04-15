@@ -141,6 +141,28 @@ telnet          - Enable or disable Telnet and set port (telnet enable|disable |
 wifi            - Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> <password> <channel> | wifi disable)
 ```
 
+## ❓ Frequently Asked Questions
+
+### 🔄 Why only CAN2.0B and not CAN FD/XL?
+
+The Raspberry Pi Pico has no native CAN support. The PIO can2040 implementation we're using only supports CAN 2.0B.  
+However, if you **need** CAN FD or other bus types, feel free to open a PR supporting a CAN controller (like MCP2518FD).
+
+### 🔌 Can I use PiCCANTE with Linux/Windows/macOS?
+
+Yes! PiCCANTE is designed to be cross-platform. It works with any operating system as a standard USB device with no special drivers required.  
+For SLCAN interfaces, Linux users can use can-utils to provide a SocketCAN interface, while all platforms support the GVRET/SLCAN interface through tools like SavvyCAN.
+
+### 💻 How many CAN buses can I monitor simultaneously?
+
+Up to 3 CAN buses on the RP2350 (Pico 2/2W) and up to 2 CAN buses on the RP2040 (original Pico/Pico W).  
+Each bus has a dedicated USB-CDC SLCAN interface.
+
+### 🔧 Why build my own instead of buying a commercial CAN adapter?
+
+PiCCANTE gives you a fully open-source solution at a fraction of the cost of commercial tools.  
+You get complete control over the hardware and software, the ability to customize for specific needs, and valuable learning experience about CAN networks and embedded systems.
+
 ## ❓ Troubleshooting
 
 - **Issue**: CAN bus not receiving data  
