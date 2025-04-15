@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write
+
 env:
   BUILD_TYPE: Release
   PICO_SDK_PATH: ${{github.workspace}}/.pico-sdk
@@ -99,4 +102,83 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PiCCANTE-${{ matrix.board.name }}-Snapshot
-          path: ${{github.workspace}}/build-${{ matrix.board.name }}/PiCCANTE.*
+          path: |
+            ${{github.workspace}}/build-${{ matrix.board.name }}/PiCCANTE.uf2
+            ${{github.workspace}}/build-${{ matrix.board.name }}/PiCCANTE.elf
+
+  create-pre-release:
+    name: Create Pre-Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Organize and rename artifacts
+        run: |
+            mkdir -p release_files
+            # Loop through each board's artifact folder
+            for dir in artifacts/*; do
+            if [ -d "$dir" ]; then
+                board_name=$(basename "$dir" | sed 's/PiCCANTE-\(.*\)-Snapshot/\1/')
+                echo "Processing board: $board_name"
+                
+                for file in "$dir"/*; do
+                if [ -f "$file" ]; then
+                    filename=$(basename "$file")
+                    extension="${filename##*.}"
+                    basename="${filename%.*}"
+                    new_filename="${basename}-${board_name}.${extension}"
+                    cp "$file" "release_files/$new_filename"
+                    echo "Renamed: $filename -> $new_filename"
+                fi
+                done
+            fi
+            done
+            ls -la release_files/
+
+      - name: Extract build info
+        id: build_info
+        run: |
+          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          echo "time=$(date +'%H%M')" >> $GITHUB_OUTPUT
+          echo "sha=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+          
+          BUILD_NUMBER=1
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/dev-latest | jq -r '.body')
+          if [[ $LATEST_RELEASE =~ "Build: #([0-9]+)" ]]; then
+            PREVIOUS_BUILD="${BASH_REMATCH[1]}"
+            BUILD_NUMBER=$((PREVIOUS_BUILD + 1))
+          fi
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+      
+      - name: Delete existing pre-release
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+        with:
+          tag_name: dev-latest
+          delete_release: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: dev-latest
+          name: "Dev Build #${{ steps.build_info.outputs.build_number }} (${{ steps.build_info.outputs.date }})"
+          body: |
+            **Automated Development Build**
+            
+            Build: #${{ steps.build_info.outputs.build_number }}
+            Date: ${{ steps.build_info.outputs.date }} ${{ steps.build_info.outputs.time }}
+            Commit: [${{ steps.build_info.outputs.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            
+            ⚠️ These are the latest development builds and may contain bugs or unfinished features.
+          files: release_files/**/*
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
