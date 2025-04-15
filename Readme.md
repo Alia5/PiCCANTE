@@ -54,6 +54,7 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
   - SocketCAN compatible via [can-utils (Linux)](https://github.com/linux-can/can-utils)
 - ✅ LED status indicators
 - ✅ Command line interface for configuration and diagnostics
+- ✅ Auto (Deep) sleep on idle + Wakeup on CAN activity.
 - ✅ WiFi support (on Pico W models)
   - ✅ Create WiFi access point (`wifi ap <ssid> <password> <channel>`)
   - ✅ Connect to existing WiFi networks (`wifi connect <ssid> <password>`)
