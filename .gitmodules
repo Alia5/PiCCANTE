@@ -10,3 +10,6 @@
 [submodule "ext/tinyusb"]
 	path = ext/tinyusb
 	url = https://github.com/hathach/tinyusb
+[submodule "ext/pico-extras"]
+	path = ext/pico-extras
+	url = git@github.com:raspberrypi/pico-extras.git

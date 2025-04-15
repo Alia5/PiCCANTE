@@ -47,6 +47,9 @@ set(TINYUSB_CONFIG_PATH ${CMAKE_CURRENT_LIST_DIR}/src/config/tusb_config.h)
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+set(PICO_EXTRAS_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/pico-extras)
+include(${PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
+
 project(PiCCANTE C CXX ASM)
 
 set(PICO_CXX_ENABLE_EXCEPTIONS 0)
@@ -151,8 +154,6 @@ add_compile_definitions(
     CFG_TUSB_OS_INC_PATH=${CFG_TUSB_OS_INC_PATH}
 )
 
-
-
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
@@ -220,13 +221,11 @@ target_sources(
     ${CAN2040_PATH}/src/can2040.c
 )
 
-
 file(GLOB_RECURSE extFiles CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/ext/**/*.c"
     "${PICO_SDK_PATH}/**/*.c"
     "${PICO_SDK_PATH}/**/*.h"
 )
-
 
 set_source_files_properties(
     ${extFiles}
@@ -296,11 +295,12 @@ target_sources(${target_name} PRIVATE
 target_link_libraries(${target_name}
     pico_async_context_freertos
     FreeRTOS-Kernel-Heap4
-    hardware_pio
     pico_unique_id
     tinyusb_device
     tinyusb_board
+    hardware_pio
     hardware_adc
+    hardware_sleep
 
     -lstdc++
 )
@@ -321,7 +321,6 @@ if(IS_WIFI_BOARD)
     )
 
     add_compile_definitions(CYW43_HOST_NAME="PiCCANTE")
-
 endif()
 
 # pico_enable_stdio_usb(${target_name} 0)
