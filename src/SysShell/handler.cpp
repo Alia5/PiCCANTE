@@ -30,6 +30,7 @@
 #include "stats/stats.hpp"
 #include "CommProto/gvret/handler.hpp"
 #include <hardware/watchdog.h>
+#include "power/sleep.hpp"
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #endif
@@ -141,6 +142,8 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
 #endif
     {"reset", //
      {"Reset the system (reset)", &handler::cmd_reset}},
+    {"sleep", //
+     {"Enter deep sleep mode (sleep)", &handler::cmd_sleep}},
 };
 
 void handler::cmd_echo(const std::string_view& arg) {
@@ -690,5 +693,10 @@ void handler::cmd_reset([[maybe_unused]] const std::string_view& arg) {
     watchdog_reboot(0, SRAM_END, 10);
 }
 
+void handler::cmd_sleep([[maybe_unused]] const std::string_view& arg) {
+    host_out << "Entering deep sleep mode...\n";
+    host_out.flush();
+    piccante::power::sleep::enter_sleep_mode();
+}
 
 } // namespace piccante::sys::shell
