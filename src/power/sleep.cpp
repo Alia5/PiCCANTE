@@ -53,7 +53,10 @@ void idle_timer_callback(TimerHandle_t timer) {
 void idle_detection_task(void* params) {
     (void)params;
 
+    vTaskDelay(pdMS_TO_TICKS(1000)); // Time for other tasks
     Log::info << "Idle detection task started\n";
+
+    uint8_t idle_minutes_prev = 0;
 
     for (;;) {
         const auto idle_minutes = sys::settings::get_idle_sleep_minutes();
@@ -72,13 +75,23 @@ void idle_detection_task(void* params) {
                 }
 
                 if (xTimerStart(idle_timer, 0) != pdPASS) {
-                    Log::warning << "Failed to start idle timer\n";
+                    Log::error << "Failed to start idle timer\n";
                 }
 
-                Log::info << "Idle timer started: " << idle_minutes << " minutes\n";
-            } else {
+                Log::info << "Idle timer started: " << std::to_string(idle_minutes)
+                          << " minutes\n";
+                idle_minutes_prev = idle_minutes;
+
+            } else if (idle_minutes_prev != idle_minutes) {
+                Log::info << "Idle timeout changed: " << std::to_string(idle_minutes_prev)
+                          << " -> " << std::to_string(idle_minutes) << " minutes\n";
+
+                xTimerStop(idle_timer, 0);
                 xTimerChangePeriod(
                     idle_timer, pdMS_TO_TICKS(idle_minutes * 60 * 1000), 0);
+                if (xTimerStart(idle_timer, 0) != pdPASS) {
+                    Log::error << "Failed to restart idle timer\n";
+                }
             }
         } else if (idle_timer != nullptr && (idle_minutes == 0 || sleeping)) {
             xTimerStop(idle_timer, 0);
@@ -96,7 +109,7 @@ void idle_detection_task(void* params) {
 } // namespace
 
 void init() {
-    BaseType_t result = xTaskCreate(idle_detection_task,
+    const auto result = xTaskCreate(idle_detection_task,
                                     "IdleDetect",
                                     configMINIMAL_STACK_SIZE,
                                     nullptr,
