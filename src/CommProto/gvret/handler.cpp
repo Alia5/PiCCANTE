@@ -39,18 +39,28 @@ void handler::comm_can_frame(uint busnumber, const can2040_msg& frame) {
     // should be fine
     uint32_t const time = to_us_since_boot(get_absolute_time());
 
-    auto id = frame.id;
-    // remove flags from id copy
-    id &= ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
+    auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
+    constexpr size_t header_size =
+        1 + 1 + 4 + 4 + 1; // GET_COMMAND + SEND_CAN_FRAME + time + id + dlc/bus
+    size_t total_size = header_size + frame.dlc + 1;
 
-    host_out << GET_COMMAND << SEND_CAN_FRAME << piccante::bin(time) << piccante::bin(id)
-             << static_cast<uint8_t>(frame.dlc + uint8_t(busnumber << 4));
+    std::array<uint8_t, 32> buf; // 32 is enough for a CAN frame
+    size_t pos = 0;
+
+    buf[pos++] = GET_COMMAND;
+    buf[pos++] = SEND_CAN_FRAME;
+    std::memcpy(&buf[pos], &time, 4);
+    pos += 4;
+    std::memcpy(&buf[pos], &id, 4);
+    pos += 4;
+    buf[pos++] = static_cast<uint8_t>(frame.dlc + uint8_t(busnumber << 4));
     for (uint8_t i = 0; i < frame.dlc; i++) {
-        host_out << frame.data[i];
+        buf[pos++] = frame.data[i];
     }
-    // TODO: Checksum, seems not to be implemented anyway...
-    host_out << uint8_t(0);
+    buf[pos++] = 0;
+
+    host_out.write(reinterpret_cast<const char*>(buf.data()), pos);
     host_out.flush();
 }
 
