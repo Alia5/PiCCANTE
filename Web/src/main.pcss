@@ -1,0 +1,384 @@
+[data-theme="light"] {
+    color-scheme: light;
+}
+[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+:root {
+  --transition-duration: 0.25s;
+
+  --text-color: #f0f0f0;
+  --inverse-text-color: #070707;
+  --card-color: color-mix(in srgb, var(--text-color), #1b1a1a 100%);
+  --background-color: color-mix(in srgb, var(--text-color), #000000 87%);
+  --color-primary: #d32928;
+  --color-secondary: #2e5c2e;
+}
+
+
+html, body {
+  transition-property: none;
+  transition-duration: var(--transition-duration);
+  transition-timing-function: ease-in-out;
+  transition-delay: 0.001ms; 
+  color-scheme: dark;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+*,
+::before,
+::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default margin */
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+/* Set core root defaults */
+html:focus-within {
+  scroll-behavior: smooth;
+}
+
+/* Make images easier to work with */
+img,
+picture {
+  max-width: 100%;
+  display: block;
+}
+
+/* Inherit fonts for inputs and buttons */
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+body {
+  width: 100%;
+  font-family:
+    "Noto Sans",
+    "Noto Color Emoji",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+p {
+  white-space: pre-line;
+}
+
+button, .button {
+  text-decoration: none;
+  background-color: transparent;
+  cursor: pointer;
+  outline: 1px solid transparent;
+  padding: 1rem;
+  color: var(--text-color);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 200%;
+    height: 200%;
+    background: rgba(255,255,255,0.15); /* Adjust color/opacity as needed */
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 0;
+  }
+
+  &:is(:hover, :focus-visible, :active)::after {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+input:not([type="checkbox"]) {
+  background-color: transparent;
+  border: 1px solid color-mix(in srgb, var(--text-color), transparent 50%);
+  outline: 1px solid transparent;
+  padding: 0.5em 1em;
+  color: var(--text-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.25);
+  transition: all 0.2s ease-in-out;
+  &::placeholder {
+    color: var(--text-color);
+    opacity: 0.5;
+  }
+  &:is(:hover, :focus) {
+    border: 1px solid var(--text-color);
+  }
+}
+
+input[type="checkbox"]:is(.toggle) {
+  appearance: none;
+  --toggle-height: 2em;
+  --toggle-width: 3.5em;
+  --indicator-padding: 0.7em;
+  min-width: var(--toggle-width);
+  position: relative;
+  display: grid;
+  place-items: center;
+
+  &::before {
+    content: "";
+    width: var(--toggle-width);
+    height: var(--toggle-height);
+    inset: 0;
+    border-radius: 100vh;
+    background-color: transparent;
+    border: 2px solid color-mix(in srgb, var(--text-color), transparent 50%);
+    transition: all var(--transition-duration) ease;
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    --size: calc(var(--toggle-height) - var(--indicator-padding));
+    height: var(--size);
+    width: var(--size);
+    background-color: color-mix(in srgb, var(--text-color), transparent 50%);
+    border-radius: 100vh;
+    left: calc(var(--indicator-padding) / 2);
+    transition: all var(--transition-duration) ease;
+
+  }
+  &:checked {
+    &::before {
+        background-color: var(--color-primary);
+        border: 2px solid transparent;
+    }
+    &::after {
+      background-color: color-mix(in srgb, var(--text-color), transparent 0%);
+      left: calc(
+        var(--toggle-width) - var(--toggle-height) +
+          (var(--indicator-padding) / 2)
+      );
+    }
+  }
+}
+
+input[type='checkbox']:not(.toggle) {
+    position: relative;
+    appearance: none;
+    border-radius: 0.25em;
+    display: grid;
+    place-items: center;
+    width: 1.4em;
+    height: 1.4em;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--text-color), transparent 75%);
+    &::before {
+        content: '';
+        width: 100%;
+        height: 100%;
+        border-radius: 0.25em;
+        transition: background-color var(--transition-duration) ease;
+        position: absolute;
+    }
+    &:checked::before {
+        background-color: var(--text-color);
+    }
+
+    &::after {
+        position: absolute;
+        content: '';
+        opacity: 0;
+        width: 60%;
+        height: 60%;
+        background-color: var(--inverse-text-color);
+        transform-origin: bottom left;
+        clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)
+    }
+    &:checked::after {
+        content: '';
+        opacity: 1;
+    }
+
+    &:hover,
+    &:focus-visible {
+        & input[type='checkbox']::before {
+            background-color: color-mix(in srgb, var(--text-color), transparent 75%);
+        }
+    }
+
+    &:disabled {
+        opacity: 0.5;
+    }
+}
+
+& input[type='radio'] {
+    position: relative;
+    appearance: none;
+    border-radius: 100%;
+    display: grid;
+    place-items: center;
+    width: 1.4em;
+    height: 1.4em;
+    padding: 0;
+    box-shadow:
+        0 0 1px 0 white inset,
+        0 0 1px 0 white;
+    &::before {
+        content: '';
+        width: 50%;
+        height: 50%;
+        border-radius: 100%;
+        transition: background-color var(--transition-duration) ease;
+    }
+    &:checked::before {
+        background-color: var(--text-color);
+    }
+    &:hover,
+    &:focus-visible {
+        & input[type='radio']::before {
+            background-color: color-mix(in srgb, var(--text-color), transparent 75%);
+        }
+    }
+}
+
+fieldset {
+    border: 1px solid transparent;
+}
+
+
+/* Remove all animations, transitions and smooth scroll for people that prefer not to see them */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    animation-delay: 0ms !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+.primary {
+    padding: 1em;
+    border: none;
+    background-color: var(--text-color);
+    color: var(--inverse-text-color);
+    position: relative;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    color: var(--inverse-text-color);
+    background-color: var(--text-color);
+    font-weight: bold;
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        &:hover,
+        &:focus-visible {
+            box-shadow: none;
+            &::before {
+                display: none;
+            }
+        }
+    }
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--inverse-text-color);
+        opacity: 0;
+        transition: opacity var(--transition-duration) ease;
+    }
+
+    &:hover,
+    &:focus-visible {
+        border: none;
+        outline: none;
+        &::before {
+            opacity: 0.5
+        }
+    }
+}
+
+.card {
+    background-color: var(--card-color);
+    padding: 1em;
+    border-radius: 1em;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
+}
+
+select {
+    background-color: transparent;
+    border: 1px solid color-mix(in srgb, var(--text-color), transparent 50%);
+    outline: 1px solid transparent;
+    padding: 0.5em 1em;
+    border-radius: 0.5rem;
+    transition: all var(--transition-duration) ease;
+    appearance: none;
+    & option{
+        background-color: var(--card-color);
+        color: var(--text-color);
+    }
+}
+
+.dropdown {
+    position: relative;
+    display: flex;
+    & select {
+        flex: 1;
+    }
+    & .icon {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        pointer-events: none;
+    }
+}
