@@ -1,16 +1,23 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import { compression } from 'vite-plugin-compression2'
+import { compression } from 'vite-plugin-compression2';
 import fs from 'fs';
 import path from 'path';
 import { minify } from 'html-minifier-terser';
-import svg from '@poppanator/sveltekit-svg'
-import Icons from 'unplugin-icons/vite'
+import svg from '@poppanator/sveltekit-svg';
+import Icons from 'unplugin-icons/vite';
 
 
+function safeUnlinkSync(file: string) {
+    try {
+        fs.unlinkSync(file);
+    } catch (e) {
+        if (e.code !== 'ENOENT') throw e;
+    }
+}
 
 const removeUncompressed = () => ({
-    name: 'keep-smallest-compressed',
+    name: 'keep-only-gzip',
     closeBundle() {
         const outDir = path.resolve('build');
         function recurse(dir: string) {
@@ -20,22 +27,17 @@ const removeUncompressed = () => ({
                     recurse(fullPath);
                     if (fs.readdirSync(fullPath).length === 0) fs.rmdirSync(fullPath);
                 } else {
-                    // Only operate on original files (not .gz/.br)
                     if (!entry.name.endsWith('.gz') && !entry.name.endsWith('.br')) {
                         const gzPath = fullPath + '.gz';
                         const brPath = fullPath + '.br';
-                        const candidates = [
-                            { path: fullPath, exists: true, size: fs.statSync(fullPath).size },
-                            { path: gzPath, exists: fs.existsSync(gzPath), size: fs.existsSync(gzPath) ? fs.statSync(gzPath).size : Infinity },
-                            { path: brPath, exists: fs.existsSync(brPath), size: fs.existsSync(brPath) ? fs.statSync(brPath).size : Infinity }
-                        ];
-                        // Only keep the smallest
-                        const smallest = candidates.filter(c => c.exists).sort((a, b) => a.size - b.size)[0];
-                        for (const c of candidates) {
-                            if (c.exists && c.path !== smallest.path) {
-                                fs.unlinkSync(c.path);
-                            }
+                        if (fs.existsSync(gzPath)) {
+                            safeUnlinkSync(fullPath); // remove original
+                            safeUnlinkSync(brPath);   // remove brotli
+                        } else if (fs.existsSync(brPath)) {
+                            safeUnlinkSync(brPath);
                         }
+                    } else if (entry.name.endsWith('.br')) {
+                        safeUnlinkSync(fullPath);
                     }
                 }
             }
@@ -83,7 +85,7 @@ const minifyHtmlPlugin = () => ({
                         collapseWhitespace: true,
                         removeComments: true,
                         minifyJS: true,
-                        minifyCSS: true,
+                        minifyCSS: true
                     }).then((minified: string) => {
                         fs.writeFileSync(fullPath, minified, 'utf8');
                     });
@@ -102,7 +104,7 @@ export default defineConfig(({ mode }) => ({
             autoInstall: true,
             scale: 1.2,
             transform: (svg) => svg.replace(/^<svg /, '<svg ')
-          }),
+        }),
         svg(),
         minifyHtmlPlugin(),
         // compression({
@@ -112,7 +114,7 @@ export default defineConfig(({ mode }) => ({
         //     skipIfLargerOrEqual: true,
         // }),
         removeUncompressed(), // Remove uncompressed AFTER the fact or svelteKit freaks out...
-        bundleAnalyzer(),
+        bundleAnalyzer()
     ],
     build: {
         sourcemap: mode !== 'production',
@@ -121,12 +123,12 @@ export default defineConfig(({ mode }) => ({
         minify: 'esbuild',
         terserOptions: {
             format: {
-                comments: false,
+                comments: false
             },
             compress: {
                 ecma: 2020,
-                passes: 2,
-            },
+                passes: 2
+            }
         }
     }
 }));
