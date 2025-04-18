@@ -50,6 +50,12 @@ function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
     set(FS_DATA_C ${CMAKE_BINARY_DIR}/fs_data.c)
     set(CONVERTER_SCRIPT ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bin2c.cmake)
 
+    # Prefer FS_DIR.local if it exists
+    set(FS_DIR_LOCAL "${FS_DIR}.local")
+    if(EXISTS "${FS_DIR_LOCAL}")
+        message(STATUS "Using local filesystem folder: ${FS_DIR_LOCAL}")
+        set(FS_DIR "${FS_DIR_LOCAL}")
+    endif()
 
     download_mklittlefs()
 

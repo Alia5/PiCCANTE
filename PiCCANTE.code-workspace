@@ -8,5 +8,12 @@
             "name": "Web",
             "path": "Web"
         }
-    ]
+    ],
+    "settings": {
+        "files.associations": {
+            "*.inc": "cpp",
+            "atomic": "cpp",
+            "cstdint": "cpp"
+        }
+    }
 }
