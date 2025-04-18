@@ -35,7 +35,7 @@
 #include "Logger/Logger.hpp"
 #include "SysShell/settings.hpp"
 #include "telnet/telnet.hpp"
-
+#include "http/httpd.hpp"
 
 namespace piccante::wifi {
 
@@ -102,6 +102,8 @@ void wifi_task(void*) {
         default:
             break;
     }
+
+    httpd::start();
 
     for (;;) {
         const auto mode = static_cast<Mode>(sys::settings::get_wifi_mode());

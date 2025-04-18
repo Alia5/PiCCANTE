@@ -261,7 +261,7 @@ target_include_directories(${target_name} SYSTEM PRIVATE
 
 # Set filesystem size with default of 24KB
 if(NOT DEFINED ENV{PICCANTE_FS_SIZE_KB})
-    set(LITTLEFS_SIZE_KB 64)
+    set(LITTLEFS_SIZE_KB 512)
 else()
     set(LITTLEFS_SIZE_KB $ENV{PICCANTE_FS_SIZE_KB})
 endif()
