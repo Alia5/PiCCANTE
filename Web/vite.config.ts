@@ -96,6 +96,40 @@ const minifyHtmlPlugin = () => ({
     }
 });
 
+function copyBuildOutput() {
+    return {
+        name: 'copy-build-output',
+        closeBundle() {
+            const srcDir = path.resolve(__dirname, 'build');
+            let destDir = process.env.WEB_ASSET_OUT_DIR;
+            if (!destDir) {
+                destDir = path.resolve(__dirname, '../build/fs_files/web');
+                console.warn(
+                    '\x1b[33m[copy-build-output] Warning: WEB_ASSET_OUT_DIR not set, using fallback:', destDir, '\x1b[0m'
+                );
+            } else {
+                destDir = path.resolve(destDir);
+            }
+            function copyRecursive(src: string, dest: string) {
+                if (!fs.existsSync(src)) return;
+                if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+                for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+                    const srcPath = path.join(src, entry.name);
+                    const destPath = path.join(dest, entry.name);
+                    if (entry.isDirectory()) {
+                        copyRecursive(srcPath, destPath);
+                    } else {
+                        fs.copyFileSync(srcPath, destPath);
+                    }
+                }
+            }
+
+            copyRecursive(srcDir, destDir);
+            console.log(`\n\x1b[32mCopied build output to ${destDir}\x1b[0m\n`);
+        }
+    };
+}
+
 export default defineConfig(({ mode }) => ({
     plugins: [
         sveltekit(),
@@ -114,7 +148,8 @@ export default defineConfig(({ mode }) => ({
         //     skipIfLargerOrEqual: true,
         // }),
         removeUncompressed(), // Remove uncompressed AFTER the fact or svelteKit freaks out...
-        bundleAnalyzer()
+        bundleAnalyzer(),
+        copyBuildOutput()
     ],
     build: {
         sourcemap: mode !== 'production',

@@ -259,7 +259,68 @@ target_include_directories(${target_name} SYSTEM PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/ext/littlefs
 )
 
-# Set filesystem size with default of 24KB
+# Set up paths
+set(FS_FILES_DIR ${CMAKE_CURRENT_LIST_DIR}/fs_files)
+set(FS_FILES_LOCAL_DIR ${CMAKE_CURRENT_LIST_DIR}/fs_files.local)
+set(BUILD_FS_FILES_DIR ${CMAKE_BINARY_DIR}/fs_files)
+set(BUILD_FS_FILES_LOCAL_DIR ${CMAKE_BINARY_DIR}/fs_files.local)
+set(WEB_DIR ${CMAKE_CURRENT_LIST_DIR}/Web)
+set(BUILD_WEB_DIR ${BUILD_FS_FILES_DIR}/web)
+
+if(EXISTS ${FS_FILES_LOCAL_DIR})
+    add_custom_target(copy_fs_files ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${FS_FILES_LOCAL_DIR} ${BUILD_FS_FILES_DIR}
+        COMMENT "Copying fs_files.local to build directory"
+    )
+else()
+    add_custom_target(copy_fs_files ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${FS_FILES_DIR} ${BUILD_FS_FILES_DIR}
+        COMMENT "Copying fs_files to build directory"
+    )
+endif()
+
+set(LFS_EXTRA_DEPS copy_fs_files)
+find_program(NODE_EXECUTABLE node)
+
+if(IS_WIFI_BOARD AND NODE_EXECUTABLE)
+    find_program(PNPM_EXECUTABLE pnpm)
+
+    if(NOT PNPM_EXECUTABLE)
+        message(STATUS "pnpm not found, attempting to install via corepack...")
+        execute_process(COMMAND corepack enable)
+        execute_process(COMMAND corepack prepare pnpm@latest --activate)
+
+        # Try again
+        find_program(PNPM_EXECUTABLE pnpm)
+
+        if(NOT PNPM_EXECUTABLE)
+            message(FATAL_ERROR "pnpm could not be installed via corepack! Please check your Node.js installation.")
+        endif()
+    endif()
+
+    add_custom_command(
+        OUTPUT ${WEB_BUILD_DIR}/index.html
+        COMMAND pnpm install
+        COMMAND pnpm run build
+        WORKING_DIRECTORY ${WEB_DIR}
+        COMMENT "Building web assets"
+    )
+
+    add_custom_target(web_assets ALL
+        DEPENDS ${WEB_BUILD_DIR}/index.html
+    )
+
+    set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
+        ${BUILD_FS_FILES_DIR}
+        ${BUILD_FS_FILES_LOCAL_DIR}
+    )
+    list(APPEND LFS_EXTRA_DEPS web_assets)
+
+else()
+    message(WARNING "Node.js (node) not found! Web assets will NOT be built or included. Please install Node.js if you want web UI.")
+endif()
+
+# Set filesystem size with default of 512KB
 if(NOT DEFINED ENV{PICCANTE_FS_SIZE_KB})
     set(LITTLEFS_SIZE_KB 512)
 else()
@@ -273,10 +334,12 @@ math(EXPR LFS_BLOCK_COUNT "${LITTLEFS_SIZE_KB} / 4")
 
 configure_file(${CMAKE_CURRENT_LIST_DIR}/flash_region.template.ld ${CMAKE_BINARY_DIR}/pico_flash_region.ld)
 
-set(LITTLEFS_DATA_DIR ${CMAKE_CURRENT_LIST_DIR}/fs_files)
+set(LITTLEFS_DATA_DIR ${BUILD_FS_FILES_DIR})
 file(MAKE_DIRECTORY ${LITTLEFS_DATA_DIR})
 include(${CMAKE_CURRENT_LIST_DIR}/generate_littlefs.cmake)
-generate_littlefs_image(${target_name} ${LITTLEFS_DATA_DIR} ${LITTLEFS_SIZE_BYTES})
+generate_littlefs_image(${target_name} ${LITTLEFS_DATA_DIR} ${LITTLEFS_SIZE_BYTES}
+    DEPENDS ${LFS_EXTRA_DEPS}
+)
 target_compile_definitions(${target_name} PRIVATE
     LFS_BLOCK_SIZE=4096
     LFS_BLOCK_COUNT=${LFS_BLOCK_COUNT}

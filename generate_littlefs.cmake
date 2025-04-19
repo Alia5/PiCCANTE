@@ -46,12 +46,18 @@ function(download_mklittlefs)
 endfunction()
 
 function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
+    set(options)
+    set(oneValueArgs)
+    set(multiValueArgs DEPENDS)
+    cmake_parse_arguments(GLI "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
     set(FS_IMAGE ${CMAKE_BINARY_DIR}/littlefs.bin)
     set(FS_DATA_C ${CMAKE_BINARY_DIR}/fs_data.c)
     set(CONVERTER_SCRIPT ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bin2c.cmake)
 
     # Prefer FS_DIR.local if it exists
     set(FS_DIR_LOCAL "${FS_DIR}.local")
+
     if(EXISTS "${FS_DIR_LOCAL}")
         message(STATUS "Using local filesystem folder: ${FS_DIR_LOCAL}")
         set(FS_DIR "${FS_DIR_LOCAL}")
@@ -113,7 +119,7 @@ function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
     add_custom_command(
         OUTPUT ${FS_IMAGE}
         COMMAND ${MKLITTLEFS_BINARY} -c ${FS_DIR} -s ${FS_SIZE} ${FS_IMAGE}
-        DEPENDS ${FS_DIR}
+        DEPENDS ${FS_DIR} ${GLI_DEPENDS}
         COMMENT "Generating LittleFS image from ${FS_DIR}"
         VERBATIM
     )
@@ -121,8 +127,8 @@ function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
     add_custom_command(
         OUTPUT ${FS_DATA_C}
         COMMAND ${CMAKE_COMMAND} -D BIN_FILE=${FS_IMAGE} -D C_FILE=${FS_DATA_C} -D BIN_SIZE=${FS_SIZE} -P ${CONVERTER_SCRIPT}
-        DEPENDS ${FS_IMAGE} ${CONVERTER_SCRIPT}
-        COMMENT "Converting LittleFS image to C array (cross-platform)"
+        DEPENDS ${FS_IMAGE} ${CONVERTER_SCRIPT} ${GLI_DEPENDS}
+        COMMENT "Converting LittleFS image to C array"
         VERBATIM
     )
 
