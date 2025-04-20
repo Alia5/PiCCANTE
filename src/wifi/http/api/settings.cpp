@@ -48,11 +48,14 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
     for (int i = 0; i < num_buses; i++) {
         const auto enabled = can::is_enabled(i);
         const auto bitrate = can::get_bitrate(i);
+        const auto listen_only = can::is_listenonly(i);
 
-        can_settings_json += fmt::sprintf(R"("can%d":{"enabled":%s,"bitrate":%d})",
-                                          i,
-                                          enabled ? "true" : "false",
-                                          bitrate);
+        can_settings_json +=
+            fmt::sprintf(R"("can%d":{"enabled":%s,"listen_only":%s,"bitrate":%d})",
+                         i,
+                         enabled ? "true" : "false",
+                         listen_only ? "true" : "false",
+                         bitrate);
 
         if (i < num_buses - 1) {
             can_settings_json += ",";
@@ -154,10 +157,16 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
                 Log::debug << "Setting can bus " << i << " settings to: " << *v << "\n";
                 auto enabled = util::json::get_value(*v, "enabled");
                 auto bitrate = util::json::get_value(*v, "bitrate");
-                if (enabled) {
-                    can::enable(i, std::stoi(std::string(*bitrate)));
-                } else {
-                    can::disable(i);
+                auto listen_only = util::json::get_value(*v, "listen_only");
+                if (enabled != "") {
+                    if (enabled == "true") {
+                        can::enable(i, std::stoi(std::string(*bitrate)));
+                        if (listen_only != "") {
+                            can::set_listenonly(i, *listen_only == "true");
+                        }
+                    } else {
+                        can::disable(i);
+                    }
                 }
             }
         }
