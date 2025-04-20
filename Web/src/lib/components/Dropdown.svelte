@@ -18,13 +18,17 @@
 <script lang="ts">
 import IcRoundArrowDropDown from '~icons/ic/round-arrow-drop-down';
 
-// eslint-disable-next-line prefer-const
-let { options, selected = $bindable() }: { options: { name: string; value: unknown }[]; selected?: unknown } =
-    $props();
+let {
+    // eslint-disable-next-line prefer-const
+    options,
+    selected = $bindable(),
+    // eslint-disable-next-line prefer-const
+    disabled = false
+}: { options: { name: string; value: unknown }[]; selected?: unknown; disabled?: boolean } = $props();
 </script>
 
 <div class="dropdown" style="min-width: 8em;">
-    <select bind:value={selected}>
+    <select bind:value={selected} disabled={disabled}>
         {#each options as opt (opt.value)}
             <option value={opt.value}>{opt.name}</option>
         {/each}
