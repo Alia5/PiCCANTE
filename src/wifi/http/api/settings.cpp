@@ -50,7 +50,7 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
         wifi_cfg.password.c_str(), wifi_cfg.channel,
         piccante::sys::settings::get_telnet_port(),
         piccante::sys::settings::telnet_enabled() ? "true" : "false");
-    http_server_write_raw(handle, result.c_str(), result.size());
+    http_server_write_raw(handle, result.c_str(), result.size() - 1);
     http_server_end_write_reply(handle, "");
     return true;
 }
