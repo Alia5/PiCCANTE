@@ -15,6 +15,27 @@ export const mocks = {
                     channel: 1,
                     telnet_port: 23,
                     telnet_enabled: true
+                },
+                can_settings: {
+                    max_supported: 3,
+                    enabled: 3,
+                    can0: {
+                        enabled: true,
+                        listen_only: false,
+                        bitrate: 500000
+                    },
+                    can1: {
+                        enabled: false,
+                        listen_only: false,
+
+                        bitrate: 500000
+                    },
+                    can2: {
+                        enabled: false,
+                        listen_only: false,
+
+                        bitrate: 125000
+                    }
                 }
             }
         },

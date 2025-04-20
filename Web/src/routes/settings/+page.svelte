@@ -19,6 +19,7 @@
 import Dropdown from '$/lib/components/Dropdown.svelte';
 import Masonry from '$/lib/components/Masonry.svelte';
 import { page } from '$app/state';
+import { slide } from 'svelte/transition';
 const can_bitrates = [
     { name: '33.3 kbit/s', value: 33333 },
     { name: '50 kbit/s', value: 50000 },
@@ -77,7 +78,7 @@ $effect(() => {
         <div>
             <h2>CAN</h2>
             <ol>
-                <li><b>Max. Supported</b>3</li>
+                <li><b>Max. Supported</b>{settings.can_settings.max_supported}</li>
                 <li>
                     <b>Enabled</b>
                     <Dropdown
@@ -85,43 +86,40 @@ $effect(() => {
                             { name: '1', value: 1 },
                             { name: '2', value: 2 },
                             { name: '3', value: 3 }
-                        ]} />
+                        ]}
+                        bind:selected={settings.can_settings.enabled} />
                 </li>
             </ol>
         </div>
-        <div class="card">
-            <h3>CAN0</h3>
-            <ol>
-                <li><b>Enabled</b><input type="checkbox" class="toggle" /></li>
-                <li><b>Listen Only</b><input type="checkbox" class="toggle" /></li>
-                <li>
-                    <b>Baudrate</b>
-                    <Dropdown options={can_bitrates} />
-                </li>
-            </ol>
-        </div>
-        <div class="card">
-            <h3>CAN1</h3>
-            <ol>
-                <li><b>Enabled</b><input type="checkbox" class="toggle" /></li>
-                <li><b>Listen Only</b><input type="checkbox" class="toggle" /></li>
-                <li>
-                    <b>Baudrate</b>
-                    <Dropdown options={can_bitrates} />
-                </li>
-            </ol>
-        </div>
-        <div class="card">
-            <h3>CAN2</h3>
-            <ol>
-                <li><b>Enabled</b><input type="checkbox" class="toggle" /></li>
-                <li><b>Listen Only</b><input type="checkbox" class="toggle" /></li>
-                <li>
-                    <b>Baudrate</b>
-                    <Dropdown options={can_bitrates} />
-                </li>
-            </ol>
-        </div>
+        {#each Array(settings.can_settings.enabled)
+            .fill(0)
+            .map((_, i) => i) as idx (idx)}
+            <div class="card" transition:slide>
+                <h3>CAN{idx}</h3>
+                <ol>
+                    <li>
+                        <b>Enabled</b><input
+                            type="checkbox"
+                            class="toggle"
+                            bind:checked={settings.can_settings[`can${idx}`].enabled} />
+                    </li>
+                    <li>
+                        <b>Listen Only</b><input
+                            type="checkbox"
+                            class="toggle"
+                            disabled={!settings.can_settings[`can${idx}`].enabled}
+                            bind:checked={settings.can_settings[`can${idx}`].listen_only} />
+                    </li>
+                    <li>
+                        <b>Baudrate</b>
+                        <Dropdown
+                            options={can_bitrates}
+                            disabled={!settings.can_settings[`can${idx}`].enabled}
+                            bind:selected={settings.can_settings[`can${idx}`].bitrate} />
+                    </li>
+                </ol>
+            </div>
+        {/each}
     </div>
     <div class="card d-grid">
         <h2>WiFi</h2>
@@ -135,11 +133,21 @@ $effect(() => {
                 { name: 'Connect', value: 0 },
                 { name: 'Access Point', value: 1 }
             ]}
+            disabled={!wifi_enabled}
             bind:selected={wifi_mode} />
-        <b>SSID</b><input bind:value={settings.wifi_settings.ssid} />
-        <b>Password</b><input type="password" bind:value={settings.wifi_settings.password} />
+        <b>SSID</b><input bind:value={settings.wifi_settings.ssid} disabled={!wifi_enabled} />
+        <b>Password</b><input
+            type="password"
+            bind:value={settings.wifi_settings.password}
+            disabled={!wifi_enabled} />
         <b>Channel</b>
-        <input type="number" step="1" min="1" max="12" bind:value={settings.wifi_settings.channel} />
+        <input
+            type="number"
+            step="1"
+            min="1"
+            max="12"
+            bind:value={settings.wifi_settings.channel}
+            disabled={!wifi_enabled} />
     </div>
 </Masonry>
 
@@ -158,7 +166,9 @@ li {
 
 .can {
     display: grid;
-    gap: 2em;
+    & > .card {
+        margin-top: 2em;
+    }
 }
 
 .d-grid {
