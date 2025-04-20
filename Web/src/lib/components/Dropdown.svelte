@@ -15,19 +15,21 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  -->
-<div class="card">
-    <h2>Build Info</h2>
-    <p>
-        <br />
-        v0.0.0-12-42f1337
-        <br />
-        <a href="https://github.com/Alia5/PiCCANTE">GitHub</a>
-    </p>
-</div>
+<script lang="ts">
+import IcRoundArrowDropDown from '~icons/ic/round-arrow-drop-down';
 
-<style>
-.card {
-    padding: 1em 2em;
-    place-self: center;
-}
-</style>
+// eslint-disable-next-line prefer-const
+let { options, selected = $bindable() }: { options: { name: string; value: unknown }[]; selected?: unknown } =
+    $props();
+</script>
+
+<div class="dropdown" style="min-width: 8em;">
+    <select bind:value={selected}>
+        {#each options as opt (opt.value)}
+            <option value={opt.value}>{opt.name}</option>
+        {/each}
+    </select>
+    <div class="icon">
+        <IcRoundArrowDropDown style="width: 2.4em; height: 2.4em;" />
+    </div>
+</div>

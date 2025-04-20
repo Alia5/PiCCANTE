@@ -31,7 +31,7 @@ const config = {
             '$': 'src',
             '$components': 'src/lib/components',
             '$assets': 'src/assets',
-
+            '$mocks': 'src/mocks',
         },
     }
 };
