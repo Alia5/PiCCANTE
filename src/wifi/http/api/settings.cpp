@@ -32,16 +32,40 @@ extern "C" {
 #include "../../../fmt.hpp"
 #include "Logger/Logger.hpp"
 #include "util/json.hpp"
+#include "CanBus/CanBus.hpp"
+
 
 namespace piccante::httpd::api::settings {
 bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
-    const auto handle =
+    auto* const handle =
         http_server_begin_write_reply(conn, "200 OK", "application/json", "");
+
+    const int num_buses = can::get_num_busses();
+    auto can_settings_json =
+        fmt::sprintf(R"("can_settings":{"max_supported":%d,"enabled":%d,)",
+                     piccanteNUM_CAN_BUSSES, num_buses);
+
+    for (int i = 0; i < num_buses; i++) {
+        const auto enabled = can::is_enabled(i);
+        const auto bitrate = can::get_bitrate(i);
+
+        can_settings_json += fmt::sprintf(R"("can%d":{"enabled":%s,"bitrate":%d})",
+                                          i,
+                                          enabled ? "true" : "false",
+                                          bitrate);
+
+        if (i < num_buses - 1) {
+            can_settings_json += ",";
+        }
+    }
+    can_settings_json += "}";
+
+
     const auto wifi_cfg = piccante::sys::settings::get_wifi_settings();
     const auto result = fmt::sprintf(
         R"({"echo":%s,"log_level":%d,"led_mode":%d,"wifi_mode":%d,"idle_sleep_minutes":%d,"wifi_settings":{
             "ssid":"%s","password":"%s","channel":%d,"telnet_port":%d,"telnet_enabled":%s
-        }})",
+        },%s})",
         piccante::sys::settings::get_echo() ? "true" : "false",
         piccante::sys::settings::get_log_level(),
         static_cast<uint8_t>(piccante::sys::settings::get_led_mode()),
@@ -49,8 +73,9 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
         piccante::sys::settings::get_idle_sleep_minutes(), wifi_cfg.ssid.c_str(),
         wifi_cfg.password.c_str(), wifi_cfg.channel,
         piccante::sys::settings::get_telnet_port(),
-        piccante::sys::settings::telnet_enabled() ? "true" : "false");
-    http_server_write_raw(handle, result.c_str(), result.size() - 1);
+        piccante::sys::settings::telnet_enabled() ? "true" : "false",
+        can_settings_json.c_str());
+    http_server_write_raw(handle, result.c_str(), result.size());
     http_server_end_write_reply(handle, "");
     return true;
 }
