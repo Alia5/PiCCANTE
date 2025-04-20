@@ -10,6 +10,11 @@
         }
     ],
     "settings": {
+        "editor.formatOnSave": true,
+        "[typescript|javascript|svelte]": {
+            // let linter handle formatting.
+            "editor.formatOnSave": false,
+        },
         "files.associations": {
             "*.inc": "cpp",
             "atomic": "cpp",
