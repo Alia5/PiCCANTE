@@ -80,7 +80,8 @@
             "typeinfo": "cpp",
             "variant": "cpp",
             "future": "cpp",
-            "mutex": "cpp"
+            "mutex": "cpp",
+            "fstream": "cpp"
         }
     }
 }

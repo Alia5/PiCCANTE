@@ -354,7 +354,7 @@ void handler::comm_can_frame(const can2040_msg& frame) {
         }
         host_out.write(buffer.data(), pos);
         if (time_stamping) {
-            host_out << (fmt::sprintf("%04x", millis));
+            host_out << (fmt::sprintf("%04x", millis)) << '\0';
         }
     }
     host_out << ('\r'); // ok

@@ -79,7 +79,7 @@ class stream {
         return *this;
     }
     stream& operator<<(const std::string& str) {
-        sink_.write(str.data(), strlen(str.data()));
+        sink_.write(str.c_str(), str.length());
         return *this;
     }
 

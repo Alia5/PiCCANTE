@@ -28,8 +28,7 @@ template <typename... Args>
 static std::string sprintf(const std::string_view& fmtstr, const Args&... args) {
     std::string result;
     // NOLINTBEGIN // stolen from cppreference
-    size_t size =
-        std::snprintf(nullptr, 0, fmtstr.data(), args...) + 1; // Extra space for '\0'
+    size_t size = std::snprintf(nullptr, 0, fmtstr.data(), args...);
     // NOLINTEND
     if (size <= 0) {
         return "";
