@@ -141,7 +141,11 @@ input:not([type="checkbox"]) {
   color: var(--text-color);
   border-radius: 0.5rem;
   box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.25);
-  transition: all 0.2s ease-in-out;
+  transition: all var(--transition-duration) ease;  
+
+  &:disabled {
+    opacity: 0.5;
+  }
   &::placeholder {
     color: var(--text-color);
     opacity: 0.5;
@@ -160,6 +164,11 @@ input[type="checkbox"]:is(.toggle) {
   position: relative;
   display: grid;
   place-items: center;
+  transition: all var(--transition-duration) ease;  
+
+  &:disabled {
+    opacity: 0.5;
+  }
 
   &::before {
     content: "";
