@@ -11,7 +11,11 @@
     ],
     "settings": {
         "editor.formatOnSave": true,
-        "[typescript|javascript|svelte]": {
+        "[typescript|javascript]": {
+            // let linter handle formatting.
+            "editor.formatOnSave": false,
+        },
+        "[svelte]": {
             // let linter handle formatting.
             "editor.formatOnSave": false,
         },
