@@ -34,6 +34,7 @@ extern "C" {
 #include "util/json.hpp"
 #include "CanBus/CanBus.hpp"
 #include "wifi/telnet/telnet.hpp"
+#include "wifi/wifi.hpp"
 
 
 namespace piccante::httpd::api::settings {
@@ -124,18 +125,41 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
 
     // Handle nested wifi_settings
     if (auto wifi_json = piccante::util::json::get_object(json, "wifi_settings")) {
+        bool wifi_settings_changed = false;
         if (auto v = util::json::get_value(*wifi_json, "ssid")) {
             Log::debug << "Setting wifi ssid to: " << *v << "\n";
             piccante::sys::settings::set_wifi_ssid(std::string(*v));
+            wifi_settings_changed = true;
         }
         if (auto v = util::json::get_value(*wifi_json, "password")) {
             Log::debug << "Setting wifi password\n";
             piccante::sys::settings::set_wifi_password(std::string(*v));
+            wifi_settings_changed = true;
         }
         if (auto v = util::json::get_value(*wifi_json, "channel")) {
             Log::debug << "Setting wifi channel to: " << *v << "\n";
             piccante::sys::settings::set_wifi_channel(std::stoi(std::string(*v)));
+            wifi_settings_changed = true;
         }
+
+        if (wifi_settings_changed) {
+            const auto wifi_mode =
+                static_cast<wifi::Mode>(piccante::sys::settings::get_wifi_mode());
+            if (wifi_mode == wifi::Mode::NONE) {
+                Log::debug << "Disabling WiFI\n";
+                wifi::stop();
+            } else if (wifi_mode == wifi::Mode::CLIENT) {
+                wifi::connect_to_network(
+                    piccante::sys::settings::get_wifi_settings().ssid,
+                    piccante::sys::settings::get_wifi_settings().password, 30000,
+                    xTaskGetCurrentTaskHandle());
+            } else if (wifi_mode == wifi::Mode::ACCESS_POINT) {
+                wifi::start_ap(piccante::sys::settings::get_wifi_settings().ssid,
+                               piccante::sys::settings::get_wifi_settings().password,
+                               piccante::sys::settings::get_wifi_settings().channel);
+            }
+        }
+
         if (auto v = util::json::get_value(*wifi_json, "telnet_port")) {
             auto port = std::stoi(std::string(*v));
             Log::debug << "Setting telnet port to: " << port << "\n";
