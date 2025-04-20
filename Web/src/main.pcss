@@ -95,16 +95,23 @@ p {
 
 button, .button {
   text-decoration: none;
-  background-color: transparent;
+  background-color: var(--color-primary);
   cursor: pointer;
   outline: 1px solid transparent;
-  padding: 1rem;
+  padding: 0.75em 1em;
   color: var(--text-color);
   border-radius: 0.5rem;
+  border: none;
   transition: all 0.2s ease-in-out;
   display: flex;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 4px 3px rgb(0 0 0 / 0.25);
+  text-transform: uppercase;
+  font-weight: bold;
+  place-items: center;
+  justify-content: center;
+
 
   &::after {
     content: '';
@@ -113,18 +120,23 @@ button, .button {
     top: 50%;
     width: 200%;
     height: 200%;
-    background: rgba(255,255,255,0.15); /* Adjust color/opacity as needed */
+    background: rgba(255,255,255,0.15);
     border-radius: 50%;
     transform: translate(-50%, -50%) scale(0.2);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s, transform 0.2s;
+    transition: opacity 0.2s ease, transform 0.5s ease;
     z-index: 0;
   }
 
-  &:is(:hover, :focus-visible, :active)::after {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+  &:is(:hover, :focus-visible, :active)
+  {
+      box-shadow: 0 1px 4px 1px rgb(0 0 0 / 0.05);
+      &::after {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+
   }
 
   &:disabled {
@@ -140,7 +152,7 @@ input:not([type="checkbox"]) {
   padding: 0.5em 1em;
   color: var(--text-color);
   border-radius: 0.5rem;
-  box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.25);
+  box-shadow: 0 1px 4px 1px rgb(0 0 0 / 0.25);
   transition: all var(--transition-duration) ease;  
 
   &:disabled {
@@ -313,49 +325,6 @@ fieldset {
   }
 }
 
-.primary {
-    padding: 1em;
-    border: none;
-    background-color: var(--text-color);
-    color: var(--inverse-text-color);
-    position: relative;
-    display: grid;
-    place-items: center;
-    margin: 0;
-    color: var(--inverse-text-color);
-    background-color: var(--text-color);
-    font-weight: bold;
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        &:hover,
-        &:focus-visible {
-            box-shadow: none;
-            &::before {
-                display: none;
-            }
-        }
-    }
-
-    &::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: var(--inverse-text-color);
-        opacity: 0;
-        transition: opacity var(--transition-duration) ease;
-    }
-
-    &:hover,
-    &:focus-visible {
-        border: none;
-        outline: none;
-        &::before {
-            opacity: 0.5
-        }
-    }
-}
-
 .card {
     background-color: var(--card-color);
     padding: 1em;
@@ -370,6 +339,7 @@ select {
     padding: 0.5em 1em;
     border-radius: 0.5rem;
     transition: all var(--transition-duration) ease;
+    box-shadow: 0 1px 4px 1px rgb(0 0 0 / 0.25);
     appearance: none;
     & option{
         background-color: var(--card-color);
@@ -380,9 +350,12 @@ select {
 .dropdown {
     position: relative;
     display: flex;
+    overflow: hidden;
     & select {
+        width: 100%;
         flex: 1;
-        padding-right: 2.5em;
+        padding-right: 2.25em;
+        text-overflow: ellipsis;
     }
     & .icon {
         position: absolute;

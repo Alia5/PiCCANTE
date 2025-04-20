@@ -10,7 +10,6 @@ export const load = async ({ fetch }) => {
     return { settings: undefined };
 };
 
-
 export interface PiCCANTE_Settings {
     'echo': boolean;
     'log_level': 0 | 1 | 2 | 3 | 4;

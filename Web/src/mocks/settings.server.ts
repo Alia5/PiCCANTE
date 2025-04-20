@@ -1,4 +1,4 @@
-
+/* eslint-disable */
 export const mocks = {
     '/api/settings': {
         GET: {
@@ -43,6 +43,29 @@ export const mocks = {
             status: 200,
             body: {
                 status: 'ok'
+            },
+            func: (data: any) => {
+                // mocks.. don't need to care.
+                Object.keys(data).forEach((key) => {
+                    // @ts-ignore
+                    if (typeof mocks['/api/settings'].GET.body[key] === 'object') {
+                        Object.keys(data[key]).forEach((subKey) => {
+                            // @ts-ignore
+                            if (typeof mocks['/api/settings'].GET.body[key][subKey] === 'object') {
+                                Object.keys(data[key][subKey]).forEach((subSubKey) => {
+                                    // @ts-ignore
+                                    mocks['/api/settings'].GET.body[key][subKey][subSubKey] = data[key][subKey][subSubKey];
+                                });
+                            } else {
+                                // @ts-ignore
+                                mocks['/api/settings'].GET.body[key][subKey] = data[key][subKey];
+                            }
+                        });
+                    } else {
+                        // @ts-ignore
+                        mocks['/api/settings'].GET.body[key] = data[key];
+                    }
+                });
             }
         }
     }

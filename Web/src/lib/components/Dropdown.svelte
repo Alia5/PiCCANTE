@@ -23,17 +23,24 @@ let {
     options,
     selected = $bindable(),
     // eslint-disable-next-line prefer-const
-    disabled = false
-}: { options: { name: string; value: unknown }[]; selected?: unknown; disabled?: boolean } = $props();
+    disabled = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onchange = $bindable((value: Event) => undefined)
+}: {
+    options: { name: string; value: unknown }[];
+    selected?: unknown;
+    disabled?: boolean;
+    onchange?: (v: Event) => void;
+} = $props();
 </script>
 
-<div class="dropdown" style="min-width: 8em;">
-    <select bind:value={selected} disabled={disabled}>
+<div class="dropdown" style="min-width: 4em;">
+    <select bind:value={selected} disabled={disabled} onchange={(e) => onchange(e)}>
         {#each options as opt (opt.value)}
             <option value={opt.value}>{opt.name}</option>
         {/each}
     </select>
-    <div class="icon">
+    <div class="icon" style={disabled ? 'opacity: 0.5;' : ''}>
         <IcRoundArrowDropDown style="width: 2.4em; height: 2.4em;" />
     </div>
 </div>

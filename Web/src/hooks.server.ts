@@ -7,6 +7,9 @@ export const handle = async ({ event, resolve }) => {
         const method = event.request.method;
         const response = mock[method];
         if (response) {
+            if (response.func) {
+                response.func(await event.request.json());
+            }
             return new Response(JSON.stringify(response.body), {
                 status: response.status,
                 headers: {

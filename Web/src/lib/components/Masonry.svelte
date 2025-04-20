@@ -43,7 +43,7 @@ const refreshLayout = () => {
                 grid.items.slice(ncol).forEach((c, i) => {
                     const prevBottom = grid.items[i].getBoundingClientRect().bottom;
                     const currTop = c.getBoundingClientRect().top;
-                    c.style.marginTop = `${prevBottom - currTop}px`;
+                    c.style.marginTop = `calc(${prevBottom - currTop}px + var(--grid-gap))`;
                 });
             }
 

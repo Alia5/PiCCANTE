@@ -49,6 +49,8 @@ button {
     display: grid;
     font-size: 2rem;
     place-items: center;
+    background-color: transparent;
+    box-shadow: none;
 
     @media (orientation: landscape) {
         display: none;
