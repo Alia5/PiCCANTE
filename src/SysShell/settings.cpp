@@ -273,7 +273,7 @@ void set_led_mode(led::Mode mode) {
     led::set_mode(mode);
 }
 
-led::Mode get_led_mode() { return led::Mode(); }
+led::Mode get_led_mode() { return cfg.led_mode; }
 
 uint8_t get_idle_sleep_minutes() { return cfg.idle_sleep_minutes; }
 void set_idle_sleep_minutes(uint8_t minutes) { cfg.idle_sleep_minutes = minutes; }

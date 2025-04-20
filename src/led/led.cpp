@@ -90,7 +90,7 @@ void set_mode(Mode mode) {
             set(true);
             break;
         case MODE_CAN:
-            set(false);
+            set(true);
             break;
     }
 }
