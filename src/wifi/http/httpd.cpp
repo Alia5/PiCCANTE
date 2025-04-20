@@ -31,12 +31,15 @@ extern "C" {
 #include <FreeRTOS.h>
 #include <semphr.h>
 
+#include "api/settings.hpp"
+
 
 namespace piccante::httpd {
 
 namespace {
 http_server_instance server = nullptr;
 http_zone root_zone;
+http_zone api_zone;
 
 const std::map<std::string, std::string> mime_map{
     {".html", "text/html"},
@@ -146,6 +149,27 @@ bool file_handler(http_connection conn, enum http_request_type type, char* path,
 
     return true;
 }
+
+bool api_handler(http_connection conn, enum http_request_type type, char* path,
+                 void* /*context*/) {
+    std::string p_str = (path && path[0]) ? path : "/";
+
+    if (p_str == "settings") {
+        if (type == HTTP_GET) {
+            return api::settings::get(conn, p_str);
+        }
+
+        if (type == HTTP_POST) {
+            return api::settings::set(conn, p_str);
+        }
+
+        http_server_send_reply(conn, "405 Method Not Allowed", "text/plain",
+                               "Method Not Allowed", -1);
+        return true;
+    }
+
+    return false;
+}
 } // namespace
 
 void start() {
@@ -155,6 +179,7 @@ void start() {
     server = http_server_create(CYW43_HOST_NAME, CYW43_HOST_NAME, MAX_THREAD_COUNT,
                                 BUFFER_SIZE);
     http_server_add_zone(server, &root_zone, "", file_handler, nullptr);
+    http_server_add_zone(server, &api_zone, "/api", api_handler, nullptr);
 }
 
 } // namespace piccante::httpd

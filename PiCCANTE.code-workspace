@@ -73,7 +73,9 @@
             "thread": "cpp",
             "cinttypes": "cpp",
             "typeinfo": "cpp",
-            "variant": "cpp"
+            "variant": "cpp",
+            "future": "cpp",
+            "mutex": "cpp"
         }
     }
 }

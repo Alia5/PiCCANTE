@@ -491,9 +491,51 @@ void http_server_end_write_reply(http_write_handle handle, const char* footer) {
 
 char* http_server_read_post_line(http_connection conn) {
     if (conn->post.remaining_input_len <= 0 &&
-        conn->post.buffer_pos >= conn->post.buffer_used)
+        conn->post.buffer_pos >= conn->post.buffer_used) {
         return NULL;
+    }
+    // Special case for JSON or similar data without line breaks
+    if (conn->post.remaining_input_len > 0 &&
+        conn->post.buffer_pos == conn->post.buffer_used) {
+        // Need to read more data - no line break found yet
+        int buffer_avail = conn->server->buffer_size -
+                           conn->post.offset_from_main_buffer - conn->post.buffer_used;
+        int to_read = conn->post.remaining_input_len;
 
+        if (buffer_avail <= 0) {
+            // Buffer is full but no line break found, return what we have
+            char* result = conn->buffer + conn->post.offset_from_main_buffer;
+            result[conn->post.buffer_used] = 0; // Ensure null termination
+            conn->post.remaining_input_len = 0;
+            conn->post.buffer_pos = conn->post.buffer_used; // Mark as read
+            return result;
+        }
+
+        if (to_read > buffer_avail) {
+            to_read = buffer_avail;
+        }
+        int done = recv(conn->socket,
+                        conn->buffer + conn->post.offset_from_main_buffer +
+                            conn->post.buffer_used,
+                        to_read, 0);
+
+        if (done <= 0) {
+            // Return what we have if socket is closed or error
+            if (conn->post.buffer_used > 0) {
+                char* result = conn->buffer + conn->post.offset_from_main_buffer;
+                result[conn->post.buffer_used] = 0;
+                conn->post.remaining_input_len = 0;
+                conn->post.buffer_pos = conn->post.buffer_used;
+                return result;
+            }
+            return NULL;
+        }
+
+        conn->post.buffer_used += done;
+        conn->post.remaining_input_len -= done;
+    }
+
+    // Try normal line reading first
     int len = 0;
     char* result = recv_next_line_buffered(
         conn->socket,
@@ -504,13 +546,24 @@ char* http_server_read_post_line(http_connection conn) {
         &len,
         &conn->post.remaining_input_len);
 
-    if (!result)
-        return NULL;
+    // If we found a line, return it
+    if (result) {
+        if (len < 0) {
+            return NULL; // Too long line got truncated
+        }
+        result[len] = 0;
+        return result;
+    }
 
-    if (len < 0)
-        return NULL; // Too long line got truncated
+    // No line found but we have data - return the whole buffer as one line
+    if (conn->post.buffer_used > 0 && conn->post.buffer_pos < conn->post.buffer_used) {
+        result =
+            conn->buffer + conn->post.offset_from_main_buffer + conn->post.buffer_pos;
+        len = conn->post.buffer_used - conn->post.buffer_pos;
+        result[len] = 0;
+        conn->post.buffer_pos = conn->post.buffer_used; // Mark all as read
+        return result;
+    }
 
-    result[len] = 0;
-
-    return result;
+    return NULL;
 }
