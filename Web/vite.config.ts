@@ -110,13 +110,22 @@ function copyBuildOutput() {
             } else {
                 destDir = path.resolve(destDir);
             }
+
+            if (fs.existsSync(destDir)) {
+                console.log(`\n\x1b[33mClearing output directory: ${destDir}\x1b[0m`);
+                fs.rmSync(destDir, { recursive: true, force: true });
+            }
+
+            fs.mkdirSync(destDir, { recursive: true });
+
             function copyRecursive(src: string, dest: string) {
                 if (!fs.existsSync(src)) return;
-                if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+                // Don't need to check dest existence now since we just created it
                 for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
                     const srcPath = path.join(src, entry.name);
                     const destPath = path.join(dest, entry.name);
                     if (entry.isDirectory()) {
+                        fs.mkdirSync(destPath, { recursive: true });
                         copyRecursive(srcPath, destPath);
                     } else {
                         fs.copyFileSync(srcPath, destPath);
