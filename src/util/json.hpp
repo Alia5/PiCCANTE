@@ -62,26 +62,31 @@ inline std::optional<std::string_view> get_value(std::string_view json,
 
 inline std::optional<std::string_view> get_object(std::string_view json,
                                                   std::string_view key) {
-    auto obj_pos = json.find("\"" + std::string(key) + "\"");
-    if (obj_pos == std::string_view::npos) {
+    auto key_pos = json.find("\"" + std::string(key) + "\"");
+    if (key_pos == std::string_view::npos) {
         return std::nullopt;
     }
 
-    auto obj_start = json.find('{', obj_pos);
-    if (obj_start == std::string_view::npos) {
+    auto colon_pos = json.find(':', key_pos);
+    if (colon_pos == std::string_view::npos) {
         return std::nullopt;
     }
 
+    auto pos = colon_pos + 1;
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t' ||
+                                 json[pos] == '\n' || json[pos] == '\r')) {
+        ++pos;
+    }
+
+    if (pos >= json.size() || json[pos] != '{') {
+        return std::nullopt;
+    }
+
+    auto obj_start = pos;
     int brace_count = 1;
     auto obj_end = obj_start + 1;
-    while (obj_end < json.size() && brace_count > 0) {
-        // Skip whitespace for better handling of formatted JSON
-        if (json[obj_end] == ' ' || json[obj_end] == '\t' || json[obj_end] == '\n' ||
-            json[obj_end] == '\r') {
-            ++obj_end;
-            continue;
-        }
 
+    while (obj_end < json.size() && brace_count > 0) {
         if (json[obj_end] == '{') {
             ++brace_count;
         } else if (json[obj_end] == '}') {
@@ -90,8 +95,10 @@ inline std::optional<std::string_view> get_object(std::string_view json,
         ++obj_end;
     }
 
-    if (brace_count == 0 && obj_end > obj_start + 1) {
-        return json.substr(obj_start + 1, obj_end - obj_start - 2);
+    if (brace_count == 0) {
+        size_t content_start = obj_start;
+        size_t content_length = (obj_end)-content_start;
+        return json.substr(content_start, content_length);
     }
 
     return std::nullopt;
