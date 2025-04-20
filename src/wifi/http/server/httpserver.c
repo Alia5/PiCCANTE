@@ -429,13 +429,17 @@ http_write_handle http_server_begin_write_reply(http_connection conn,
                                                 const char* code,
                                                 const char* contentType,
                                                 const char* extra_headers) {
-    conn->buffered_size =
-        snprintf(conn->buffer,
-                 conn->server->buffer_size,
-                 "HTTP/1.0 %s\r\nContent-Type: %s\r\n%sConnection: close\r\n\r\n",
-                 code,
-                 contentType,
-                 extra_headers ? extra_headers : "");
+    const char* format =
+        extra_headers && extra_headers[0]
+            ? "HTTP/1.0 %s\r\nContent-Type: %s\r\n%sConnection: close\r\n\r\n"
+            : "HTTP/1.0 %s\r\nContent-Type: %s\r\nConnection: close\r\n\r\n";
+
+    conn->buffered_size = snprintf(conn->buffer,
+                                   conn->server->buffer_size,
+                                   format,
+                                   code,
+                                   contentType,
+                                   extra_headers ? extra_headers : "");
     return (http_write_handle)conn;
 }
 
