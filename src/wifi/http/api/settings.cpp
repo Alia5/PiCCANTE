@@ -33,6 +33,7 @@ extern "C" {
 #include "Logger/Logger.hpp"
 #include "util/json.hpp"
 #include "CanBus/CanBus.hpp"
+#include "wifi/telnet/telnet.hpp"
 
 
 namespace piccante::httpd::api::settings {
@@ -136,31 +137,45 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
             piccante::sys::settings::set_wifi_channel(std::stoi(std::string(*v)));
         }
         if (auto v = util::json::get_value(*wifi_json, "telnet_port")) {
-            Log::debug << "Setting telnet port to: " << *v << "\n";
-            piccante::sys::settings::set_telnet_port(std::stoi(std::string(*v)));
+            auto port = std::stoi(std::string(*v));
+            Log::debug << "Setting telnet port to: " << port << "\n";
+            auto status = wifi::telnet::set_port(port);
+            if (!status) {
+                // TODO: Handle error
+                Log::error << "Failed to set telnet port\n";
+            }
         }
         if (auto v = util::json::get_value(*wifi_json, "telnet_enabled")) {
             Log::debug << "Setting telnet enabled to: " << *v << "\n";
-            piccante::sys::settings::set_telnet_enabled(*v == "true");
+            if (*v == "true") {
+                wifi::telnet::enable();
+            } else {
+                wifi::telnet::disable();
+            }
         }
     }
 
     if (auto can_settings_json = util::json::get_object(json, "can_settings")) {
-        if (auto v = util::json::get_value("enabled", *can_settings_json)) {
+        if (auto v = util::json::get_value(*can_settings_json, "enabled")) {
             Log::debug << "Setting number of available can interfaces to: " << *v << "\n";
             can::set_num_busses(std::stoi(std::string(*v)));
         }
 
-        for (int i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
-            if (auto v =
-                    util::json::get_value(*can_settings_json, fmt::sprintf("can%d", i))) {
+        for (int i = 0; i < can::get_num_busses(); i++) {
+            if (auto v = util::json::get_object(*can_settings_json,
+                                                fmt::sprintf("can%d", i))) {
                 Log::debug << "Setting can bus " << i << " settings to: " << *v << "\n";
                 auto enabled = util::json::get_value(*v, "enabled");
                 auto bitrate = util::json::get_value(*v, "bitrate");
                 auto listen_only = util::json::get_value(*v, "listen_only");
                 if (enabled != "") {
                     if (enabled == "true") {
-                        can::enable(i, std::stoi(std::string(*bitrate)));
+                        const auto stored_bitrate = can::get_bitrate(i);
+                        if (bitrate == "") {
+                            can::enable(i, stored_bitrate);
+                        } else {
+                            can::enable(i, std::stoi(std::string(*bitrate)));
+                        }
                         if (listen_only != "") {
                             can::set_listenonly(i, *listen_only == "true");
                         }
