@@ -46,6 +46,10 @@ TaskHandle_t idle_task_handle = nullptr;
 void idle_timer_callback(TimerHandle_t timer) {
     if (!sleeping) {
         Log::info << "CAN idle timeout reached, entering sleep mode\n";
+        xTimerStop(timer, 0);
+        xTimerDelete(timer, 0);
+        idle_timer = nullptr;
+
         enter_sleep_mode();
     }
 }
@@ -127,6 +131,8 @@ void init() {
 void reset_idle_timer() {
     if (!sleeping && idle_timer != nullptr) {
         xTimerReset(idle_timer, 0);
+    } else if (sleeping) {
+        wake_up();
     }
 }
 
