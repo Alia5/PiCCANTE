@@ -26,4 +26,5 @@ typedef _http_connection* http_write_handle;
 namespace piccante::httpd::api::settings {
 bool get(http_connection conn, std::string_view url);
 bool set(http_connection conn, std::string_view url);
+bool save(http_connection conn, std::string_view url);
 }

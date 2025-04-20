@@ -168,6 +168,16 @@ bool api_handler(http_connection conn, enum http_request_type type, char* path,
         return true;
     }
 
+    if (p_str == "save") {
+        if (type == HTTP_POST) {
+            return api::settings::save(conn, p_str);
+        }
+
+        http_server_send_reply(conn, "405 Method Not Allowed", "text/plain",
+                               "Method Not Allowed", -1);
+        return true;
+    }
+
     return false;
 }
 } // namespace

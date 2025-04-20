@@ -23,10 +23,15 @@
 extern "C" {
 #include "../server/httpserver.h"
 }
+#include "FreeRTOS.h"
+#include "task.h"
+
+#include <hardware/watchdog.h>
 
 #include "../../../SysShell/settings.hpp"
 #include "../../../fmt.hpp"
 #include "Logger/Logger.hpp"
+#include "util/json.hpp"
 
 namespace piccante::httpd::api::settings {
 bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
@@ -51,8 +56,8 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
 }
 
 bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
-    std::string body;
-    char* body_line;
+    std::string body{};
+    char* body_line = nullptr;
     while ((body_line = http_server_read_post_line(conn)) != nullptr) {
         if (body_line[0] != '\0') {
             body += body_line;
@@ -66,115 +71,94 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
     }
     std::string_view json(body);
 
-    auto get_value = [](std::string_view json,
-                        std::string_view key) -> std::optional<std::string_view> {
-        auto pos = json.find("\"" + std::string(key) + "\"");
-        if (pos == std::string_view::npos) {
-            return std::nullopt;
-        }
-        pos = json.find(':', pos);
-        if (pos == std::string_view::npos) {
-            return std::nullopt;
-        }
-        pos++;
-
-        // Skip whitespace including newlines
-        while (pos < json.size() &&
-               (json[pos] == ' ' || json[pos] == '\t' || json[pos] == '\n' ||
-                json[pos] == '\r' || json[pos] == '\"')) {
-            ++pos;
-        }
-
-        auto end = pos;
-        bool in_quotes = (pos > 0 && json[pos - 1] == '\"');
-        if (in_quotes) {
-            end = json.find('\"', pos);
-        } else {
-            // For non-quoted values, stop at comma, brace, or whitespace
-            while (end < json.size() && json[end] != ',' && json[end] != '}' &&
-                   json[end] != '\n' && json[end] != '\r' && json[end] != ' ' &&
-                   json[end] != '\t') {
-                ++end;
-            }
-        }
-        if (end == std::string_view::npos) {
-            return std::nullopt;
-        }
-        return json.substr(pos, end - pos);
-    };
-
-    if (auto v = get_value(json, "echo")) {
+    if (auto v = util::json::get_value(json, "echo")) {
         Log::debug << "Setting echo to: " << *v << "\n";
         piccante::sys::settings::set_echo(*v == "true");
     }
-    if (auto v = get_value(json, "log_level")) {
+    if (auto v = util::json::get_value(json, "log_level")) {
         Log::debug << "Setting log level to: " << *v << "\n";
         piccante::sys::settings::set_log_level(std::stoi(std::string(*v)));
     }
-    if (auto v = get_value(json, "led_mode")) {
+    if (auto v = util::json::get_value(json, "led_mode")) {
         Log::debug << "Setting led mode to: " << *v << "\n";
         piccante::sys::settings::set_led_mode(
             static_cast<piccante::led::Mode>(std::stoi(std::string(*v))));
     }
-    if (auto v = get_value(json, "wifi_mode")) {
+    if (auto v = util::json::get_value(json, "wifi_mode")) {
         Log::debug << "Setting wifi mode to: " << *v << "\n";
         piccante::sys::settings::set_wifi_mode(std::stoi(std::string(*v)));
     }
-    if (auto v = get_value(json, "idle_sleep_minutes")) {
+    if (auto v = util::json::get_value(json, "idle_sleep_minutes")) {
         Log::debug << "Setting idle sleep minutes to: " << *v << "\n";
         piccante::sys::settings::set_idle_sleep_minutes(std::stoi(std::string(*v)));
     }
 
     // Handle nested wifi_settings
-    auto wifi_settings_pos = json.find("\"wifi_settings\"");
-    if (wifi_settings_pos != std::string_view::npos) {
-        auto obj_start = json.find('{', wifi_settings_pos);
-        if (obj_start != std::string_view::npos) {
-            int brace_count = 1;
-            auto obj_end = obj_start + 1;
-            while (obj_end < json.size() && brace_count > 0) {
-                // Skip whitespace for better handling of formatted JSON
-                if (json[obj_end] == ' ' || json[obj_end] == '\t' ||
-                    json[obj_end] == '\n' || json[obj_end] == '\r') {
-                    ++obj_end;
-                    continue;
-                }
-
-                if (json[obj_end] == '{') {
-                    ++brace_count;
-                } else if (json[obj_end] == '}') {
-                    --brace_count;
-                }
-                ++obj_end;
-            }
-            if (brace_count == 0 && obj_end > obj_start + 1) {
-                std::string_view wifi_json =
-                    json.substr(obj_start + 1, obj_end - obj_start - 2);
-                if (auto v = get_value(wifi_json, "ssid")) {
-                    Log::debug << "Setting wifi ssid to: " << *v << "\n";
-                    piccante::sys::settings::set_wifi_ssid(std::string(*v));
-                }
-                if (auto v = get_value(wifi_json, "password")) {
-                    Log::debug << "Setting wifi password\n";
-                    piccante::sys::settings::set_wifi_password(std::string(*v));
-                }
-                if (auto v = get_value(wifi_json, "channel")) {
-                    Log::debug << "Setting wifi channel to: " << *v << "\n";
-                    piccante::sys::settings::set_wifi_channel(std::stoi(std::string(*v)));
-                }
-                if (auto v = get_value(wifi_json, "telnet_port")) {
-                    Log::debug << "Setting telnet port to: " << *v << "\n";
-                    piccante::sys::settings::set_telnet_port(std::stoi(std::string(*v)));
-                }
-                if (auto v = get_value(wifi_json, "telnet_enabled")) {
-                    Log::debug << "Setting telnet enabled to: " << *v << "\n";
-                    piccante::sys::settings::set_telnet_enabled(*v == "true");
-                }
-            }
+    if (auto wifi_json = piccante::util::json::get_object(json, "wifi_settings")) {
+        if (auto v = util::json::get_value(*wifi_json, "ssid")) {
+            Log::debug << "Setting wifi ssid to: " << *v << "\n";
+            piccante::sys::settings::set_wifi_ssid(std::string(*v));
+        }
+        if (auto v = util::json::get_value(*wifi_json, "password")) {
+            Log::debug << "Setting wifi password\n";
+            piccante::sys::settings::set_wifi_password(std::string(*v));
+        }
+        if (auto v = util::json::get_value(*wifi_json, "channel")) {
+            Log::debug << "Setting wifi channel to: " << *v << "\n";
+            piccante::sys::settings::set_wifi_channel(std::stoi(std::string(*v)));
+        }
+        if (auto v = util::json::get_value(*wifi_json, "telnet_port")) {
+            Log::debug << "Setting telnet port to: " << *v << "\n";
+            piccante::sys::settings::set_telnet_port(std::stoi(std::string(*v)));
+        }
+        if (auto v = util::json::get_value(*wifi_json, "telnet_enabled")) {
+            Log::debug << "Setting telnet enabled to: " << *v << "\n";
+            piccante::sys::settings::set_telnet_enabled(*v == "true");
         }
     }
 
     http_server_send_reply(conn, "200 OK", "application/json", R"({"status":"ok"})", -1);
+
+    return true;
+}
+
+bool save(http_connection conn, [[maybe_unused]] std::string_view url) {
+    std::string body{};
+    char* body_line = nullptr;
+    while ((body_line = http_server_read_post_line(conn)) != nullptr) {
+        if (body_line[0] != '\0') {
+            body += body_line;
+        }
+    }
+
+    bool should_reset = false;
+
+    if (!body.empty()) {
+        std::string_view json(body);
+
+        if (auto v = util::json::get_value(json, "reset")) {
+            should_reset = (*v == "true");
+            Log::debug << "Reset requested: " << should_reset << "\n";
+        }
+    }
+
+    const auto success = sys::settings::store();
+
+    if (success) {
+        http_server_send_reply(conn, "200 OK", "application/json",
+                               R"({"status":"settings saved"})", -1);
+
+        if (should_reset) {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            Log::info << "Reset device requested\n";
+            watchdog_enable(1, 1);
+            while (1) { /* Wait for watchdog to trigger */
+            }
+        }
+    } else {
+        http_server_send_reply(conn, "500 Internal Server Error", "application/json",
+                               R"({"error":"Failed to save settings"})", -1);
+    }
 
     return true;
 }
