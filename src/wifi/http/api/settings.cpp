@@ -142,6 +142,27 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
         }
     }
 
+    if (auto can_settings_json = util::json::get_object(json, "can_settings")) {
+        if (auto v = util::json::get_value("enabled", *can_settings_json)) {
+            Log::debug << "Setting number of available can interfaces to: " << *v << "\n";
+            can::set_num_busses(std::stoi(std::string(*v)));
+        }
+
+        for (int i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
+            if (auto v =
+                    util::json::get_value(*can_settings_json, fmt::sprintf("can%d", i))) {
+                Log::debug << "Setting can bus " << i << " settings to: " << *v << "\n";
+                auto enabled = util::json::get_value(*v, "enabled");
+                auto bitrate = util::json::get_value(*v, "bitrate");
+                if (enabled) {
+                    can::enable(i, std::stoi(std::string(*bitrate)));
+                } else {
+                    can::disable(i);
+                }
+            }
+        }
+    }
+
     http_server_send_reply(conn, "200 OK", "application/json", R"({"status":"ok"})", -1);
 
     return true;
