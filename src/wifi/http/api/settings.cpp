@@ -196,14 +196,22 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
                     if (enabled == "true") {
                         const auto stored_bitrate = can::get_bitrate(i);
                         if (bitrate == "") {
+                            Log::debug << "Enabling canbus " << i
+                                       << " with stored bitrate: " << stored_bitrate
+                                       << "\n";
                             can::enable(i, stored_bitrate);
                         } else {
+                            Log::debug << "Enabling canbus " << i
+                                       << " with new bitrate: " << *bitrate << "\n";
                             can::enable(i, std::stoi(std::string(*bitrate)));
                         }
                         if (listen_only != "") {
+                            Log::debug << "Setting " << i
+                                       << " listen only to: " << *listen_only << "\n";
                             can::set_listenonly(i, *listen_only == "true");
                         }
                     } else {
+                        Log::debug << "Disabling canbus " << i << "\n";
                         can::disable(i);
                     }
                 }

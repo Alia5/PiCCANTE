@@ -19,6 +19,10 @@
 #include <cstring>
 #include <bsp/board_api.h>
 
+extern "C" {
+#include "usb/usb_descriptors.h"
+}
+
 #include "Logger/Logger.hpp"
 #include "CanBus/CanBus.hpp"
 #include "FreeRTOSConfig.h"
@@ -47,6 +51,7 @@
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
 #endif
+
 
 static void usbDeviceTask(void* parameters) {
     (void)parameters;
@@ -77,10 +82,11 @@ static void can_recieveTask(void* parameter) {
 
     piccante::Log::info << ("Starting CAN Receive Task!\n");
 
+    const auto num_busses = piccante::can::get_num_busses();
     can2040_msg msg{};
     for (;;) {
         auto received = false;
-        for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES; bus++) {
+        for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES && bus < num_busses; bus++) {
             if (piccante::can::receive(bus, msg) >= 0) {
                 piccante::led::toggle();
                 gvret_handler->comm_can_frame(bus, msg);
@@ -153,13 +159,6 @@ static void cmd_gvret_task(void* parameter) {
 int main() {
     piccante::uart::sink0.init(0, 1, piccanteUART_SPEED);
 
-    // Initialize TinyUSB stack
-    board_init();
-    tusb_init();
-
-
-    board_init_after_tusb();
-
 #ifdef DEBUG
     piccante::Log::set_log_level(piccante::Log::Level::LEVEL_DEBUG);
 #endif
@@ -172,6 +171,17 @@ int main() {
     }
 
     const auto& cfg = piccante::sys::settings::get();
+    piccante::can::load_settings();
+    num_extra_cdc = piccante::can::get_num_busses();
+
+    // Initialize TinyUSB stack
+    board_init();
+    tusb_init();
+
+
+    board_init_after_tusb();
+
+
 #ifndef DEBUG
     piccante::Log::set_log_level(static_cast<piccante::Log::Level>(cfg.log_level));
 #else

@@ -22,10 +22,9 @@
  * THE SOFTWARE.
  */
 
- #ifndef USB_DESCRIPTORS_H_
- #define USB_DESCRIPTORS_H_
- 
+#ifndef USB_DESCRIPTORS_H_
+#define USB_DESCRIPTORS_H_
 
- 
- #endif /* USB_DESCRIPTORS_H_ */
- 
+extern int num_extra_cdc;
+
+#endif /* USB_DESCRIPTORS_H_ */

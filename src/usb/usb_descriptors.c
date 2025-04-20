@@ -24,6 +24,7 @@
 #include "common/tusb_types.h"
 #include "config/tusb_config.h"
 #include "device/usbd.h"
+#include "usb_descriptors.h"
 
 
 #define CDC_RASPBERRY_VID 0x2E8A
@@ -36,6 +37,8 @@
 #endif
 // set USB 2.0
 #define CDC_BCD 0x0200
+
+int num_extra_cdc = 3;
 
 // defines a descriptor that will be communicated to the host
 tusb_desc_device_t const desc_device = {
@@ -102,7 +105,7 @@ enum {
 #define EPNUM_CDC_3_IN 0x8D    // in endpoint for CDC 3
 
 // configure descriptor (for 2 CDC interfaces)
-uint8_t const desc_fs_configuration[] = {
+uint8_t const desc_fs_configuration_max[] = {
     // config descriptor | how much power in mA, count of interfaces, ...
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 100),
 
@@ -122,6 +125,38 @@ uint8_t const desc_fs_configuration[] = {
 #if CFG_TUD_CDC > 3
     TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_3, 7, EPNUM_CDC_3_NOTIF, 8, EPNUM_CDC_3_OUT,
                        EPNUM_CDC_3_IN, CFG_TUD_ENDPOINT0_SIZE),
+#endif
+
+};
+uint8_t const desc_fs_configuration_2[] = {
+    // config descriptor | how much power in mA, count of interfaces, ...
+    TUD_CONFIG_DESCRIPTOR(1, 6, 0, TUD_CONFIG_DESC_LEN + 3 * TUD_CDC_DESC_LEN, 0x80, 100),
+
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0, 4, EPNUM_CDC_0_NOTIF, 8, EPNUM_CDC_0_OUT,
+                       EPNUM_CDC_0_IN, CFG_TUD_ENDPOINT0_SIZE),
+
+#if CFG_TUD_CDC > 1
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 5, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
+                       EPNUM_CDC_1_IN, CFG_TUD_ENDPOINT0_SIZE),
+#endif
+
+#if CFG_TUD_CDC > 2
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_2, 6, EPNUM_CDC_2_NOTIF, 8, EPNUM_CDC_2_OUT,
+                       EPNUM_CDC_2_IN, CFG_TUD_ENDPOINT0_SIZE),
+#endif
+
+
+};
+uint8_t const desc_fs_configuration_1[] = {
+    // config descriptor | how much power in mA, count of interfaces, ...
+    TUD_CONFIG_DESCRIPTOR(1, 4, 0, TUD_CONFIG_DESC_LEN + 2 * TUD_CDC_DESC_LEN, 0x80, 100),
+
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_0, 4, EPNUM_CDC_0_NOTIF, 8, EPNUM_CDC_0_OUT,
+                       EPNUM_CDC_0_IN, CFG_TUD_ENDPOINT0_SIZE),
+
+#if CFG_TUD_CDC > 1
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 5, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT,
+                       EPNUM_CDC_1_IN, CFG_TUD_ENDPOINT0_SIZE),
 #endif
 
 };
@@ -166,8 +201,14 @@ enum {
 uint8_t const* tud_descriptor_other_speed_configuration_cb(uint8_t index) {
     (void)index; // for multiple configurations
 
+    if (num_extra_cdc == 1) {
+        return desc_fs_configuration_1;
+    }
+    if (num_extra_cdc == 2) {
+        return desc_fs_configuration_2;
+    }
     // if link speed is high return fullspeed config, and vice versa
-    return desc_fs_configuration;
+    return desc_fs_configuration_max;
 }
 
 // array of pointer to string descriptors
@@ -212,7 +253,14 @@ uint8_t const* tud_descriptor_configuration_cb(uint8_t index) {
     // avoid unused parameter warning and keep function signature consistent
     (void)index;
 
-    return desc_fs_configuration;
+    if (num_extra_cdc == 1) {
+        return desc_fs_configuration_1;
+    }
+    if (num_extra_cdc == 2) {
+        return desc_fs_configuration_2;
+    }
+
+    return desc_fs_configuration_max;
 }
 
 uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {

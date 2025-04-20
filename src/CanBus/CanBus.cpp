@@ -35,6 +35,8 @@
 #include <lfs.h>
 #include <fs/littlefs_driver.hpp>
 #include "led/led.hpp"
+#include <hardware/watchdog.h>
+
 
 namespace piccante::can {
 
@@ -300,34 +302,6 @@ void canTask(void* parameters) {
 
     Log::info << "Starting CAN task...\n";
 
-    settings_mutex = xSemaphoreCreateMutex();
-    if (settings_mutex == nullptr) {
-        Log::error << "Failed to create settings mutex\n";
-        return;
-    }
-
-    lfs_file_t readFile;
-    const int err =
-        lfs_file_open(&piccante::fs::lfs, &readFile, "can_settings", LFS_O_RDONLY);
-    if (err == LFS_ERR_OK) {
-        lfs_ssize_t const bytesRead =
-            lfs_file_read(&piccante::fs::lfs, &readFile, &settings, sizeof(settings));
-        if (bytesRead >= 0) {
-            for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES;
-                 i++) {
-                if (settings.bus_config[i].enabled) {
-                    Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i)
-                              << " with bitrate " << settings.bus_config[i].bitrate
-                              << " from stored settings\n";
-                    canbus_setup(i, settings.bus_config[i].bitrate);
-                }
-            }
-        }
-        lfs_file_close(&piccante::fs::lfs, &readFile);
-    } else {
-        Log::error << "Failed to read CAN settings file\n";
-    }
-
     for (std::size_t i = 0; i < NUM_BUSSES; i++) {
         can_queues[i].rx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
         can_queues[i].tx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
@@ -443,6 +417,10 @@ void set_num_busses(uint8_t num_busses) {
     }
     settings.num_busses = num_busses;
     store_settings();
+    // reset board.
+    watchdog_enable(0, false);
+    while (1) { /* Wait for watchdog to trigger */
+    }
 }
 uint8_t get_num_busses() { return settings.num_busses; }
 
@@ -524,6 +502,36 @@ void set_listenonly(uint8_t bus, bool listen_only) {
     }
     settings.bus_config[bus].listen_only = listen_only;
     store_settings();
+}
+
+void load_settings() {
+    settings_mutex = xSemaphoreCreateMutex();
+    if (settings_mutex == nullptr) {
+        Log::error << "Failed to create settings mutex\n";
+        return;
+    }
+
+    lfs_file_t readFile;
+    const int err =
+        lfs_file_open(&piccante::fs::lfs, &readFile, "can_settings", LFS_O_RDONLY);
+    if (err == LFS_ERR_OK) {
+        lfs_ssize_t const bytesRead =
+            lfs_file_read(&piccante::fs::lfs, &readFile, &settings, sizeof(settings));
+        if (bytesRead >= 0) {
+            for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES;
+                 i++) {
+                if (settings.bus_config[i].enabled) {
+                    Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i)
+                              << " with bitrate " << settings.bus_config[i].bitrate
+                              << " from stored settings\n";
+                    canbus_setup(i, settings.bus_config[i].bitrate);
+                }
+            }
+        }
+        lfs_file_close(&piccante::fs::lfs, &readFile);
+    } else {
+        Log::error << "Failed to read CAN settings file\n";
+    }
 }
 
 } // namespace piccante::can

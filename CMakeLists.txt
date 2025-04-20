@@ -263,7 +263,7 @@ target_include_directories(${target_name} SYSTEM PRIVATE
 set(FS_FILES_DIR ${CMAKE_CURRENT_LIST_DIR}/fs_files)
 set(FS_FILES_LOCAL_DIR ${CMAKE_CURRENT_LIST_DIR}/fs_files.local)
 set(BUILD_FS_FILES_DIR ${CMAKE_BINARY_DIR}/fs_files)
-set(BUILD_FS_FILES_LOCAL_DIR ${CMAKE_BINARY_DIR}/fs_files.local)
+set(BUILD_FS_FILES_LOCAL_DIR${CMAKE_BINARY_DIR}/fs_files.local)
 set(WEB_DIR ${CMAKE_CURRENT_LIST_DIR}/Web)
 set(BUILD_WEB_DIR ${BUILD_FS_FILES_DIR}/web)
 

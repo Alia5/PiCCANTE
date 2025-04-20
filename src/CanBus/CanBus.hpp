@@ -66,4 +66,5 @@ bool is_enabled(uint8_t bus);
 uint32_t get_bitrate(uint8_t bus);
 bool is_listenonly(uint8_t bus);
 void set_listenonly(uint8_t bus, bool listen_only);
+void load_settings();
 }

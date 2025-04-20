@@ -137,11 +137,9 @@ const saveSettings = async (reset?: boolean) => {
                     <li>
                         <b>Available</b>
                         <Dropdown
-                            options={[
-                                { name: '1', value: 1 },
-                                { name: '2', value: 2 },
-                                { name: '3', value: 3 }
-                            ]}
+                            options={Array(settings.can_settings.max_supported)
+                                .fill(0)
+                                .map((_, i) => ({ name: `${i + 1}`, value: i + 1 }))}
                             bind:selected={settings.can_settings.enabled}
                             onchange={() =>
                                 applySetting({
@@ -150,6 +148,7 @@ const saveSettings = async (reset?: boolean) => {
                                     }
                                 })} />
                     </li>
+                    <span>(Immediately resets board!)</span>
                 </ol>
             </div>
             {#each Array(settings.can_settings.enabled)
@@ -333,6 +332,11 @@ li {
 
 .can {
     display: grid;
+    span {
+        font-size: 0.8em;
+        margin-top: -0.75em;
+        justify-self: end;
+    }
     & > .card {
         margin-top: 1em;
     }
