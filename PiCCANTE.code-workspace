@@ -81,7 +81,9 @@
             "variant": "cpp",
             "future": "cpp",
             "mutex": "cpp",
-            "fstream": "cpp"
+            "fstream": "cpp",
+            "ranges": "c",
+            "valarray": "c"
         }
     }
 }
