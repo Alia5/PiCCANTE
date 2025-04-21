@@ -130,6 +130,8 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
       "[cpu|heap|fs|tasks|uptime|adc])",
 #endif
       &handler::cmd_sys_stats}},
+    {"version", //
+     {"Display version information (version)", &handler::cmd_version}},
 #ifdef WIFI_ENABLED
     {"wifi", //
      {"Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> "
@@ -756,6 +758,13 @@ void handler::cmd_idle_timeout(const std::string_view& arg) {
             host_out << "Usage: idle_timeout disable|<minutes>\n";
         }
     }
+    host_out.flush();
+}
+
+void handler::cmd_version([[maybe_unused]] const std::string_view& arg) {
+    host_out << "PiCCANTE version: " << PICCANTE_VERSION << "\n";
+    host_out << "Build date: " << __DATE__ << "\n";
+    host_out << "Build time: " << __TIME__ << "\n";
     host_out.flush();
 }
 

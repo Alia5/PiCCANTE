@@ -1,6 +1,12 @@
 /* eslint-disable no-return-await */
-import { mocks } from '$mocks/settings.server';
+import { mocks as settingMocks } from '$mocks/settings.server';
+import { mocks as aboutMocks } from '$mocks/about.server';
 export const handle = async ({ event, resolve }) => {
+
+    const mocks = {
+        ...aboutMocks,
+        ...settingMocks
+    };
 
     const mock = mocks?.[event.url.pathname];
     if (mock) {
