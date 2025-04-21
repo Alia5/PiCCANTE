@@ -13,6 +13,10 @@ else()
     set(USERHOME $ENV{HOME})
 endif()
 
+include(version.cmake)
+get_version_from_git()
+message(STATUS "Building version: ${GIT_DESCRIBE_VERSION}")
+
 set(sdkVersion 2.1.1)
 set(toolchainVersion 14_2_Rel1)
 set(picotoolVersion 2.1.1)
@@ -58,6 +62,13 @@ set(PICO_CXX_ENABLE_RTTI 1)
 # set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(target_name ${PROJECT_NAME})
 add_executable(${target_name})
+
+add_compile_definitions(
+    PICCANTE_VERSION="${GIT_DESCRIBE_VERSION}"
+    PICCANTE_VERSION_MAJOR=${VERSION_MAJOR}
+    PICCANTE_VERSION_MINOR=${VERSION_MINOR}
+    PICCANTE_VERSION_PATCH=${VERSION_PATCH}
+)
 
 set(NUM_CAN_BUSSES $ENV{PICCANTE_NUM_CAN_BUSSES})
 set(CAN0_RX_PIN $ENV{PICCANTE_CAN0_RX_PIN})
@@ -156,6 +167,8 @@ add_compile_definitions(
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
+
+pico_set_program_version(${target_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 file(GLOB_RECURSE srcFiles CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/src/*.c"

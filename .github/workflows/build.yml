@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
           
       - name: Cache Pico SDK
         id: cache-pico-sdk
@@ -126,6 +127,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -161,13 +167,13 @@ jobs:
           echo "time=$(date +'%H%M')" >> $GITHUB_OUTPUT
           echo "sha=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
           
-          BUILD_NUMBER=1
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/tags/dev-latest | jq -r '.body')
-          if [[ $LATEST_RELEASE =~ "Build: #([0-9]+)" ]]; then
-            PREVIOUS_BUILD="${BASH_REMATCH[1]}"
-            BUILD_NUMBER=$((PREVIOUS_BUILD + 1))
+          GIT_VERSION=$(git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --always)
+          if [[ ! $GIT_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          GIT_VERSION="v0.0.0-${COMMIT_COUNT}-${GITHUB_SHA:0:7}"
           fi
-          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "version=$GIT_VERSION" >> $GITHUB_OUTPUT
+          echo "Version from git: $GIT_VERSION"
       
       - name: Delete existing pre-release
         uses: dev-drprasad/delete-tag-and-release@v0.2.1
@@ -182,11 +188,11 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: dev-latest
-          name: "Dev Build #${{ steps.build_info.outputs.build_number }} (${{ steps.build_info.outputs.date }})"
+          name: "Dev Build ${{ steps.build_info.outputs.version }} (${{ steps.build_info.outputs.date }})"
           body: |
             **Automated Development Build**
             
-            Build: #${{ steps.build_info.outputs.build_number }}
+            Version: ${{ steps.build_info.outputs.version }}
             Date: ${{ steps.build_info.outputs.date }} ${{ steps.build_info.outputs.time }}
             Commit: [${{ steps.build_info.outputs.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             
