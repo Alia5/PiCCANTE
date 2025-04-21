@@ -283,6 +283,17 @@ set(LFS_EXTRA_DEPS copy_fs_files)
 find_program(NODE_EXECUTABLE node)
 
 if(IS_WIFI_BOARD AND NODE_EXECUTABLE)
+    file(GLOB_RECURSE WEB_SOURCE_FILES
+        "${WEB_DIR}/src/**/*.ts"
+        "${WEB_DIR}/src/**/*.tsx"
+        "${WEB_DIR}/src/**/*.js"
+        "${WEB_DIR}/src/**/*.jsx"
+        "${WEB_DIR}/src/**/*.css"
+        "${WEB_DIR}/src/**/*.html"
+        "${WEB_DIR}/package.json"
+        "${WEB_DIR}/vite.config.ts"
+    )
+
     find_program(PNPM_EXECUTABLE pnpm)
 
     if(NOT PNPM_EXECUTABLE)
@@ -299,16 +310,20 @@ if(IS_WIFI_BOARD AND NODE_EXECUTABLE)
     endif()
 
     add_custom_command(
-        OUTPUT ${WEB_BUILD_DIR}/index.html
+        OUTPUT ${CMAKE_BINARY_DIR}/web_assets_ready
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${BUILD_WEB_DIR}
         COMMAND pnpm install
         COMMAND pnpm run build
+        COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/web_assets_ready
         WORKING_DIRECTORY ${WEB_DIR}
+        DEPENDS ${WEB_SOURCE_FILES}
         COMMENT "Building web assets"
     )
 
-    add_custom_target(web_assets ALL
-        DEPENDS ${WEB_BUILD_DIR}/index.html
+    add_custom_target(web_assets
+        DEPENDS ${CMAKE_BINARY_DIR}/web_assets_ready
     )
+    add_dependencies(${target_name} web_assets)
 
     set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
         ${BUILD_FS_FILES_DIR}

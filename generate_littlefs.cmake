@@ -63,6 +63,8 @@ function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
         set(FS_DIR "${FS_DIR_LOCAL}")
     endif()
 
+    file(GLOB_RECURSE FS_FILES "${FS_DIR}/*")
+
     download_mklittlefs()
 
     # Set up paths for downloaded tool
@@ -119,7 +121,7 @@ function(generate_littlefs_image TARGET FS_DIR FS_SIZE)
     add_custom_command(
         OUTPUT ${FS_IMAGE}
         COMMAND ${MKLITTLEFS_BINARY} -c ${FS_DIR} -s ${FS_SIZE} ${FS_IMAGE}
-        DEPENDS ${FS_DIR} ${GLI_DEPENDS}
+        DEPENDS ${GLI_DEPENDS}
         COMMENT "Generating LittleFS image from ${FS_DIR}"
         VERBATIM
     )
