@@ -15,30 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "about.hpp"
-#include <string_view>
-#include <string>
-extern "C" {
-#include "../server/httpserver.h"
-}
-#include "fmt.hpp"
+#pragma once
 
-namespace piccante::httpd::api::about {
-bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
-    const auto version_string = fmt::sprintf(
-        R"({"version":"%s", "board":%s, "build_date":"%s", "build_time":"%s"})",
-        PICCANTE_VERSION,
-#if defined(PICO_RP2040)
-        R"("RP2040, Pico W")",
-#elif defined(PICO_RP2350)
-        R"("RP2350, Pico 2 W")",
-#else
-        R"("Unknown")",
-#endif
-        __DATE__,
-        __TIME__);
-    http_server_send_reply(conn, "200 OK", "application/json", version_string.c_str(),
-                           version_string.size());
-    return true;
+#include <string_view>
+
+struct _http_connection;
+typedef _http_connection* http_connection;
+typedef _http_connection* http_write_handle;
+
+namespace piccante::httpd::api::stats {
+bool get(http_connection conn, std::string_view url);
 }
-} // namespace piccante::httpd::api::about

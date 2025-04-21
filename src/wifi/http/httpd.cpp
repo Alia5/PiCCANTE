@@ -33,6 +33,7 @@ extern "C" {
 
 #include "api/settings.hpp"
 #include "api/about.hpp"
+#include "api/stats.hpp"
 
 
 namespace piccante::httpd {
@@ -180,8 +181,9 @@ bool api_handler(http_connection conn, enum http_request_type type, char* path,
     }
     if (p_str == "about") {
         return api::about::get(conn, p_str);
-
-        return true;
+    }
+    if (p_str == "stats") {
+        return api::stats::get(conn, p_str);
     }
 
     return false;
