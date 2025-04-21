@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <array>
 #include <string>
 #include "FreeRTOS.h"
 #include "task.h"
@@ -35,19 +36,37 @@ struct MemoryStats {
     float heap_usage_percentage; ///< Percentage of heap currently used
 };
 
-
-struct TaskInfo {
-    std::string name;          ///< Task name
-    eTaskState state;          ///< Current task state
-    UBaseType_t priority;      ///< Task priority
-    uint16_t stack_high_water; ///< Stack high water mark
-    TaskHandle_t handle;       ///< Task handle
-    UBaseType_t task_number;   ///< Task number
-    UBaseType_t core_affinity; ///< Core affinity mask
-    unsigned long runtime;     ///< Runtime counter
-    float cpu_usage;           ///< CPU usage percentage
+struct TaskSwitchEvent {
+    unsigned long timestamp;
+    TaskHandle_t handle;
+    uint8_t core_id;
+    bool switched_out;
 };
 
+struct TaskRuntimeStats {
+    unsigned long total_runtime;
+    std::array<unsigned long, configNUM_CORES> runtime;
+    std::array<unsigned long, configNUM_CORES> last_switch_in;
+};
+
+struct TaskInfo {
+    std::string_view name;
+    eTaskState state;
+    UBaseType_t priority;
+    uint16_t stack_high_water;
+    TaskHandle_t handle;
+    UBaseType_t task_number;
+    UBaseType_t core_affinity;
+    TaskRuntimeStats runtime;
+    std::array<float, configNUM_CORES> cpu_usage;
+    uint8_t core_id;
+};
+
+struct TaskStats {
+    unsigned long total_runtime;
+    std::array<float, configNUM_CORES> cores;
+    std::vector<TaskInfo> tasks;
+};
 
 struct UptimeInfo {
     unsigned long days;     ///< Days
@@ -65,12 +84,10 @@ struct AdcStats {
     std::string unit;
 };
 
+
 void init_stats_collection();
 MemoryStats get_memory_stats();
-std::vector<TaskInfo> get_task_stats();
-std::vector<TaskInfo> get_cpu_stats(bool momentary = true);
 UptimeInfo get_uptime();
-std::size_t num_digits(unsigned long num);
 
 struct FilesystemStats {
     size_t total_size;      ///< Total size of filesystem in bytes
@@ -83,5 +100,7 @@ struct FilesystemStats {
 FilesystemStats get_filesystem_stats();
 
 std::vector<AdcStats> get_adc_stats();
+
+const TaskStats get_task_stats();
 
 } // namespace piccante::sys::stats

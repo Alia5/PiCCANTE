@@ -493,19 +493,17 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
     bool show_memory = show_all || arg == "heap" || arg == "memory";
     bool show_tasks = show_all || arg == "tasks";
     bool show_cpu = show_all || arg == "cpu";
-    bool show_cpu_total = arg == "cpu_total";
     bool show_uptime = show_all || arg == "uptime";
     bool show_fs = show_all || arg == "fs";
     bool show_adc = show_all || arg == "adc";
 #ifdef WIFI_ENABLED
-
     bool show_wifi = show_all || arg == "wifi";
 #endif
 
 
     // Check for invalid argument
     if (!show_all && !show_memory && !show_tasks && !show_cpu && !show_uptime &&
-        !show_fs && !show_adc && !show_cpu_total
+        !show_fs && !show_adc
 #ifdef WIFI_ENABLED
         && !show_wifi
 #endif
@@ -548,20 +546,30 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
         host_out << "  Block count:   " << fs_stats.block_count << "\n\n";
     }
 
+    stats::TaskStats task_stats;
+
+    if (show_tasks || show_cpu) {
+        task_stats = piccante::sys::stats::get_task_stats();
+    }
+
     if (show_tasks) {
         const auto tasks = piccante::sys::stats::get_task_stats();
         host_out << "Task Statistics:\n";
         host_out << "---------------\n";
-        host_out << "Name                        State  Prio   Stack   Num     Core\n";
-        host_out << "----------------------------------------------------------------\n";
+        host_out << "Name                    State  Prio   Stack   ID      CPU     "
+                    "CORE0    "
+                    "CORE1      Affinity\n";
+        host_out << "-------------------------------------------------------------------"
+                    "------"
+                    "-----------------\n";
 
-        for (const auto& task : tasks) {
-            std::string name = task.name;
-            if (name.length() > 27) {
-                name = name.substr(0, 24) + "...";
+        for (const auto& task : tasks.tasks) {
+            std::string name{task.name};
+            if (name.length() > 23) {
+                name = name.substr(0, 20) + "...";
             }
             host_out << name;
-            for (size_t j = name.length(); j < 29; j++) {
+            for (size_t j = name.length(); j < 25; j++) {
                 host_out << " ";
             }
 
@@ -586,76 +594,31 @@ void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
                     state = 'X';
                     break;
             }
-            host_out << state << "      ";
-            host_out << static_cast<int>(task.priority);
-            for (size_t j = piccante::sys::stats::num_digits(task.priority); j < 7; j++) {
-                host_out << " ";
-            }
-
-            host_out << task.stack_high_water;
-            for (size_t j = piccante::sys::stats::num_digits(task.stack_high_water);
-                 j < 8;
-                 j++) {
-                host_out << " ";
-            }
-
-            host_out << task.task_number;
-            for (size_t j = piccante::sys::stats::num_digits(task.task_number); j < 8;
-                 j++) {
-                host_out << " ";
-            }
-            host_out << fmt::sprintf("0x%x\n", task.core_affinity);
+            host_out << " " << state;
+            host_out << fmt::sprintf("%7d", task.priority);
+            host_out << " " << fmt::sprintf("%7d", task.stack_high_water);
+            host_out << " " << fmt::sprintf("%5d", task.task_number);
+            host_out << " "
+                     << fmt::sprintf("%7.1f", task.cpu_usage[0] + task.cpu_usage[1])
+                     << "%";
+            host_out << " " << fmt::sprintf("%7.1f", task.cpu_usage[0]) << "%";
+            host_out << " " << fmt::sprintf("%7.1f", task.cpu_usage[1]) << "%";
+            host_out << " "
+                     << fmt::sprintf("%15s",
+                                     fmt::sprintf("0x%x\n", task.core_affinity).c_str());
         }
         host_out << "\n";
     }
 
-    if (show_cpu || show_cpu_total) {
-        const auto cpu_stats = piccante::sys::stats::get_cpu_stats(!show_cpu_total);
+    if (show_cpu) {
         host_out << "CPU Usage:\n";
         host_out << "----------\n";
-        host_out << "Task            Current %\n";
-        host_out << "-------------------------\n";
-
-        auto total_usage = std::array<float, NUM_CORES>{};
-        if (cpu_stats.empty()) {
-            host_out << "First measurement - run command again for results\n";
-        } else {
-            for (const auto& task : cpu_stats) {
-                std::string name = task.name;
-                if (name.length() > 15) {
-                    name = name.substr(0, 12) + "...";
-                }
-                host_out << name;
-                for (size_t j = name.length(); j < 17; j++) {
-                    host_out << " ";
-                }
-
-                if (task.cpu_usage < 1.0f) {
-                    host_out << "<1%";
-                } else {
-                    host_out << static_cast<int>(task.cpu_usage) << "%";
-                }
-                host_out << "\n";
-
-                if (task.name.find("IDLE") == std::string::npos) {
-                    const auto core =
-                        task.core_affinity > NUM_CORES ? 0 : task.core_affinity - 1;
-                    total_usage[core] += task.cpu_usage;
-                }
-            }
-        }
-        host_out << "\n";
-        host_out << "Total CPU usage: \n";
         for (size_t i = 0; i < NUM_CORES; i++) {
             if (i > 0) {
                 host_out << "\n";
             }
             host_out << "Core " << i << ": ";
-            if (total_usage[i] < 1.0F) {
-                host_out << "<1%";
-            } else {
-                host_out << static_cast<int>(total_usage[i]) << "%";
-            }
+            host_out << static_cast<int>(task_stats.cores[i]) << "%";
         }
         host_out << "\n\n";
     }

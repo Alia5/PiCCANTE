@@ -87,7 +87,17 @@
             "mutex": "cpp",
             "fstream": "cpp",
             "ranges": "c",
-            "valarray": "c"
+            "valarray": "c",
+            "text_encoding": "cpp",
+            "cassert": "cpp",
+            "cerrno": "cpp",
+            "cfloat": "cpp",
+            "climits": "cpp",
+            "codecvt": "cpp",
+            "condition_variable": "cpp",
+            "semaphore": "cpp",
+            "stdfloat": "cpp",
+            "cfenv": "cpp"
         }
     }
 }

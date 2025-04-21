@@ -18,6 +18,7 @@
 #include "stats.hpp"
 #include <hardware/adc.h>
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <cstdint>
 #include <unordered_map>
@@ -27,89 +28,133 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "queue.h"
+#include "pico/multicore.h"
+
 
 #include "fs/littlefs_driver.hpp"
 #include "lfs.h"
 
+#include "Logger/Logger.hpp"
+
 namespace piccante::sys::stats {
 
 namespace {
-
-struct TaskStatusInfo {
-    TaskStatus_t status;
-    std::string name; // Safe copy of the task name
-
-    TaskStatusInfo(const TaskStatus_t& task_status)
-        : status(task_status), name(task_status.pcTaskName) {}
-};
-
-TaskHandle_t stats_task_handle = nullptr;
-SemaphoreHandle_t stats_mutex = nullptr;
-std::vector<TaskStatusInfo> previous_snapshot;
-std::vector<TaskStatusInfo> current_snapshot;
-unsigned long previous_total_runtime = 0;
-unsigned long current_total_runtime = 0;
 bool stats_initialized = false;
+TaskHandle_t stats_task_handle = nullptr;
 
-static void stats_collection_task(void*) {
-    constexpr size_t MAX_TASKS = 16;
-    std::vector<TaskStatus_t> raw_snapshot(MAX_TASKS);
-    std::vector<TaskStatusInfo> temp_snapshot;
+std::unordered_map<TaskHandle_t, TaskInfo> task_info;
+
+SemaphoreHandle_t update_mutex = nullptr;
+
+void populate_task_stats() {
+    static std::vector<TaskStatus_t> task_states;
+    static unsigned long total_runtime;
+
+    static std::array<unsigned long, configNUM_CORES> core_runtimes = {};
+    static std::array<unsigned long, configNUM_CORES> last_core_runtimes = {};
+    static std::unordered_map<TaskHandle_t, std::array<unsigned long, configNUM_CORES>>
+        last_task_runtimes;
+
+    const auto num_tasks = uxTaskGetNumberOfTasks();
+    task_states.resize(num_tasks);
+    const auto tasks =
+        uxTaskGetSystemState(task_states.data(), num_tasks, &total_runtime);
+
+    // Reset core_runtimes
+    for (size_t core = 0; core < configNUM_CORES; core++) {
+        core_runtimes[core] = 0;
+    }
+
+    // Mark all tasks for potential deletion and accumulate runtimes
+    for (auto& pair : task_info) {
+        pair.second.task_number = static_cast<UBaseType_t>(-1);
+        for (size_t core = 0; core < configNUM_CORES; core++) {
+            core_runtimes[core] += pair.second.runtime.runtime[core];
+        }
+    }
+
+    // Process all tasks from the system state
+    for (const auto& task : task_states) {
+        auto& info = task_info[task.xHandle];
+        info.name = task.pcTaskName;
+        info.state = task.eCurrentState;
+        info.priority = task.uxCurrentPriority;
+        info.stack_high_water = task.usStackHighWaterMark;
+        info.task_number = task.xTaskNumber;
+        info.core_affinity = task.uxCoreAffinityMask;
+
+        if (last_task_runtimes.find(task.xHandle) == last_task_runtimes.end()) {
+            last_task_runtimes[task.xHandle].fill(0);
+        }
+
+        for (size_t core = 0; core < configNUM_CORES; core++) {
+            unsigned long core_delta = core_runtimes[core] - last_core_runtimes[core];
+            if (core_delta > 10) { // Avoid noise
+                unsigned long task_runtime_delta =
+                    info.runtime.runtime[core] - last_task_runtimes[task.xHandle][core];
+                info.cpu_usage[core] =
+                    (static_cast<float>(task_runtime_delta) / core_delta) * 100.0f;
+            } else {
+                info.cpu_usage[core] = 0.0f;
+            }
+            last_task_runtimes[task.xHandle][core] = info.runtime.runtime[core];
+        }
+    }
+
+    last_core_runtimes = core_runtimes;
+
+    // for (const auto& pair : task_info) {
+    //     if (pair.second.task_number == static_cast<UBaseType_t>(-1)) {
+    //         task_info.erase(pair.second.handle);
+    //         // Also clean up the runtime history
+    //         last_task_runtimes.erase(pair.second.handle);
+    //     }
+    // }
+    // Safe way to delete tasks: collect keys first, then erase
+    std::vector<TaskHandle_t> tasks_to_delete;
+    for (const auto& pair : task_info) {
+        if (pair.second.task_number == static_cast<UBaseType_t>(-1)) {
+            tasks_to_delete.push_back(pair.first);
+        }
+    }
+
+
+    // Now delete the tasks
+    for (const auto& handle : tasks_to_delete) {
+        task_info.erase(handle);
+        // Also clean up the runtime history
+        last_task_runtimes.erase(handle);
+    }
+}
+
+void stats_task(void* /*parameters*/) {
+    TaskSwitchEvent event{};
+
+    update_mutex = xSemaphoreCreateMutex();
+    if (update_mutex == nullptr) {
+        piccante::Log::error << "Failed to create task info mutex\n";
+        return;
+    }
 
     for (;;) {
-        unsigned long temp_total_runtime = 0;
-        UBaseType_t task_count =
-            uxTaskGetSystemState(raw_snapshot.data(), MAX_TASKS, &temp_total_runtime);
-        raw_snapshot.resize(task_count);
-        temp_snapshot.clear();
-        for (const auto& task : raw_snapshot) {
-            if (task.pcTaskName == nullptr) {
-                continue; // Skip tasks with no name
-            }
-            temp_snapshot.emplace_back(task);
-        }
+        xSemaphoreTake(update_mutex, portMAX_DELAY);
 
-        if (xSemaphoreTake(stats_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            previous_snapshot = std::move(current_snapshot);
-            previous_total_runtime = current_total_runtime;
-
-            current_snapshot = std::move(temp_snapshot);
-            current_total_runtime = temp_total_runtime;
-
-            xSemaphoreGive(stats_mutex);
-        }
-
+        const auto populate_start_time = pdTICKS_TO_MS(xTaskGetTickCount());
+        populate_task_stats();
+        xSemaphoreGive(update_mutex);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
 } // namespace
-
 void init_stats_collection() {
     if (!stats_initialized) {
-        stats_mutex = xSemaphoreCreateMutex();
-        if (stats_mutex != nullptr) {
-            xTaskCreate(stats_collection_task,
-                        "StatsTask",
-                        configMINIMAL_STACK_SIZE,
-                        nullptr,
-                        tskIDLE_PRIORITY + 1,
-                        &stats_task_handle);
-            stats_initialized = true;
-        }
-    }
-}
+        stats_initialized = true;
 
-std::size_t num_digits(unsigned long num) {
-    if (num == 0) {
-        return 1;
+        xTaskCreate(stats_task, "StatsTask", configMINIMAL_STACK_SIZE, nullptr,
+                    tskIDLE_PRIORITY + 1, &stats_task_handle);
     }
-    std::size_t count = 0;
-    while (num > 0) {
-        count++;
-        num /= 10;
-    }
-    return count;
 }
 
 MemoryStats get_memory_stats() {
@@ -123,106 +168,6 @@ MemoryStats get_memory_stats() {
         static_cast<float>(stats.heap_used * 100) / stats.total_heap;
 
     return stats;
-}
-
-std::vector<TaskInfo> get_task_stats() {
-    constexpr size_t MAX_TASKS = 16;
-    std::vector<TaskStatus_t> task_status{MAX_TASKS};
-    unsigned long total_runtime = 0;
-
-    UBaseType_t task_count =
-        uxTaskGetSystemState(task_status.data(), MAX_TASKS, &total_runtime);
-    std::vector<TaskInfo> task_info;
-    task_status.resize(task_count);
-
-    for (const auto& task : task_status) {
-        TaskInfo info{};
-
-        info.name = task.pcTaskName;
-        info.priority = task.uxCurrentPriority;
-        info.stack_high_water = task.usStackHighWaterMark;
-        info.handle = task.xHandle;
-        info.task_number = task.xTaskNumber;
-        info.core_affinity = task.uxCoreAffinityMask;
-        info.runtime = task.ulRunTimeCounter;
-        info.cpu_usage =
-            (total_runtime > 0)
-                ? static_cast<float>(task.ulRunTimeCounter * 100.0F / total_runtime)
-                : 0.0F;
-
-        info.state = task.eCurrentState;
-
-        task_info.push_back(info);
-    }
-
-    return task_info;
-}
-
-std::vector<TaskInfo> get_cpu_stats(bool momentary) {
-    if (!stats_initialized) {
-        init_stats_collection();
-        return {};
-    }
-
-    std::vector<TaskInfo> cpu_stats;
-
-    if (xSemaphoreTake(stats_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-        return cpu_stats;
-    }
-
-    if (momentary && !previous_snapshot.empty()) {
-        const auto runtime_diff = current_total_runtime - previous_total_runtime;
-
-        if (runtime_diff > 0) {
-            std::unordered_map<TaskHandle_t, const TaskStatusInfo*> prev_task_map;
-            for (const auto& task : previous_snapshot) {
-                prev_task_map[task.status.xHandle] = &task;
-            }
-
-            for (const auto& curr_task : current_snapshot) {
-                auto prev_it = prev_task_map.find(curr_task.status.xHandle);
-                if (prev_it != prev_task_map.end()) {
-                    TaskInfo info{};
-                    info.name = curr_task.name;
-                    info.priority = curr_task.status.uxCurrentPriority;
-                    info.stack_high_water = curr_task.status.usStackHighWaterMark;
-                    info.handle = curr_task.status.xHandle;
-                    info.task_number = curr_task.status.xTaskNumber;
-                    info.core_affinity = curr_task.status.uxCoreAffinityMask;
-
-                    const auto task_runtime = curr_task.status.ulRunTimeCounter -
-                                              prev_it->second->status.ulRunTimeCounter;
-                    info.runtime = task_runtime;
-                    info.cpu_usage =
-                        static_cast<float>(task_runtime * 100.0F / runtime_diff);
-                    info.state = curr_task.status.eCurrentState;
-
-                    cpu_stats.push_back(info);
-                }
-            }
-        }
-    } else {
-        for (const auto& task : current_snapshot) {
-            TaskInfo info{};
-            info.name = task.name;
-            info.priority = task.status.uxCurrentPriority;
-            info.stack_high_water = task.status.usStackHighWaterMark;
-            info.handle = task.status.xHandle;
-            info.task_number = task.status.xTaskNumber;
-            info.core_affinity = task.status.uxCoreAffinityMask;
-            info.runtime = task.status.ulRunTimeCounter;
-            info.cpu_usage = (current_total_runtime > 0)
-                                 ? static_cast<float>(task.status.ulRunTimeCounter *
-                                                      100.0f / current_total_runtime)
-                                 : 0.0F;
-            info.state = task.status.eCurrentState;
-
-            cpu_stats.push_back(info);
-        }
-    }
-
-    xSemaphoreGive(stats_mutex);
-    return cpu_stats;
 }
 
 UptimeInfo get_uptime() {
@@ -342,4 +287,65 @@ std::vector<AdcStats> get_adc_stats() {
     return results;
 }
 
+const TaskStats get_task_stats() {
+    TaskStats stats{};
+    stats.total_runtime = time_us_64();
+    stats.tasks.reserve(task_info.size());
+
+    xSemaphoreTake(update_mutex, portMAX_DELAY);
+
+    for (const auto& pair : task_info) {
+        const auto& tinfo = pair.second;
+        stats.tasks.push_back(tinfo);
+        if (tinfo.name.find("IDLE") != std::string::npos) {
+            continue;
+        }
+        for (size_t core = 0; core < configNUM_CORES; core++) {
+            stats.cores[core] += tinfo.cpu_usage[core];
+        }
+    }
+    xSemaphoreGive(update_mutex);
+
+    return stats;
+}
+
 } // namespace piccante::sys::stats
+
+extern "C" void taskSwitchedIn(void* pxTask) {
+    using namespace piccante::sys::stats;
+    if (pxTask == nullptr || !stats_initialized) {
+        return;
+    }
+
+    const auto handle = static_cast<TaskHandle_t>(pxTask);
+    const auto core_id = get_core_num();
+
+    const auto crit = taskENTER_CRITICAL_FROM_ISR();
+    auto it = task_info.find(handle);
+    if (it != task_info.end()) {
+        auto& tinfo = it->second;
+        tinfo.core_id = core_id;
+        tinfo.runtime.last_switch_in[core_id] = time_us_64();
+    }
+    taskEXIT_CRITICAL_FROM_ISR(crit);
+}
+extern "C" void taskSwitchedOut(void* pxTask) {
+    using namespace piccante::sys::stats;
+    if (pxTask == nullptr || !stats_initialized) {
+        return;
+    }
+
+    const auto handle = static_cast<TaskHandle_t>(pxTask);
+    const auto core_id = get_core_num();
+
+    const auto crit = taskENTER_CRITICAL_FROM_ISR();
+    auto it = task_info.find(handle);
+    if (it != task_info.end()) {
+        auto& tinfo = it->second;
+        tinfo.core_id = core_id;
+        const auto diff = time_us_64() - tinfo.runtime.last_switch_in[core_id];
+        tinfo.runtime.total_runtime += diff;
+        tinfo.runtime.runtime[core_id] += diff;
+    }
+    taskEXIT_CRITICAL_FROM_ISR(crit);
+}

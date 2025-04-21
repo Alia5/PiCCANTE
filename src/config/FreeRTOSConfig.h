@@ -83,7 +83,7 @@
 /* Run time and task stats gathering related definitions. */
 #define configGENERATE_RUN_TIME_STATS 1
 #define configUSE_TRACE_FACILITY 1
-#define configUSE_STATS_FORMATTING_FUNCTIONS 1
+#define configUSE_STATS_FORMATTING_FUNCTIONS 0
 
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
 #ifdef __cplusplus
@@ -165,18 +165,18 @@ to exclude the API function. */
 /* A header file that defines trace macro can be included here. */
 
 
-// /* TaskTrace */
+/* TaskTrace */
 
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
-// void taskSwitchedIn(void* pxTask);
-// void taskSwitchedOut(void* pxTask);
-// #ifdef __cplusplus
-// }
-// #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+void taskSwitchedIn(void* pxTask);
+void taskSwitchedOut(void* pxTask);
+#ifdef __cplusplus
+}
+#endif
 
-// #define traceTASK_SWITCHED_IN() taskSwitchedIn(pxCurrentTCB)
-// #define traceTASK_SWITCHED_OUT() taskSwitchedOut(pxCurrentTCB)
+#define traceTASK_SWITCHED_IN() taskSwitchedIn(pxCurrentTCB)
+#define traceTASK_SWITCHED_OUT() taskSwitchedOut(pxCurrentTCB)
 
 #endif /* FREERTOS_CONFIG_H */
