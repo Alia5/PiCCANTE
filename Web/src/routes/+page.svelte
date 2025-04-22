@@ -20,7 +20,7 @@ import Bar from '$/lib/components/Bar.svelte';
 import Masonry from '$/lib/components/Masonry.svelte';
 import { page } from '$app/state';
 import { onMount } from 'svelte';
-import { fade } from 'svelte/transition';
+import { fade, slide } from 'svelte/transition';
 
 let stats = $state(page.data);
 let timed_out = $state(false);
@@ -89,16 +89,75 @@ const adcMap = {
     } | undefined;
     /* eslint-enable prettier/prettier */
 };
+
+const getCpuLoadColor = (value: number) => {
+    if (value > 90) return '#db1804';
+    if (value > 75) return '#ff8100';
+    if (value > 50) return '#ffa500';
+    return '#11520d';
+};
 </script>
 
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <div class="wrapper">
-    <Masonry gridGap="2em" colWidth={`minmax(${Math.min(Math.max(280, width - 32), 420)}px, 1fr)`}>
-        <div class="card cpu">
-            <h2>CPU</h2>
-            <div></div>
+    <div class="card cpu d-grid">
+        <h2>CPU</h2>
+        <b>Core0</b>
+        <div class="overlap" style="width: 100%;">
+            <div transition:fade style="z-index: 0;">
+                <Bar
+                    value={stats.cpu.load0}
+                    min={0}
+                    max={100}
+                    backgroundColor="transparent"
+                    color={getCpuLoadColor(stats.cpu.load0)}></Bar>
+            </div>
+            <div style="z-index: 1;" class="input no-inp t-c t-s b">
+                {`${stats.cpu.load0.toFixed(2)} %`}
+            </div>
         </div>
+        <b>Core1</b>
+        <div class="overlap" style="width: 100%;">
+            <div transition:fade style="z-index: 0;">
+                <Bar
+                    value={stats.cpu.load1}
+                    min={0}
+                    max={100}
+                    backgroundColor="transparent"
+                    color={getCpuLoadColor(stats.cpu.load1)}></Bar>
+            </div>
+            <div style="z-index: 1;" class="input no-inp t-c t-s b">
+                {`${stats.cpu.load1.toFixed(2)} %`}
+            </div>
+        </div>
+        <div class="card tasks">
+            <h3>Tasks</h3>
+            <h4>Name</h4>
+            <h4>Priority</h4>
+            <h4>CPU</h4>
+            {#each stats.cpu.tasks as task (task.task_number)}
+                <b transition:slide style="font-size: 1em;">
+                    {task.name}
+                </b>
+                <span transition:slide style="text-align: center;">{task.priority}</span>
+                <div class="overlap" style="width: 100%;">
+                    <div transition:fade style="z-index: 0;">
+                        <Bar
+                            value={task.cpu_usage_0 + task.cpu_usage_1}
+                            min={0}
+                            max={100}
+                            backgroundColor="transparent"
+                            color={getCpuLoadColor(task.cpu_usage_0 + task.cpu_usage_1)}></Bar>
+                    </div>
+                    <div style="z-index: 1;" class="input no-inp t-c t-s b">
+                        {`${(task.cpu_usage_0 + task.cpu_usage_1).toFixed(2)} %`}
+                    </div>
+                </div>
+            {/each}
+        </div>
+    </div>
+    <Masonry gridGap="2em" colWidth={`minmax(${Math.min(Math.max(280, width - 32), 350)}px, 1fr)`}>
         <div class="card d-grid">
             <h2>Memory</h2>
             <b>Heap</b>
@@ -195,7 +254,7 @@ const adcMap = {
                         </div>
                     </div>
                     {#if adc.name === 'System Voltage'}
-                        <span style="font-size: 0.9em">(Reads low on W boards)</span>
+                        <span style="font-size: 0.9em">(May read low on W)</span>
                     {/if}
                 </div>
             {/each}
@@ -212,10 +271,73 @@ const adcMap = {
 <style lang="postcss">
 .wrapper {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 2em;
+    & > :global(*) {
+        align-self: start;
+    }
+    @media (orientation: portrait) {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
 }
 
 .card {
     width: 100%;
+}
+
+.tasks {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: min-content min-content auto;
+    @media (orientation: portrait) {
+        grid-template-columns: min-content auto;
+
+        & > :nth-child(2) {
+            padding-left: 0.5em;
+        }
+
+        & > :nth-child(4) {
+            display: none;
+        }
+        & > :nth-child(3n) {
+            place-self: end;
+            padding-right: 1em;
+        }
+        & > :nth-child(3) {
+            place-self: end;
+            padding-right: 0.5em;
+        }
+        & > :nth-child(3n + 1) {
+            grid-column: 1 / -1;
+            place-self: center;
+        }
+        & > :first-child {
+            grid-column: 1 / -1;
+            place-self: start;
+        }
+    }
+
+    width: 100%;
+    gap: 1em;
+    position: relative;
+    & h4 {
+        font-size: 1.07em;
+    }
+    & > :first-child {
+        grid-column: 1 / -1;
+    }
+    &::after {
+        content: '';
+        height: 1px;
+        background: var(--text-color);
+        width: calc(100% - 2em);
+        top: -1em;
+        justify-self: center;
+        opacity: 0.5;
+        position: absolute;
+        grid-row: 3;
+    }
 }
 
 .overlap {
@@ -228,10 +350,6 @@ const adcMap = {
 }
 
 .cpu {
-    grid-column: span 2;
-    @media (orientation: portrait) {
-        grid-column: auto;
-    }
 }
 
 .no-inp {
