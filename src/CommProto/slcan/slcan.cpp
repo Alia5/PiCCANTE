@@ -393,9 +393,7 @@ void handler::task() {
                 handle_command(cmd);
                 buffer.clear();
             } else {
-                if (buffer.size() < buffer.capacity()) {
-                    buffer.push_back(c);
-                }
+                buffer.push_back(c);
             }
         }
         if (received) {
