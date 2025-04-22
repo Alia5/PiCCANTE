@@ -101,6 +101,7 @@ $effect(() => {
     justify-content: center;
     grid-gap: var(--grid-gap);
     transition: all 0.2s ease;
+    position: relative;
     & > :global(*) {
         align-self: start;
         transition: all 0.2s ease;

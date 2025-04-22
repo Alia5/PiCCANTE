@@ -37,7 +37,7 @@ const {
     max?: number;
     color?: string;
     radius?: string;
-    children: Snippet;
+    children?: Snippet;
 } = $props();
 
 const percent = $derived(((value - min) / (max - min)) * 100);
@@ -53,20 +53,21 @@ const percent = $derived(((value - min) / (max - min)) * 100);
 
 <style lang="postcss">
 .bar {
-    background-color: var(--bgc);
+    background: var(--bgc);
     border-radius: var(--radius);
     position: relative;
     overflow: hidden;
+    height: 100%;
 }
 .v {
     position: absolute;
     inset: 0;
-    background-color: var(--color);
+    background: var(--color);
 }
 .a {
-    transition: all var(--transition-duration) ease;
-    transition-property: width, height;
-    transition-duration: var(--transition-duration);
-    transition-timing-function: ease-in-out;
+    transition:
+        width var(--transition-duration) ease-in-out,
+        height var(--transition-duration) ease-in-out,
+        background calc(var(--transition-duration) * 2) ease-in-out;
 }
 </style>

@@ -17,77 +17,213 @@
  -->
 <script lang="ts">
 import Bar from '$/lib/components/Bar.svelte';
+import Masonry from '$/lib/components/Masonry.svelte';
+import { page } from '$app/state';
+import { onMount } from 'svelte';
+import { fade } from 'svelte/transition';
+
+let stats = $state(page.data);
+let timed_out = $state(false);
+let timeout: number | undefined = $state(undefined);
+
+onMount(() => {
+    timeout = setTimeout(() => {
+        timed_out = true;
+    }, 1500) as unknown as number;
+
+    return () => {
+        clearTimeout(timeout);
+    };
+});
+$effect(
+    () =>
+        void (async () => {
+            if (timed_out) {
+                timed_out = false;
+                const start = Date.now();
+                try {
+                    const res = await fetch('/api/stats');
+                    stats = await res.json();
+                } finally {
+                    const end = Date.now();
+                    timeout = setTimeout(
+                        () => {
+                            timed_out = true;
+                        },
+                        Math.max(0, 1500 + (end - start))
+                    ) as unknown as number;
+                }
+            }
+        })()
+);
+let width = $state(0);
+let height = $state(0);
+
+/* eslint-disable prettier/prettier */
+const adcMap = {
+    'CPU Temperature': {
+        min: 0,
+        max: 80,
+        color: (value: number) => {
+            if (value < 50) return '#11520d';
+            if (value < 50) return '#ffa500';
+            if (value < 60) return '#ff8100';
+            return '#db1804';
+        }
+    },
+    'System Voltage': {
+        min: 0,
+        max: 5,
+        color: (value: number) => {
+            if (value < 3.0) return '#db1804';
+            if (value < 3.3) return '#ff8100';
+            if (value < 3.5) return '#ffa500';
+            return '#11520d';
+        }
+    }
+} as {
+    [key: string]: {
+        min: number;
+        max: number;
+        color: (value: number) => string;
+    } | undefined;
+    /* eslint-enable prettier/prettier */
+};
 </script>
 
-<div class="grid">
-    <div class="card cpu">
-        <h2>CPU</h2>
-        <div></div>
-    </div>
-    <div class="card memory">
-        <h2>Memory</h2>
-        <div class="mem-row">
-            <span>Free heap:</span>
-            <Bar value={62.6} color="#4caf50">
-                <span>Whatever</span>
-            </Bar>
-        </div>
-        <div class="mem-row">
-            <span>Min free heap:</span>
-            <Bar value={62.6} color="#4caf50"><span> 82040 bytes </span></Bar>
-        </div>
-        <div class="mem-row">
-            <span>Heap used:</span>
-            <Bar value={37.4} color="#f39c12">
-                <span> 49040 bytes </span>
-            </Bar>
-        </div>
-    </div>
+<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
-    <div class="card">
-        <h2>WiFi</h2>
-        <ul>
-            <li><b>Mode:</b> Client</li>
-            <li><b>SSID:</b> REDACTED</li>
-            <li><b>Channel:</b> 1</li>
-            <li><b>RSSI:</b> -52</li>
-            <li><b>IP:</b> REDACTED</li>
-            <li><b>MAC:</b> REDACTED</li>
-        </ul>
-    </div>
+<div class="wrapper">
+    <Masonry gridGap="2em" colWidth={`minmax(${Math.min(Math.max(280, width - 32), 420)}px, 1fr)`}>
+        <div class="card cpu">
+            <h2>CPU</h2>
+            <div></div>
+        </div>
+        <div class="card d-grid">
+            <h2>Memory</h2>
+            <b>Heap</b>
+            <div style="display: grid; gap: 0.5em; place-items: center; width: 100%;">
+                <span
+                    >{(stats.memory.heap_used / 1024).toFixed(0)} kB / {(
+                        stats.memory.total_heap / 1024
+                    ).toFixed(0)} kB</span>
+                <div class="overlap" style="width: 100%;">
+                    <div transition:fade style="z-index: 0;">
+                        <Bar
+                            value={stats.memory.heap_used}
+                            min={0}
+                            max={stats.memory.total_heap}
+                            backgroundColor="transparent"
+                            color={(() => {
+                                if (stats.memory.heap_used === undefined) return '#3f3f4f';
+                                if (stats.memory.heap_used > stats.memory.total_heap * 0.9) return '#db1804';
+                                if (stats.memory.heap_used > stats.memory.total_heap * 0.75) return '#ff8100';
+                                if (stats.memory.heap_used > stats.memory.total_heap * 0.5) return '#ffa500';
+                                return '#11520d';
+                            })()}></Bar>
+                    </div>
+                    <div style="z-index: 1;" class="input no-inp t-c t-s b">
+                        {`${((stats.memory.heap_used / stats.memory.total_heap) * 100).toFixed(2)} %`}
+                    </div>
+                </div>
 
-    <div class="card">
-        <h2>ADC</h2>
-        <ul>
-            <li><b>ADC0:</b> 0.086 V (Raw: 107, GPIO26)</li>
-            <li><b>ADC1:</b> 0.077 V (Raw: 95, GPIO27)</li>
-            <li><b>ADC2:</b> 0.076 V (Raw: 94, GPIO28)</li>
-            <li><b>System Voltage:</b> 4.233 V (Raw: 1751, GPIO29)</li>
-            <li><b>CPU Temp:</b> 28.9 °C (Raw: 872)</li>
-        </ul>
-    </div>
+                <span
+                    >Min free: {(stats.memory.min_free_heap / 1024).toFixed(0)} kB ({(
+                        (stats.memory.min_free_heap / stats.memory.total_heap) *
+                        100
+                    ).toFixed(1)} %)</span>
+            </div>
+        </div>
 
-    <div class="card uptime">
-        <h2>System Uptime</h2>
-        <div>0 hours, 0 minutes, 19 seconds</div>
-    </div>
+        <div class="card d-grid">
+            <h2>WiFi</h2>
+            <b>Mode</b>
+            <input
+                disabled
+                class="no-inp t-c t-s"
+                value={stats.wifi?.mode == 0 ? 'Off' : stats.wifi.mode === 1 ? 'Client' : 'Access Point'} />
+            <b>SSID</b>
+            <input disabled class="no-inp t-c t-s" value={stats.wifi?.ssid} />
+            <b>Channel</b>
+            <input disabled class="no-inp t-c t-s" value={stats.wifi?.channel} />
+            <b>RSSI</b>
+            <div class="overlap" style="width: 100%;">
+                <div transition:fade style="z-index: 0;">
+                    {#if stats.wifi?.rssi}
+                        <Bar
+                            value={100 + (stats.wifi?.rssi || 0)}
+                            min={0}
+                            max={70}
+                            backgroundColor="transparent"
+                            color={(() => {
+                                if (stats.wifi?.rssi === undefined) return '#3f3f4f';
+                                if (stats.wifi.rssi < -70) return '#db1804';
+                                if (stats.wifi.rssi < -60) return '#ff8100';
+                                if (stats.wifi.rssi < -50) return '#ffa500';
+                                return '#11520d';
+                            })()}></Bar>
+                    {/if}
+                </div>
+                <div style="z-index: 1;" class="input no-inp t-c t-s b">
+                    {`${stats.wifi?.rssi} dBm`}
+                </div>
+            </div>
+            <b>IP</b>
+            <input disabled class="no-inp t-c t-s" value={stats.wifi?.ip_address} />
+            <b>MAC</b>
+            <input disabled class="no-inp t-c t-s" value={stats.wifi?.mac_address} />
+        </div>
+
+        <div class="card d-grid">
+            <h2>ADC</h2>
+            {#each stats.adc as adc, idx (idx)}
+                <b>{adc.name}</b>
+                <div style="display: grid; gap: 0.5em; place-items: center; width: 100%;">
+                    <div class="overlap">
+                        {#if adc.value >= 1}
+                            <div transition:fade style="z-index: 0;">
+                                <Bar
+                                    value={adc.value}
+                                    min={adcMap[adc.name]?.min ?? 0}
+                                    max={adcMap[adc.name]?.max ?? 3.33}
+                                    backgroundColor="transparent"
+                                    color={adcMap[adc.name]?.color(adc.value) || '#3f3f4f'}></Bar>
+                            </div>
+                        {/if}
+                        <div style="z-index: 1;" class="input no-inp t-c t-s b">
+                            {adc.value.toFixed(2) + ' ' + adc.unit}
+                        </div>
+                    </div>
+                    {#if adc.name === 'System Voltage'}
+                        <span style="font-size: 0.9em">(Reads low on W boards)</span>
+                    {/if}
+                </div>
+            {/each}
+        </div>
+        <div class="card uptime">
+            <h2>System Uptime</h2>
+            <span
+                >{stats.uptime.days > 0 ? `${stats.uptime.days} days ` : ''}{stats.uptime.hours} hours, {stats
+                    .uptime.minutes} minutes, {stats.uptime.seconds} seconds</span>
+        </div>
+    </Masonry>
 </div>
 
 <style lang="postcss">
-.grid {
-    display: grid;
+.wrapper {
     width: 100%;
-    height: fit-content;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    place-items: center;
-    gap: 2em;
-    grid-auto-flow: dense;
-    @media (orientation: portrait) {
-        grid-template-columns: 1fr;
-    }
 }
 
 .card {
+    width: 100%;
+}
+
+.overlap {
+    display: grid;
+    & > * {
+        grid-column: 1;
+        grid-row: 1;
+    }
     width: 100%;
 }
 
@@ -98,23 +234,33 @@ import Bar from '$/lib/components/Bar.svelte';
     }
 }
 
-.uptime {
-    grid-column: 1 / -1;
-    @media (orientation: portrait) {
-        grid-column: auto;
+.no-inp {
+    opacity: 1 !important;
+    text-align: end;
+}
+.b {
+    font-weight: bold;
+}
+.t-c {
+    text-align: center;
+}
+.t-s {
+    text-shadow: 1px 1px 2px #000;
+}
+.d-grid {
+    & > :first-child {
+        grid-column: span 2;
     }
-}
-
-li {
-    list-style: none;
-    padding-left: 0.5em;
-}
-
-.memory .mem-row {
-    display: flex;
+    & > div {
+        justify-self: end;
+    }
+    display: grid;
     align-items: center;
-    gap: 0.5em;
-    margin-bottom: 0.5em;
-    font-size: 1em;
+    grid-template-columns: auto minmax(6em, 1fr);
+    grid-row-gap: 1em;
+    grid-column-gap: 2em;
+    @media (orientation: portrait) {
+        grid-column-gap: 1.5em;
+    }
 }
 </style>
