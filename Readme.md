@@ -30,20 +30,20 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 <sub>Keep it D.I.R.T.Y 😉</sub>  
 
 - **D**ead-Simple 🔨  
-   - Simple enough for perfboard soldering with minimal components.
+  - Simple enough for perfboard soldering with minimal components.
+  - No fiddling around with compilers and SDKs: Pre-built firmware releases for immediate use.
 - **I**nexpensive 💰  
-   - Minimal hardware requirements to keep costs dirt-cheap.  
-   - Based on affordable, off-the-shelf components.
+  - Minimal hardware requirements to keep costs dirt-cheap.  
+  - Based on affordable, off-the-shelf components.
 - **R**eadily-Available 🌎
-   - Fully open-source hardware and software.  
-   - Uses widely available Raspberry Pi Pico boards.
+  - Fully open-source hardware and software.  
+  - Uses widely available Raspberry Pi Pico boards.
 - **T**ool-Compatible 🔌
-   - Seamless integration with existing CAN tools.  
-   - Pre-built firmware releases for immediate use.
+  - Seamless integration with existing CAN tools.  
 - **Y**our-First Choice 💡
-   - Driverless across all major operating systems.  
-   - Easy to use for beginners and experts alike.
-   - 🔜 Documentation
+  - Driverless across all major operating systems.  
+  - Easy to use for beginners and experts alike.
+  - 🔜 Documentation
 
 ### ✨ Features
 
@@ -59,14 +59,20 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
   - ✅ Create WiFi access point (`wifi ap <ssid> <password> <channel>`)
   - ✅ Connect to existing WiFi networks (`wifi connect <ssid> <password>`)
   - ✅ WiFi status and configuration commands
-  - ✅ [Configurable] PiCCANTE configuration + GVRET as Telnet server
-- 🔜 Web-based configuration interface (on Pico W models)
-- 🔜 Bluetooth support (on Pico W models)
+  - ✅ PiCCANTE configuration + GVRET interface as Telnet server
+- ✅ Web-based configuration interface (on Pico W models)
+  - ✅ Fully responsive on desktop and mobile
+  - ✅ Full device configuration
+  - ✅ Device Monitoring
+  - 🔜 Integrated Web CLI:  
+    - Live CAN-bus monitoring
+    - ELM327 commands
 - 🔜 ELM327 emulator
-- 🔜 (Software) CAN filters
+- 🔜 3D printable case designs for creating PiCCANTE based OBD-II dongles
+- 🔜 Bluetooth support (on Pico W models)
 - 🔜 MITM mode for advanced analysis / vehicle tuning
+- 🔜 (Software) CAN filters
 - 🔜 Data logging to SD card (maybe)
-- 🔜 3D printable case designs for making PiCCANTE based OBD-II dongles
 
 ## 📋 Quick Start
 
