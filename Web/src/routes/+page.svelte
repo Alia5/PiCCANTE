@@ -212,8 +212,8 @@ const sortedTasks = $derived(
                         value={stats.wifi?.mode == 0
                             ? 'Off'
                             : stats.wifi.mode === 1
-                              ? 'Client'
-                                : 'Access Point'} />
+                                ? 'Client'
+                              : 'Access Point'} />
                     <b>SSID</b>
                     <input disabled class="no-inp t-c t-s" value={stats.wifi?.ssid} />
                     <b>Channel</b>
@@ -427,11 +427,19 @@ const sortedTasks = $derived(
 }
 
 .can {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 1em;
+    justify-content: center;
+    align-items: center;
+    & > * {
+        flex: 1;
+        min-width: 340px;
+    }
     & > :first-child {
-        grid-column: 1 / -1;
+        flex: unset;
+        width: 100%;
     }
     & > .card {
         display: grid;
