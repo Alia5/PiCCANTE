@@ -132,8 +132,8 @@ if(NOT DEFINED CAN_QUEUE_TIMEOUT_MS)
 endif()
 
 if(NOT DEFINED CAN_QUEUE_SIZE)
-    message(STATUS "CAN_QUEUE_SIZE not defined, defaulting to 32")
-    set(CAN_QUEUE_SIZE 32)
+    message(STATUS "CAN_QUEUE_SIZE not defined, defaulting to 64")
+    set(CAN_QUEUE_SIZE 64)
 endif()
 
 if(NOT DEFINED UART_SPEED)
