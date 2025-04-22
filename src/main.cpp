@@ -51,6 +51,9 @@ extern "C" {
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
 #endif
+// TODO: remove
+#include "wifi/telnet/telnet_server.hpp"
+#include "ELM327/emulator.hpp"
 
 
 static void usbDeviceTask(void* parameters) {
@@ -72,6 +75,9 @@ static void usbDeviceTask(void* parameters) {
     }
 }
 
+
+std::unique_ptr<piccante::elm327::emulator> elmulator = nullptr;
+
 static std::array<std::unique_ptr<piccante::slcan::handler>, piccanteNUM_CAN_BUSSES>
     slcan_handler = {nullptr};
 static std::unique_ptr<piccante::gvret::handler> gvret_handler = nullptr;
@@ -88,6 +94,10 @@ static void can_recieveTask(void* parameter) {
         auto received = false;
         for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES && bus < num_busses; bus++) {
             if (piccante::can::receive(bus, msg) >= 0) {
+                if (bus == 0) {
+                    elmulator->handle_can_frame(msg);
+                }
+
                 piccante::led::toggle();
                 gvret_handler->comm_can_frame(bus, msg);
                 auto handler = slcan_handler[bus].get();
@@ -107,6 +117,49 @@ static void can_recieveTask(void* parameter) {
 }
 
 
+std::unique_ptr<piccante::wifi::telnet::server> elm_telnet_server = nullptr;
+
+class elm_sink : public piccante::out::base_sink {
+        public:
+    void write(const char* data, std::size_t len) override {
+        if (!elm_telnet_server || !elm_telnet_server->is_running()) {
+            return;
+        }
+
+        if (xSemaphoreTake(elm_telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
+            pdTRUE) {
+            return;
+        }
+
+        for (const auto& client : elm_telnet_server->get_clients()) {
+            if (client.sink) {
+                client.sink->write(data, len);
+            }
+        }
+
+        xSemaphoreGive(elm_telnet_server->get_clients_mutex());
+    }
+
+    void flush() override {
+        if (!elm_telnet_server || !elm_telnet_server->is_running()) {
+            return;
+        }
+
+        if (xSemaphoreTake(elm_telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
+            pdTRUE) {
+            return;
+        }
+
+        for (const auto& client : elm_telnet_server->get_clients()) {
+            if (client.sink) {
+                client.sink->flush();
+            }
+        }
+
+        xSemaphoreGive(elm_telnet_server->get_clients_mutex());
+    }
+};
+
 static void cmd_gvret_task(void* parameter) {
     (void)parameter;
     vTaskDelay(60);
@@ -122,6 +175,16 @@ static void cmd_gvret_task(void* parameter) {
 
     gvret_handler = std::make_unique<piccante::gvret::handler>(outstream);
     piccante::sys::shell::handler shell_handler(*gvret_handler.get(), outstream);
+
+    elm_telnet_server =
+        std::make_unique<piccante::wifi::telnet::server>("ELM327 Telnet", 35000, ">");
+    elm_sink elm_telnet_sink;
+    piccante::out::stream elm_stream = piccante::out::stream{elm_telnet_sink};
+    const auto elm_queue = elm_telnet_server->get_rx_queue();
+
+    elmulator = std::make_unique<piccante::elm327::emulator>(elm_stream, elm_queue);
+    elm_telnet_server->start();
+    elmulator->start();
 
     for (;;) {
         auto received = false;

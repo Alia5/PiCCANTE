@@ -98,6 +98,7 @@
             "semaphore": "cpp",
             "stdfloat": "cpp",
             "cfenv": "cpp"
-        }
+        },
+        "cortex-debug.variableUseNaturalFormat": false
     }
 }
