@@ -18,14 +18,11 @@
 <script lang="ts">
 import { onNavigate } from '$app/navigation';
 import { onMount, type Snippet } from 'svelte';
-import Logo from '$assets/logo.svg?component';
 import IcRoundArrowBack from '~icons/ic/round-arrow-back';
 import { browser } from '$app/environment';
 
 let {
     open = $bindable(false),
-    // eslint-disable-next-line prefer-const
-    side = 'left',
     // eslint-disable-next-line prefer-const
     cancellable = true,
     // eslint-disable-next-line prefer-const
@@ -36,7 +33,6 @@ let {
     children
 }: {
     open?: boolean;
-    side?: 'left' | 'right';
     cancellable?: boolean;
     title?: string;
     header?: Snippet;
@@ -80,24 +76,18 @@ $effect(() => {
 });
 </script>
 
-<aside class="drawer {side === 'left' || side === undefined ? 'left' : 'right'} {open && 'open'}">
+<aside class="drawer left {open && 'open'}">
     {#if header}
         {@render header()}
     {:else}
         <div class="drawer-header">
-            {#if side === 'left'}
-                <button onclick={close} aria-label="close left drawer"><IcRoundArrowBack /></button>
-            {/if}
+            <button onclick={close} aria-label="close left drawer"><IcRoundArrowBack /></button>
             <div class="logo-title-wrapper">
-                <Logo style="width: 5rem;" />
+                <img src="/logo.svg" alt="PiCCANTE Logo" style="width: 4rem;" />
                 {#if title}
                     <h2>{title}</h2>
                 {/if}
             </div>
-            {#if side === 'right'}
-                <button onclick={close} style="transform: rotate(180deg);" aria-label="close right drawer"
-                    ><IcRoundArrowBack /></button>
-            {/if}
         </div>
     {/if}
     {#if children}
@@ -122,9 +112,6 @@ $effect(() => {
     &.left {
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
-    &.right {
-        box-shadow: -10px 0 10px rgba(0, 0, 0, 0.5);
-    }
     &.open {
         transform: translateX(0);
     }
@@ -132,10 +119,6 @@ $effect(() => {
 .left {
     left: -1px;
     transform: translateX(calc(-100% - 10px));
-}
-.right {
-    right: 1px;
-    transform: translateX(100%);
 }
 
 .scrim {

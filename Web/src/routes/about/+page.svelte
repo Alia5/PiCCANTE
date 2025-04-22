@@ -17,6 +17,8 @@
  -->
 <script lang="ts">
 import { page } from '$app/state';
+import { cubicOut } from 'svelte/easing';
+import { fade, fly } from 'svelte/transition';
 
 const commitLink = $derived.by(() => {
     const splitted = page.data.version.split('-');
@@ -29,7 +31,7 @@ const versionWithoutCommit = $derived.by(() => {
 });
 </script>
 
-<div class="card">
+<div class="card" in:fly={{ y: window.innerHeight, easing: cubicOut }} out:fade={{}}>
     <h2>Build Info</h2>
     <b>Board</b><span>{page.data.board}</span>
     <b>Version</b><span

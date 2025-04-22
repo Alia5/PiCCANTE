@@ -19,9 +19,11 @@
 import Dropdown from '$/lib/components/Dropdown.svelte';
 import Masonry from '$/lib/components/Masonry.svelte';
 import { page } from '$app/state';
-import { fade, slide } from 'svelte/transition';
+import { fade, fly, slide } from 'svelte/transition';
 import type { PiCCANTE_Settings } from './+page';
 import Loadingspinner from '$/lib/components/Loadingspinner.svelte';
+import { cubicOut } from 'svelte/easing';
+
 const can_bitrates = [
     { name: '33.3 kbit/s', value: 33333 },
     { name: '50 kbit/s', value: 50000 },
@@ -100,7 +102,7 @@ const saveSettings = async (reset?: boolean) => {
 };
 </script>
 
-<div class="wrapper">
+<div class="wrapper" in:fly={{ y: window.innerHeight, easing: cubicOut }} out:fade={{}}>
     <Masonry gridGap="2em" colWidth="minmax(280px, 1fr)">
         <div class="card d-grid">
             <h2>General</h2>
@@ -130,79 +132,74 @@ const saveSettings = async (reset?: boolean) => {
                     })} />
         </div>
         <div class="card can">
-            <div>
+            <div class="d-grid">
                 <h2>CAN</h2>
-                <ol>
-                    <li><b>Max. Supported</b>{settings.can_settings.max_supported}</li>
-                    <li>
-                        <b>Available</b>
-                        <Dropdown
-                            options={Array(settings.can_settings.max_supported)
-                                .fill(0)
-                                .map((_, i) => ({ name: `${i + 1}`, value: i + 1 }))}
-                            bind:selected={settings.can_settings.enabled}
-                            onchange={() =>
-                                applySetting({
-                                    can_settings: {
-                                        enabled: settings.can_settings.enabled
-                                    }
-                                })} />
-                    </li>
-                    <span>(Immediately resets board!)</span>
-                </ol>
+                <b>Max. Supported</b>
+                <p>{settings.can_settings.max_supported}</p>
+                <b>Available</b>
+                <Dropdown
+                    options={Array(settings.can_settings.max_supported)
+                        .fill(0)
+                        .map((_, i) => ({ name: `${i + 1}`, value: i + 1 }))}
+                    bind:selected={settings.can_settings.enabled}
+                    onchange={() =>
+                        applySetting({
+                            can_settings: {
+                                enabled: settings.can_settings.enabled
+                            }
+                        })} />
+                <b></b>
+                <span>(Immediately resets board!)</span>
             </div>
             {#each Array(settings.can_settings.enabled)
                 .fill(0)
                 .map((_, i) => i) as idx (idx)}
-                <div class="card" transition:slide>
+                <div class="card d-grid" transition:slide>
                     <h3>CAN{idx}</h3>
-                    <ol>
-                        <li>
-                            <b>Enabled</b><input
-                                type="checkbox"
-                                class="toggle"
-                                bind:checked={settings.can_settings[`can${idx}`].enabled}
-                                onchange={() =>
-                                    applySetting({
-                                        can_settings: {
-                                            [`can${idx}`]: {
-                                                enabled: settings.can_settings[`can${idx}`].enabled
-                                            }
+                    <b>Enabled</b>
+                    <div>
+                        <input
+                            type="checkbox"
+                            class="toggle"
+                            bind:checked={settings.can_settings[`can${idx}`].enabled}
+                            onchange={() =>
+                                applySetting({
+                                    can_settings: {
+                                        [`can${idx}`]: {
+                                            enabled: settings.can_settings[`can${idx}`].enabled
                                         }
-                                    })} />
-                        </li>
-                        <li>
-                            <b>Listen Only</b>
-                            <input
-                                type="checkbox"
-                                class="toggle"
-                                disabled={!settings.can_settings[`can${idx}`].enabled}
-                                bind:checked={settings.can_settings[`can${idx}`].listen_only}
-                                onchange={() =>
-                                    applySetting({
-                                        can_settings: {
-                                            [`can${idx}`]: {
-                                                listen_only: settings.can_settings[`can${idx}`].listen_only
-                                            }
+                                    }
+                                })} />
+                    </div>
+                    <b>Listen Only</b>
+                    <div>
+                        <input
+                            type="checkbox"
+                            class="toggle"
+                            disabled={!settings.can_settings[`can${idx}`].enabled}
+                            bind:checked={settings.can_settings[`can${idx}`].listen_only}
+                            onchange={() =>
+                                applySetting({
+                                    can_settings: {
+                                        [`can${idx}`]: {
+                                            listen_only: settings.can_settings[`can${idx}`].listen_only
                                         }
-                                    })} />
-                        </li>
-                        <li>
-                            <b>Baudrate</b>
-                            <Dropdown
-                                options={can_bitrates}
-                                disabled={!settings.can_settings[`can${idx}`].enabled}
-                                bind:selected={settings.can_settings[`can${idx}`].bitrate}
-                                onchange={() =>
-                                    applySetting({
-                                        can_settings: {
-                                            [`can${idx}`]: {
-                                                bitrate: settings.can_settings[`can${idx}`].bitrate
-                                            }
-                                        }
-                                    })} />
-                        </li>
-                    </ol>
+                                    }
+                                })} />
+                    </div>
+                    <b>Baudrate</b>
+                    <Dropdown
+                        options={can_bitrates}
+                        disabled={!settings.can_settings[`can${idx}`].enabled}
+                        bind:selected={settings.can_settings[`can${idx}`].bitrate}
+                        onchange={() =>
+                            applySetting({
+                                can_settings: {
+                                    [`can${idx}`]: {
+                                        bitrate: settings.can_settings[`can${idx}`].bitrate
+                                    }
+                                }
+                            })} />
                 </div>
             {/each}
         </div>
@@ -277,7 +274,7 @@ const saveSettings = async (reset?: boolean) => {
     {#if loading}
         <div class="loader" transition:fade><Loadingspinner size="4em" ringWidth="6px" /></div>
     {/if}
-    <div class="btns">
+    <div class="btns" in:fade={{ delay: 400 }} out:fade>
         <button
             style="background-color: #6f6f6f"
             onclick={() => {
@@ -313,21 +310,6 @@ const saveSettings = async (reset?: boolean) => {
         top: -1em;
         right: 2em;
     }
-}
-
-ol {
-    display: grid;
-    gap: 1em;
-}
-
-li {
-    display: grid;
-    align-items: center;
-    grid-template-columns: auto minmax(6em, 1fr);
-    & > input {
-        justify-self: end;
-    }
-    gap: 3em;
 }
 
 .can {

@@ -19,20 +19,7 @@
 import Header from '$/lib/components/Header.svelte';
 import '../main.pcss';
 import Nav from '$/lib/components/Nav.svelte';
-import { onNavigate } from '$app/navigation';
 const { children } = $props();
-
-onNavigate((navigation) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(document as any).startViewTransition) return;
-    return new Promise((resolve) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (document as any).startViewTransition(async () => {
-            resolve();
-            await navigation.complete;
-        });
-    });
-});
 </script>
 
 <div class="wrapper">
@@ -70,6 +57,13 @@ section {
     width: 100%;
     @media (orientation: portrait) {
         padding: 1em;
+    }
+    & > :global(*) {
+        grid-row: 1;
+        grid-column: 1;
+    }
+    &:has(:global(*[inert])) {
+        overflow: hidden;
     }
 }
 

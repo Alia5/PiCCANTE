@@ -16,7 +16,6 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
  -->
 <script lang="ts">
-import Logo from '$assets/logo.svg?component';
 import IcRoundMenu from '~icons/ic/round-menu';
 import Drawer from '$/lib/components/Drawer.svelte';
 import Nav from './Nav.svelte';
@@ -33,11 +32,11 @@ let drawerOpen = $state(false);
         {document.title || 'PiCCANTE'}
     </h1>
     <div class="logo-container">
-        <Logo style="height: 100%" />
+        <img src="/logo.svg" alt="PiCCANTE Logo" style="height: 100%" />
     </div>
 </div>
 
-<Drawer bind:open={drawerOpen} side="left">
+<Drawer bind:open={drawerOpen}>
     <Nav />
 </Drawer>
 
@@ -76,6 +75,7 @@ h1 {
 .logo-container {
     height: 100%;
     display: flex;
+    width: max-content;
     align-items: center;
     padding: 0.5em 1em 0.5em 0;
     @media (orientation: landscape) {

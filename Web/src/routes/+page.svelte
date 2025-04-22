@@ -20,8 +20,8 @@ import Bar from '$/lib/components/Bar.svelte';
 import Masonry from '$/lib/components/Masonry.svelte';
 import { page } from '$app/state';
 import { onMount } from 'svelte';
-import { fade, slide } from 'svelte/transition';
-
+import { cubicOut } from 'svelte/easing';
+import { fade, fly, slide } from 'svelte/transition';
 let stats = $state(page.data);
 let timed_out = $state(false);
 let timeout: number | undefined = $state(undefined);
@@ -104,7 +104,7 @@ const sortedTasks = $derived(
 
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
-<div class="wrapper">
+<div class="wrapper" in:fly={{ y: window.innerHeight, easing: cubicOut }} out:fade={{}}>
     <div class="card cpu d-grid">
         <h2>CPU</h2>
         <b>Core0</b>
