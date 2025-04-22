@@ -96,6 +96,10 @@ const getCpuLoadColor = (value: number) => {
     if (value > 50) return '#ffa500';
     return '#11520d';
 };
+
+const sortedTasks = $derived(
+    [...stats.cpu.tasks].sort((a, b) => b.cpu_usage_0 + b.cpu_usage_1 - (a.cpu_usage_0 + a.cpu_usage_1))
+);
 </script>
 
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
@@ -136,7 +140,7 @@ const getCpuLoadColor = (value: number) => {
             <h4>Name</h4>
             <h4>Priority</h4>
             <h4>CPU</h4>
-            {#each stats.cpu.tasks as task (task.task_number)}
+            {#each sortedTasks as task (task.task_number)}
                 <b transition:slide style="font-size: 1em;">
                     {task.name}
                 </b>
