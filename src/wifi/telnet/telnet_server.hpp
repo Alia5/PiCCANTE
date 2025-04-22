@@ -52,8 +52,9 @@ class server {
     static constexpr size_t RX_QUEUE_LENGTH = 1024;
     static constexpr size_t RECV_BUFFER_SIZE = 1024;
 
-    server();
-    ~server();
+    explicit server(std::string_view name, uint16_t port,
+                    std::string_view welcome_message);
+    virtual ~server();
 
     server(const server&) = delete;
     server& operator=(const server&) = delete;
@@ -61,7 +62,7 @@ class server {
     bool start();
     void stop();
     bool is_running() const;
-    bool reconfigure();
+    bool reconfigure(uint16_t new_port);
 
     QueueHandle_t get_rx_queue() const;
     SemaphoreHandle_t get_clients_mutex() const { return clients_mutex; }
@@ -80,6 +81,9 @@ class server {
 
     QueueHandle_t rx_byte_queue;
 
+    std::string name;
+    uint16_t port;
+    std::string welcome_message;
 
     bool running;
     int server_socket;

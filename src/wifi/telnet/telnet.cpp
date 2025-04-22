@@ -80,7 +80,9 @@ bool initialize() {
     }
 
     if (!telnet_server) {
-        telnet_server = std::make_unique<server>();
+        telnet_server = std::make_unique<server>("Telnet PiCCANTE",
+                                                 sys::settings::get_telnet_port(),
+                                                 "PiCCANTE + GVRET Telnet Server\r\n");
     }
 
     bool success = telnet_server->start();
@@ -115,8 +117,7 @@ bool reconfigure() {
     if (telnet_server->is_running()) {
         telnet_server->stop();
     }
-
-    return telnet_server->start();
+    return telnet_server->reconfigure(sys::settings::get_telnet_port());
 }
 
 bool is_running() { return telnet_server && telnet_server->is_running(); }

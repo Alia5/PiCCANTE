@@ -17,7 +17,6 @@
  */
 #include "telnet_server.hpp"
 #include "FreeRTOSConfig.h"
-#include "SysShell/settings.hpp"
 #include "Logger/Logger.hpp"
 
 #include <cstdint>
@@ -46,9 +45,9 @@ constexpr uint8_t DONT = 254;
 constexpr uint8_t ECHO = 1;
 constexpr uint8_t SGA = 3; // Suppress Go Ahead
 
-server::server()
-    : running(false), server_socket(-1), server_task_handle(nullptr),
-      clients_mutex(nullptr) {
+server::server(std::string_view name, uint16_t port, std::string_view welcome_message)
+    : name(name), port(port), welcome_message(welcome_message), running(false),
+      server_socket(-1), server_task_handle(nullptr), clients_mutex(nullptr) {
     clients_mutex = xSemaphoreCreateMutex();
     rx_byte_queue = xQueueCreate(RX_QUEUE_LENGTH, sizeof(uint8_t));
 }
@@ -70,23 +69,11 @@ bool server::start() {
         return true; // Already running
     }
 
-    // Check if telnet is enabled in settings
-    if (!sys::settings::telnet_enabled()) {
-        Log::info << "Telnet server is disabled in settings\n";
-        return false;
-    }
-
-    uint16_t port = sys::settings::get_telnet_port();
-    if (port == 0) {
-        Log::error << "Invalid telnet port (0)\n";
-        return false;
-    }
-
     BaseType_t task_created = xTaskCreate(server_task,
-                                          "TelnetServer",
+                                          name.c_str(),
                                           configMINIMAL_STACK_SIZE * 2,
                                           this,
-                                          tskIDLE_PRIORITY + 5,
+                                          tskIDLE_PRIORITY + 7,
                                           &server_task_handle);
 
     if (task_created != pdPASS) {
@@ -141,18 +128,16 @@ void server::stop() {
 
 bool server::is_running() const { return running; }
 
-bool server::reconfigure() {
+bool server::reconfigure(uint16_t new_port) {
     bool was_running = running;
 
     if (was_running) {
         stop();
     }
 
-    if (sys::settings::telnet_enabled()) {
-        return start();
-    }
+    port = new_port;
 
-    return true;
+    return start();
 }
 
 QueueHandle_t server::get_rx_queue() const { return rx_byte_queue; }
@@ -184,7 +169,7 @@ bool server::create_socket() {
     struct sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(sys::settings::get_telnet_port());
+    server_addr.sin_port = htons(port);
 
     if (lwip_bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) <
         0) {
@@ -351,9 +336,9 @@ void server::client_handler_task(void* params) {
     int client_socket = pair->second;
     delete pair; // Free the parameters
 
-    constexpr std::string_view welcome_msg =
-        "Welcome to PiCCANTE+GVRET Server!\r\nType 'help' to see available commands.\r\n";
-    lwip_send(client_socket, welcome_msg.data(), welcome_msg.size(), 0);
+
+    lwip_send(client_socket, server_instance->welcome_message.c_str(),
+              server_instance->welcome_message.length(), 0);
 
     std::shared_ptr<sink> client_sink;
     if (xSemaphoreTake(server_instance->clients_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
