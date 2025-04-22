@@ -73,7 +73,7 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
     }
 
     const auto fs_json = fmt::sprintf( //
-        R"({"block_size":%d,"block_count":%d,"total_size":%d,"used_size":%d,"free_size":%d,})", //
+        R"({"block_size":%d,"block_count":%d,"total_size":%d,"used_size":%d,"free_size":%d})", //
         fs_stats.block_size, fs_stats.block_count, fs_stats.total_size,
         fs_stats.used_size, fs_stats.free_size);
 
