@@ -67,6 +67,7 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
   - 🔜 Integrated Web CLI:  
     - Live CAN-bus monitoring
     - ELM327 commands
+  - 🔜 MITM mode configuration
 - 🔜 ELM327 emulator
 - 🔜 3D printable case designs for creating PiCCANTE based OBD-II dongles
 - 🔜 Bluetooth support (on Pico W models)
