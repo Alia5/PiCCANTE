@@ -12,7 +12,7 @@ const config = {
             }
         }),
         cssnano({
-            preset: 'default',
+            preset: 'advanced',
         })
     ]
 }

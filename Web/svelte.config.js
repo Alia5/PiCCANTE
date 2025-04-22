@@ -14,6 +14,9 @@ const config = {
         preserveWhitespace: false,
         discloseVersion: false,
         modernAst: true,
+        cssHash: ({ hash, css }) => {
+            return `s${hash(css)}`;
+        }
     },
 
     kit: {
@@ -23,14 +26,19 @@ const config = {
         adapter: htmlMinifierAdaptor(adapter({
             fallback: 'index.html',
             precompress: true,
+            strict: true,
         })),
+        csrf: false,
         prerender: {
             entries: []
+        },
+        output: {
+            bundleStrategy: 'single', // somehow results in ~8kb reduction ¯\_(ツ)_/¯
         },
         alias: {
             '$': 'src',
             '$components': 'src/lib/components',
-            '$assets': 'src/assets',
+            '$assets': 'static',
             '$mocks': 'src/mocks',
         },
     }

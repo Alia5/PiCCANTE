@@ -6,6 +6,7 @@ import path from 'path';
 import { minify } from 'html-minifier-terser';
 import svg from '@poppanator/sveltekit-svg';
 import Icons from 'unplugin-icons/vite';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 
 function safeUnlinkSync(file: string) {
@@ -31,7 +32,14 @@ const removeUncompressed = () => ({
                         const gzPath = fullPath + '.gz';
                         const brPath = fullPath + '.br';
                         if (fs.existsSync(gzPath)) {
-                            safeUnlinkSync(fullPath); // remove original
+
+                            const gzStat = fs.statSync(gzPath);
+                            const normalStat = fs.statSync(fullPath);
+                            if (gzStat.size < normalStat.size) {
+                                safeUnlinkSync(fullPath); // remove original
+                            } else {
+                                safeUnlinkSync(gzPath);   // remove gzip
+                            }
                             safeUnlinkSync(brPath);   // remove brotli
                         } else if (fs.existsSync(brPath)) {
                             safeUnlinkSync(brPath);
@@ -158,20 +166,24 @@ export default defineConfig(({ mode }) => ({
         // }),
         removeUncompressed(), // Remove uncompressed AFTER the fact or svelteKit freaks out...
         bundleAnalyzer(),
-        copyBuildOutput()
+        copyBuildOutput(),
+        process.env?.ANALYZE_BUNDLE ? visualizer(
+            {
+                emitFile: false,
+                filename: 'stats.html'
+            }
+        ) : null
     ],
     build: {
         sourcemap: mode !== 'production',
         treeshake: true,
-        target: 'es2020',
+        target: 'es2023',
         minify: 'esbuild',
-        terserOptions: {
-            format: {
-                comments: false
+        rollupOptions: {
+            output: {
+                compact: true
             },
-            compress: {
-                ecma: 2020,
-                passes: 2
+            treeshake: {
             }
         }
     }
