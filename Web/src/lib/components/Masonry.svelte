@@ -100,11 +100,11 @@ $effect(() => {
     grid-template-rows: masonry;
     justify-content: center;
     grid-gap: var(--grid-gap);
-    transition: all 0.2s ease;
+    transition: all var(--transition-duration) ease;
     position: relative;
     & > :global(*) {
         align-self: start;
-        transition: all 0.2s ease;
+        transition: all var(--transition-duration) ease;
     }
 }
 </style>
