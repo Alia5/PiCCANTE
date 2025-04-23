@@ -282,7 +282,6 @@ int main() {
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
 
     vTaskCoreAffinitySet(usbTaskHandle, 0x01);
-    vTaskCoreAffinitySet(txCanTaskHandle, 0x01);
     vTaskCoreAffinitySet(piccanteAndGvretTaskHandle, 0x01);
     vTaskCoreAffinitySet(canTaskHandle, 0x02);
 
