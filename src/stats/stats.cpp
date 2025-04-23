@@ -137,6 +137,13 @@ void stats_task(void* /*parameters*/) {
         return;
     }
 
+    xSemaphoreTake(update_mutex, portMAX_DELAY);
+
+    const auto populate_start_time = pdTICKS_TO_MS(xTaskGetTickCount());
+    populate_task_stats();
+    xSemaphoreGive(update_mutex);
+    stats_initialized = true;
+
     for (;;) {
         xSemaphoreTake(update_mutex, portMAX_DELAY);
 
@@ -150,8 +157,6 @@ void stats_task(void* /*parameters*/) {
 } // namespace
 void init_stats_collection() {
     if (!stats_initialized) {
-        stats_initialized = true;
-
         xTaskCreate(stats_task, "StatsTask", configMINIMAL_STACK_SIZE, nullptr,
                     tskIDLE_PRIORITY + 1, &stats_task_handle);
     }
@@ -316,11 +321,11 @@ extern "C" void taskSwitchedIn(void* pxTask) {
     if (pxTask == nullptr || !stats_initialized) {
         return;
     }
+    const auto crit = taskENTER_CRITICAL_FROM_ISR();
 
     const auto handle = static_cast<TaskHandle_t>(pxTask);
     const auto core_id = get_core_num();
 
-    const auto crit = taskENTER_CRITICAL_FROM_ISR();
     auto it = task_info.find(handle);
     if (it != task_info.end()) {
         auto& tinfo = it->second;
