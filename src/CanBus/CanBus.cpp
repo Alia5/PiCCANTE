@@ -28,6 +28,7 @@
 #include "FreeRTOSConfig.h"
 #include "queue.h"
 #include "semphr.h"
+#include "timers.h"
 #include "Logger/Logger.hpp"
 #include <array>
 #include "fmt.hpp"
@@ -51,6 +52,9 @@ namespace {
 std::array<CanQueues, NUM_BUSSES> can_queues = {};
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 std::array<can2040, NUM_BUSSES> can_buses = {};
+
+TaskHandle_t canTaskHandle = nullptr; // NOLINT
+
 } // namespace
 
 struct CanGPIO {
@@ -312,6 +316,14 @@ void canTask(void* parameters) {
         }
     }
 
+    for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES; i++) {
+        if (settings.bus_config[i].enabled) {
+            Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i) << " with bitrate "
+                      << settings.bus_config[i].bitrate << " from stored settings\n";
+            canbus_setup(i, settings.bus_config[i].bitrate);
+        }
+    }
+
 
     can2040_msg msg = {};
     for (;;) {
@@ -334,7 +346,6 @@ void canTask(void* parameters) {
     }
 }
 
-TaskHandle_t canTaskHandle; // NOLINT
 } // namespace
 
 TaskHandle_t& create_task() {
@@ -520,17 +531,6 @@ void load_settings() {
     if (err == LFS_ERR_OK) {
         lfs_ssize_t const bytesRead =
             lfs_file_read(&piccante::fs::lfs, &readFile, &settings, sizeof(settings));
-        if (bytesRead >= 0) {
-            for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES;
-                 i++) {
-                if (settings.bus_config[i].enabled) {
-                    Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i)
-                              << " with bitrate " << settings.bus_config[i].bitrate
-                              << " from stored settings\n";
-                    canbus_setup(i, settings.bus_config[i].bitrate);
-                }
-            }
-        }
         lfs_file_close(&piccante::fs::lfs, &readFile);
     } else {
         Log::error << "Failed to read CAN settings file\n";
