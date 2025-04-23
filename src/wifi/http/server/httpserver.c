@@ -117,20 +117,6 @@ static char* recv_next_line_buffered(int socket,
     }
 }
 
-static bool host_name_matches(http_connection ctx, char* host) {
-    int len = strlen(ctx->server->hostname);
-    if (strncasecmp(host, ctx->server->hostname, len))
-        return false;
-
-    if (!host[len])
-        return true; // Host name without domain
-
-    if (host[len] == '.' && !strcasecmp(host + len + 1, ctx->server->domain_name))
-        return true; // Host name with domain
-
-    return false;
-}
-
 static bool send_all(int socket, const char* buf, int size) {
     while (size > 0) {
 #if MEM_SIZE < 16384
@@ -247,25 +233,6 @@ static void parse_and_handle_http_request(http_connection ctx) {
         ctx->post.offset_from_main_buffer = header_buf - ctx->buffer;
     }
 
-    if (!host_name_matches(ctx, host)) {
-        static const char header[] = "HTTP/1.0 302 Found\r\nLocation: http://";
-        static const char footer[] = "\r\nConnection: Close\r\n\r\n";
-        int host_len = strlen(ctx->server->hostname),
-            domain_len = strlen(ctx->server->domain_name);
-
-        int len = sizeof(header) + sizeof(footer) + host_len + domain_len + 2;
-        if (len < ctx->server->buffer_size) {
-            int off = 0;
-            append(ctx->buffer, &off, header, sizeof(header) - 1);
-            append(ctx->buffer, &off, ctx->server->hostname, host_len);
-            if (domain_len) {
-                append(ctx->buffer, &off, ".", 1);
-                append(ctx->buffer, &off, ctx->server->domain_name, domain_len);
-            }
-            append(ctx->buffer, &off, footer, sizeof(footer) - 1);
-            send_all(ctx->socket, ctx->buffer, off);
-        }
-    } else {
         for (http_zone* zone = ctx->server->first_zone; zone; zone = zone->next) {
             if (strncasecmp(path, zone->prefix, zone->prefix_len)) {
                 // breakpoint here...
@@ -284,7 +251,6 @@ static void parse_and_handle_http_request(http_connection ctx) {
         }
 
         http_server_send_reply(ctx, "404 Not Found", "text/plain", "File not found", -1);
-    }
 }
 
 static void do_handle_connection(void* arg) {
@@ -351,6 +317,7 @@ http_server_instance http_server_create(const char* main_host,
     struct sockaddr_in listen_addr = {
         .sin_len = sizeof(struct sockaddr_in),
         .sin_family = AF_INET,
+        .sin_port = htons(80),
         .sin_port = htons(80),
         .sin_addr = 0,
     };
