@@ -30,14 +30,14 @@ void USB_CDC_Sink::write(const char* v, std::size_t s) {
         uint32_t available = tud_cdc_n_write_available(itf);
 
         if (available == 0) {
-            // TODO: Cleanup buffer full hack.
-            tud_cdc_n_write_flush(itf);
             if (++retries > max_retries) {
                 retries = max_retries;
                 // Log::error << "USB CDC write timeout on itf: " << itf
                 //            << "; Discarding...\n";
                 return;
             }
+            // TODO: Cleanup buffer full hack.
+            tud_cdc_n_write_flush(itf);
             if (available > 0) {
                 retries = 0;
             }
