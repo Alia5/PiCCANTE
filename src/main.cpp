@@ -90,25 +90,26 @@ static void can_recieveTask(void* parameter) {
 
     const auto num_busses = piccante::can::get_num_busses();
     can2040_msg msg{};
+    // TODO: use RX task fo each bus.
     for (;;) {
         auto received = false;
-        for (uint8_t bus = 0; bus < piccanteNUM_CAN_BUSSES && bus < num_busses; bus++) {
+        for (uint8_t bus = 0; bus < num_busses; bus++) {
             if (piccante::can::receive(bus, msg) >= 0) {
                 if (bus == 0) {
                     elmulator->handle_can_frame(msg);
                 }
 
-                piccante::led::toggle();
                 gvret_handler->comm_can_frame(bus, msg);
                 auto handler = slcan_handler[bus].get();
                 if (handler != nullptr) {
                     handler->comm_can_frame(msg);
                 }
                 received = true;
-                piccante::power::sleep::reset_idle_timer();
             }
         }
         if (received) {
+            piccante::led::toggle();
+            piccante::power::sleep::reset_idle_timer();
             taskYIELD();
         } else {
             vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
