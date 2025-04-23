@@ -25,7 +25,7 @@ namespace piccante::elm327 {
 class at {
         public:
     struct params;
-    explicit at(out::stream& out, elm327::settings settings)
+    explicit at(out::stream& out, elm327::settings& settings)
         : out(out), params(settings) {};
     void handle(const std::string_view command);
 
