@@ -54,6 +54,8 @@ extern "C" {
 // TODO: remove
 #include "wifi/telnet/telnet_server.hpp"
 #include "ELM327/emulator.hpp"
+#include "fmt.hpp"
+#include <pico/time.h>
 
 
 static void usbDeviceTask(void* parameters) {
@@ -82,34 +84,33 @@ static std::array<std::unique_ptr<piccante::slcan::handler>, piccanteNUM_CAN_BUS
     slcan_handler = {nullptr};
 static std::unique_ptr<piccante::gvret::handler> gvret_handler = nullptr;
 static void can_recieveTask(void* parameter) {
-    (void)parameter;
+    const auto bus = reinterpret_cast<int>(parameter);
     // Wait until can is up.
-    vTaskDelay(2000); // TODO
-
-    piccante::Log::info << ("Starting CAN Receive Task!\n");
-
+    vTaskDelay(2000 + 100 * bus); // TODO
     const auto num_busses = piccante::can::get_num_busses();
+
+    if (bus >= num_busses) {
+        return;
+    }
+    piccante::Log::info << "Starting CAN Receive (Bus" << bus << ") Task!\n";
+
     can2040_msg msg{};
-    // TODO: use RX task fo each bus.
     for (;;) {
         auto received = false;
-        for (uint8_t bus = 0; bus < num_busses; bus++) {
-            if (piccante::can::receive(bus, msg) >= 0) {
-                if (bus == 0) {
-                    elmulator->handle_can_frame(msg);
-                }
-
-                gvret_handler->comm_can_frame(bus, msg);
-                auto handler = slcan_handler[bus].get();
-                if (handler != nullptr) {
-                    handler->comm_can_frame(msg);
-                }
-                received = true;
+        if (piccante::can::receive(bus, msg) >= 0) {
+            if (bus == 0) {
+                elmulator->handle_can_frame(msg);
             }
+
+            gvret_handler->comm_can_frame(bus, msg);
+            slcan_handler[bus]->comm_can_frame(msg);
+            received = true;
         }
         if (received) {
-            piccante::led::toggle();
+            piccante::led::blink();
             piccante::power::sleep::reset_idle_timer();
+
+
         } else {
             vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
         }
@@ -256,32 +257,31 @@ int main() {
     piccante::led::init(cfg.led_mode);
 #endif
 
+    piccante::power::sleep::init();
+
 
     static TaskHandle_t usbTaskHandle;
-    static TaskHandle_t txCanTaskHandle;
     static TaskHandle_t piccanteAndGvretTaskHandle;
 
 
     xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE, nullptr,
                 configMAX_PRIORITIES - 6, &usbTaskHandle);
-    xTaskCreate(can_recieveTask, "CAN RX", configMINIMAL_STACK_SIZE, nullptr, 5,
-                &txCanTaskHandle);
     xTaskCreate(cmd_gvret_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE, nullptr, 6,
                 &piccanteAndGvretTaskHandle);
 
-    for (uint8_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
+    for (size_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
         slcan_handler[i] = std::make_unique<piccante::slcan::handler>(
             piccante::usb_cdc::out(i + 1), i + 1, i);
         auto slcanTaskHandle = slcan_handler[i]->create_task();
-        vTaskCoreAffinitySet(slcanTaskHandle, 0x01);
-    }
 
-    piccante::power::sleep::init();
+        TaskHandle_t canRxHandle;
+        xTaskCreate(can_recieveTask, fmt::sprintf("CAN RX%d", i).c_str(),
+                    configMINIMAL_STACK_SIZE, reinterpret_cast<void*>(i),
+                    configMAX_PRIORITIES - 7, &canRxHandle);
+    }
 
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
 
-    vTaskCoreAffinitySet(usbTaskHandle, 0x01);
-    vTaskCoreAffinitySet(piccanteAndGvretTaskHandle, 0x01);
     vTaskCoreAffinitySet(canTaskHandle, 0x02);
 
 #ifdef WIFI_ENABLED

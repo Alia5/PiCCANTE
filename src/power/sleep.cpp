@@ -43,6 +43,8 @@ bool sleeping = false;
 TimerHandle_t idle_timer = nullptr;
 TaskHandle_t idle_task_handle = nullptr;
 
+bool timer_should_reset = false;
+
 void idle_timer_callback(TimerHandle_t timer) {
     if (!sleeping) {
         Log::info << "CAN idle timeout reached, entering sleep mode\n";
@@ -56,6 +58,7 @@ void idle_timer_callback(TimerHandle_t timer) {
 
 void idle_detection_task(void* params) {
     (void)params;
+
 
     vTaskDelay(pdMS_TO_TICKS(1000)); // Time for other tasks
     Log::info << "Idle detection task started\n";
@@ -106,8 +109,11 @@ void idle_detection_task(void* params) {
                 Log::info << "Idle timeout disabled\n";
             }
         }
-
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        if (timer_should_reset) {
+            xTimerReset(idle_timer, 0);
+            timer_should_reset = false;
+        }
+        vTaskDelay(pdTICKS_TO_MS(5000));
     }
 }
 } // namespace
@@ -124,14 +130,11 @@ void init() {
         Log::error << "Failed to create idle detection task\n";
         return;
     }
-
-    vTaskCoreAffinitySet(idle_task_handle, 0x01);
 }
 
 void reset_idle_timer() {
-    if (!sleeping && idle_timer != nullptr) {
-        xTimerReset(idle_timer, 0);
-    } else if (sleeping) {
+    timer_should_reset = true;
+    if (sleeping) {
         wake_up();
     }
 }

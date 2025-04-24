@@ -29,5 +29,5 @@ enum Mode : uint8_t {
 void init(Mode mode = MODE_CAN);
 void set_mode(Mode mode);
 Mode get_mode();
-void toggle();
+void blink();
 } // namespace piccante::led

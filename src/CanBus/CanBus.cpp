@@ -331,7 +331,6 @@ void canTask(void* parameters) {
         bool did_tx = false;
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
             while (xQueueReceive(can_queues[i].tx, &msg, 0) == pdTRUE) {
-                led::toggle();
                 did_tx = true;
                 int res = can2040_transmit(&(can_buses[i]), &msg);
                 if (res < 0) {
@@ -343,6 +342,8 @@ void canTask(void* parameters) {
         if (!did_tx) {
             // No messages to send, so we can sleep
             vTaskDelay(pdMS_TO_TICKS(CAN_IDLE_SLEEP_TIME_MS));
+        } else {
+            led::blink();
         }
     }
 }
