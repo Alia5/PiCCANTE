@@ -138,6 +138,33 @@ void emulator::handle_pid_request(std::string_view command) {
         out << "ERROR\r\n>"; // TODO
         return;
     }
+
+    if (timeout_timer != nullptr) {
+        xTimerDelete(timeout_timer, 0);
+        timeout_timer = nullptr;
+    }
+
+    timeout_timer = xTimerCreate("ELMTimeout",
+                                 pdMS_TO_TICKS(params.timeout),
+                                 pdFALSE,
+                                 this, // Timer ID = this object
+                                 [](TimerHandle_t xTimer) {
+                                     emulator* elm = static_cast<emulator*>(
+                                         pvTimerGetTimerID(xTimer));
+                                     if (elm->params.line_feed) {
+                                         elm->out << "\r\n>";
+                                     } else {
+                                         elm->out << "\r>";
+                                     }
+                                     elm->out.flush();
+                                     elm->timeout_timer = nullptr;
+                                 });
+
+    if (timeout_timer != nullptr) {
+        xTimerStart(timeout_timer, 0);
+    }
+
+    out << "\r";
 }
 
 
@@ -145,6 +172,11 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
     if (!params.monitor_mode) {
+        const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
+        if (last_send_time + params.timeout < now) {
+            return;
+        }
+
         if (params.use_extended_frames) {
             // is an answer to us?
             // If the vehicle responds, you will see responses with CAN IDs 0x18DAF100
@@ -192,29 +224,8 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     out << outBuff;
     out << "\r";
 
-    if (timeout_timer != nullptr) {
-        xTimerDelete(timeout_timer, 0);
-        timeout_timer = nullptr;
-    }
-
-    timeout_timer = xTimerCreate("ELMTimeout",
-                                 pdMS_TO_TICKS(params.timeout),
-                                 pdFALSE,
-                                 this, // Timer ID = this object
-                                 [](TimerHandle_t xTimer) {
-                                     emulator* elm = static_cast<emulator*>(
-                                         pvTimerGetTimerID(xTimer));
-                                     if (elm->params.line_feed) {
-                                         elm->out << "\r\n>";
-                                     } else {
-                                         elm->out << "\r>";
-                                     }
-                                     elm->out.flush();
-                                     elm->timeout_timer = nullptr;
-                                 });
-
-    if (timeout_timer != nullptr) {
-        xTimerStart(timeout_timer, 0);
+    if (!params.monitor_mode && timeout_timer != nullptr) {
+        xTimerReset(timeout_timer, 0);
     }
 
     if (!params.monitor_mode && params.adaptive_timing) {
