@@ -63,15 +63,27 @@ void at::ATD(const std::string_view cmd) {
 void at::ATZ([[maybe_unused]] const std::string_view cmd) {
     // todo: set to defaults (what are the defaults ???)
     out << emulator::elm_id;
-    out << end_ok();
+    if (params.line_feed) {
+        out << "\r\n>";
+    } else {
+        out << "\r\r>";
+    }
 }
 void at::ATI([[maybe_unused]] const std::string_view cmd) {
     out << emulator::elm_id;
-    out << end_ok();
+    if (params.line_feed) {
+        out << "\r\n>";
+    } else {
+        out << "\r\r>";
+    }
 }
 void at::ATat1([[maybe_unused]] const std::string_view cmd) {
     out << emulator::obdlink_desc;
-    out << end_ok();
+    if (params.line_feed) {
+        out << "\r\n>";
+    } else {
+        out << "\r\r>";
+    }
 }
 void at::ATEx(const std::string_view cmd) {
     params.echo = cmd.ends_with("1");
