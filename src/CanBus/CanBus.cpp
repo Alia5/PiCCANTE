@@ -386,7 +386,7 @@ int receive(uint8_t bus, can2040_msg& msg) {
         return -1;
     }
     if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
-        return get_can_rx_buffered_frames(bus);
+        return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].rx);
     }
     return -1;
 }
