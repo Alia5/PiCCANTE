@@ -33,7 +33,8 @@ class keepalive : public fsm::state<uint8_t, Protocol, bool> {
         : fsm::state<uint8_t, Protocol, bool>(KEEPALIVE), out(host_out) {}
 
     Protocol enter() override {
-        out << GET_COMMAND << KEEPALIVE << piccante::bin_be(KEEPALIVE_PAYLOAD);
+        // out << GET_COMMAND << KEEPALIVE << piccante::bin_be(KEEPALIVE_PAYLOAD);
+        out << "\xf1\x09\xDE\xAD";
         out.flush();
         return IDLE;
     }
