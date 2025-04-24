@@ -95,11 +95,12 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
         const auto rx_buffered = can::get_can_rx_buffered_frames(i);
         const auto tx_buffered = can::get_can_tx_buffered_frames(i);
         const auto rx_overflow = can::get_can_rx_overflow_count(i);
+        const auto tx_overflow = can::get_can_tx_overflow_count(i);
 
         can_json += fmt::sprintf( //
-            R"({"bus":%d,"enabled":%s,"bitrate":%d,"rx_buffered":%d,"tx_buffered":%d,"rx_overflow":%d,)", //
+            R"({"bus":%d,"enabled":%s,"bitrate":%d,"rx_buffered":%d,"tx_buffered":%d,"rx_overflow":%d,"tx_overflow":%d,)", //
             static_cast<int>(i), enabled ? "true" : "false", bitrate, rx_buffered,
-            tx_buffered, rx_overflow);
+            tx_buffered, rx_overflow, tx_overflow);
 
         can2040_stats stats{};
         if (can::get_statistics(i, stats)) {

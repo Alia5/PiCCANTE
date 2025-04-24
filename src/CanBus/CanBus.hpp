@@ -53,6 +53,8 @@ int receive(uint8_t bus, can2040_msg& msg);
 int get_can_rx_buffered_frames(uint8_t bus);
 int get_can_tx_buffered_frames(uint8_t bus);
 uint32_t get_can_rx_overflow_count(uint8_t bus);
+uint32_t get_can_tx_overflow_count(uint8_t bus);
+
 bool get_statistics(uint8_t bus, can2040_stats& stats);
 
 

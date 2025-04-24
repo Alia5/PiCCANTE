@@ -103,6 +103,7 @@ namespace {
 
 
 std::array<uint32_t, piccanteNUM_CAN_BUSSES> rx_overflow_counts = {0};
+std::array<uint32_t, piccanteNUM_CAN_BUSSES> tx_overflow_counts = {0};
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 can_settings_file settings = {};
@@ -371,6 +372,7 @@ int send_can(uint8_t bus, can2040_msg& msg) {
     if (xQueueSend(can_queues[bus].tx, &msg, pdMS_TO_TICKS(CAN_QUEUE_TIMEOUT_MS)) !=
         pdTRUE) {
         Log::error << "CAN bus " << fmt::sprintf("%d", bus) << ": TX queue full\n";
+        tx_overflow_counts[bus]++;
         return -1;
     }
     return 0;
@@ -410,6 +412,12 @@ uint32_t get_can_rx_overflow_count(uint8_t bus) {
         return 0;
     }
     return rx_overflow_counts[bus];
+}
+uint32_t get_can_tx_overflow_count(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES) {
+        return 0;
+    }
+    return tx_overflow_counts[bus];
 }
 
 bool get_statistics(uint8_t bus, can2040_stats& stats) {
