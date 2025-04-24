@@ -105,7 +105,7 @@ void at::ATSH(const std::string_view cmd) {
 void at::ATSTx(const std::string_view cmd) {
     auto timeout = hex::parse(cmd) * 4;
     if (timeout > 0) {
-        params.timeout = timeout;
+        params.timeout = std::max(timeout, 60U);
     } else {
         params.timeout = 250;
     }
