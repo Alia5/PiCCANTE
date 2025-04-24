@@ -57,8 +57,10 @@ class emulator {
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
     constexpr static std::string_view elm_id = "ELM327 v1.3a"; // TODO:
 
-    constexpr static uint64_t min_timeout_ms = 55;
+    constexpr static uint64_t min_timeout_ms = 20;
     constexpr static uint64_t max_timeout_ms = 1500;
+
+    uint16_t timeout_multiplier = 2;
 
         private:
     out::stream& out;
@@ -97,6 +99,7 @@ class emulator {
     };
     static bool is_valid_hex(std::string_view str);
     static void emulator_task(void* params);
+    static void timer_callback(TimerHandle_t xTimer);
 };
 
 } // namespace piccante::elm327
