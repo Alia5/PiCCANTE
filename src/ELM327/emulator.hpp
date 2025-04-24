@@ -23,7 +23,6 @@
 #include "settings.hpp"
 #include "at_commands/commands.hpp"
 #include "FreeRTOS.h"
-#include "timers.h"
 #include "queue.h"
 #include "task.h"
 
@@ -57,18 +56,17 @@ class emulator {
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
     constexpr static std::string_view elm_id = "ELM327 v1.3a"; // TODO:
 
-    constexpr static uint64_t min_timeout_ms = 20;
+    // TODO: re-do adaptive/dynamic timeout!
+    uint64_t min_timeout_ms = 20;
     constexpr static uint64_t max_timeout_ms = 1500;
 
-    uint16_t timeout_multiplier = 2;
+    uint16_t timeout_multiplier = 3;
 
         private:
     out::stream& out;
     QueueHandle_t cmd_rx_queue;
     uint8_t bus;
     std::string last_command;
-
-    TimerHandle_t timeout_timer = nullptr;
 
     elm327::settings params{
         .obd_header = obd2_11bit_broadcast,
@@ -86,7 +84,7 @@ class emulator {
 
     elm327::at at_h{out, params};
 
-    uint64_t last_send_time = 0;
+    uint64_t last_can_event_time = 0;
 
     bool running = false;
     TaskHandle_t task_handle;
@@ -99,7 +97,6 @@ class emulator {
     };
     static bool is_valid_hex(std::string_view str);
     static void emulator_task(void* params);
-    static void timer_callback(TimerHandle_t xTimer);
 };
 
 } // namespace piccante::elm327

@@ -25,7 +25,6 @@
 #include "util/hexstr.hpp"
 #include "at_commands/commands.hpp"
 
-
 namespace piccante::elm327 {
 
 bool emulator::start() {
@@ -96,17 +95,6 @@ void emulator::handle_command(std::string_view command) {
     }
 }
 
-void emulator::timer_callback(TimerHandle_t xTimer) {
-    emulator* elm = static_cast<emulator*>(pvTimerGetTimerID(xTimer));
-    if (elm->params.line_feed) {
-        elm->out << "\n>";
-    } else {
-        elm->out << "\r>";
-    }
-    elm->out.flush();
-    elm->timeout_timer = nullptr;
-}
-
 void emulator::handle_pid_request(std::string_view command) {
     // TODO: build can frame and send to bus
 
@@ -146,27 +134,7 @@ void emulator::handle_pid_request(std::string_view command) {
     }
     out << "\r";
 
-    last_send_time = pdTICKS_TO_MS(xTaskGetTickCount());
-
-    // TODO: replace timer with fixed loop 🙄
-    if (timeout_timer != nullptr) {
-        xTimerDelete(timeout_timer, 0);
-        timeout_timer = nullptr;
-    }
-    if (timeout_timer == nullptr) {
-        timeout_timer = xTimerCreate("ELMTimeout",
-                                     pdMS_TO_TICKS(params.timeout),
-                                     pdFALSE,
-                                     this, // Timer ID = this object
-                                     timer_callback);
-    }
-
-    if (timeout_timer != nullptr) {
-        const auto tres = xTimerStart(timeout_timer, 0);
-        if (tres != pdTRUE) {
-            Log::error << "Failed to (re)start ELM PID Timeout\n";
-        }
-    }
+    last_can_event_time = pdTICKS_TO_MS(xTaskGetTickCount());
 }
 
 
@@ -190,16 +158,18 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
             }
         }
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-        if (last_send_time + params.timeout < now) {
-            Log::debug << "OBD Answer received after timeout... Re-Evaluating timeout\n";
-            if (params.adaptive_timing) {
-                const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-                const auto diff = now - last_send_time;
-                params.timeout = std::min(
-                    std::max(diff * timeout_multiplier, min_timeout_ms), max_timeout_ms);
-                Log::debug << "Set ELM Timeout to " << params.timeout << "ms\n";
+        if (last_can_event_time != 0 && last_can_event_time + params.timeout < now) {
+            const auto diff = now - last_can_event_time;
+            if (diff < max_timeout_ms) {
+                Log::debug << "OBD Answer received " << diff << "ms after timeout...\n";
+                if (params.adaptive_timing) {
+                    min_timeout_ms += 5;
+                    params.timeout = params.timeout * timeout_multiplier;
+                    Log::debug << "Re-Evaluating timeout; min: " << min_timeout_ms
+                               << "ms timeout: " << params.timeout << "ms" << "\n";
+                }
+                return;
             }
-            return;
         }
     }
 
@@ -234,16 +204,15 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     out << outBuff;
     out << "\r";
 
-    if (!params.monitor_mode && timeout_timer != nullptr) {
-        xTimerReset(timeout_timer, 0);
+    if (!params.monitor_mode) {
+        last_can_event_time = pdTICKS_TO_MS(xTaskGetTickCount());
     }
 
     if (!params.monitor_mode && params.adaptive_timing) {
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-        const auto diff = now - last_send_time;
+        const auto diff = now - last_can_event_time;
         params.timeout =
             std::min(std::max(diff * timeout_multiplier, min_timeout_ms), max_timeout_ms);
-        Log::debug << "Set ELM Timeout to " << params.timeout << "ms\n";
     }
 
     out.flush();
@@ -263,7 +232,7 @@ void emulator::emulator_task(void* params) {
     std::vector<char> buff;
     buff.reserve(64);
     while (self->running) {
-        while (xQueueReceive(self->cmd_rx_queue, &byte, pdTICKS_TO_MS(100)) == pdTRUE) {
+        while (xQueueReceive(self->cmd_rx_queue, &byte, 1) == pdTRUE) {
             if (self->params.echo) {
                 self->out << byte;
             }
@@ -283,6 +252,18 @@ void emulator::emulator_task(void* params) {
                         buff.push_back(byte);
                     }
                 }
+            }
+        }
+        if (self->last_can_event_time != 0) {
+            const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
+            if (self->last_can_event_time + self->params.timeout < now) {
+                if (self->params.line_feed) {
+                    self->out << "\n>";
+                } else {
+                    self->out << "\r>";
+                }
+                self->out.flush();
+                self->last_can_event_time = 0;
             }
         }
     }
