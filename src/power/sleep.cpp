@@ -150,6 +150,7 @@ void enter_sleep_mode() {
 
 #ifdef WIFI_ENABLED
     wifi::stop();
+    vTaskDelay(pdMS_TO_TICKS(100));
     cyw43_arch_deinit();
 #endif
 
