@@ -22,6 +22,7 @@
 #include "FreeRTOS.h"
 #include <task.h>
 #include <map>
+#include <vector>
 
 struct can2040_msg;
 
@@ -91,6 +92,9 @@ class handler {
     bool auto_poll = true;
     bool time_stamping = false;
     uint32_t poll_counter = 0;
+
+    std::vector<uint8_t> can_out_buffer{40};
+
 
     void printBusName() const;
     static void task_dispatcher(void* param);

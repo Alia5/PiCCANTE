@@ -110,7 +110,6 @@ static void can_recieveTask(void* parameter) {
         if (received) {
             piccante::led::toggle();
             piccante::power::sleep::reset_idle_timer();
-            taskYIELD();
         } else {
             vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
         }

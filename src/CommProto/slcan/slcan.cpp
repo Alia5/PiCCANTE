@@ -320,7 +320,7 @@ void handler::comm_can_frame(const can2040_msg& frame) {
     const bool is_extended = frame.id & CAN2040_ID_EFF;
     const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
-    std::vector<uint8_t> buffer(40);
+    auto& buffer = can_out_buffer;
 
     if (extended_mode) {
         host_out << std::to_string(millis) << " - " << fmt::sprintf("%x", id);
