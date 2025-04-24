@@ -58,7 +58,7 @@ class emulator {
     constexpr static std::string_view elm_id = "ELM327 v1.3a"; // TODO:
 
     constexpr static uint64_t min_timeout_ms = 55;
-    constexpr static uint64_t max_timeout_ms = 1000;
+    constexpr static uint64_t max_timeout_ms = 1500;
 
         private:
     out::stream& out;
@@ -73,7 +73,7 @@ class emulator {
         .timeout = 250,
         .line_feed = false,
         .echo = false,
-        .white_spaces = false,
+        .white_spaces = true,
         .dlc = false,
         .monitor_mode = false,
         .memory = false,
