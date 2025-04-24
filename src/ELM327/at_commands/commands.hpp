@@ -37,9 +37,9 @@ class at {
 
     inline std::string_view end_ok() {
         if (params.line_feed) {
-            return "OK\r\n>";
+            return "\r\nOK\r\n>";
         }
-        return "OK\r\r>";
+        return "\rOK\r\r>";
     };
 
     void ATD(const std::string_view cmd);

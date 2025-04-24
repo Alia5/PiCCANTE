@@ -91,9 +91,9 @@ class emulator {
 
     inline std::string_view end_ok() {
         if (params.line_feed) {
-            return "OK\r\n>";
+            return "\rOK\r\n>";
         }
-        return "OK\r\r>";
+        return "\rOK\r\r>";
     };
     static bool is_valid_hex(std::string_view str);
     static void emulator_task(void* params);
