@@ -138,6 +138,7 @@ void emulator::handle_pid_request(std::string_view command) {
         out << "ERROR\r\n>"; // TODO
         return;
     }
+    out << "\r";
 
     if (timeout_timer != nullptr) {
         xTimerDelete(timeout_timer, 0);
@@ -152,7 +153,7 @@ void emulator::handle_pid_request(std::string_view command) {
                                      emulator* elm = static_cast<emulator*>(
                                          pvTimerGetTimerID(xTimer));
                                      if (elm->params.line_feed) {
-                                         elm->out << "\r\n>";
+                                         elm->out << "\n>";
                                      } else {
                                          elm->out << "\r>";
                                      }
@@ -163,8 +164,6 @@ void emulator::handle_pid_request(std::string_view command) {
     if (timeout_timer != nullptr) {
         xTimerStart(timeout_timer, 0);
     }
-
-    out << "\r";
 }
 
 
@@ -215,8 +214,9 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
         outBuff += " ";
     }
 
-    for (size_t i = 0; i < frame.dlc; i++) {
-        outBuff += fmt::sprintf("%02X", frame.data[i]);
+
+    for (size_t i = 0; i < frame.data[0]; i++) {
+        outBuff += fmt::sprintf("%02X", frame.data[1 + i]);
         if (params.white_spaces && i < frame.dlc - 1) {
             outBuff += " ";
         }
