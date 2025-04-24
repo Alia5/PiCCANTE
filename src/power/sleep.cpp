@@ -89,7 +89,7 @@ void idle_detection_task(void* params) {
             } else if (idle_minutes_prev != idle_minutes) {
                 Log::info << "Idle timeout changed: " << std::to_string(idle_minutes_prev)
                           << " -> " << std::to_string(idle_minutes) << " minutes\n";
-
+                idle_minutes_prev = idle_minutes;
                 xTimerStop(idle_timer, 0);
                 xTimerChangePeriod(
                     idle_timer, pdMS_TO_TICKS(idle_minutes * 60 * 1000), 0);
