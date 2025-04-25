@@ -189,7 +189,10 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
             }
         }
     }
-
+    if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
+        Log::error << "ELM327: Failed to take mutex\n";
+        return;
+    }
 
     std::string outBuff{};
     if (params.print_headers) {
@@ -219,8 +222,8 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
             outBuff += " ";
         }
     }
+    outBuff += "\r";
     out << outBuff;
-    out << "\r";
 
     if (!params.monitor_mode) {
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
@@ -243,6 +246,7 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     }
 
     out.flush();
+    xSemaphoreGive(state_mutex);
 }
 
 void emulator::reset(bool settings, bool timeout) {
@@ -293,6 +297,9 @@ void emulator::update_timeout(uint64_t now) {
 }
 
 void emulator::check_for_timeout() {
+    if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
+        return; // Couldn't get mutex in time
+    }
     const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
     if (last_can_event_time + params.timeout < now) {
         if (!processed_response) {
@@ -310,6 +317,7 @@ void emulator::check_for_timeout() {
         }
         out.flush();
     }
+    xSemaphoreGive(state_mutex);
 }
 
 bool emulator::is_valid_hex(std::string_view str) {

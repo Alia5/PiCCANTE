@@ -26,6 +26,9 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
+#include "semphr.h"
+
+#include "Logger/Logger.hpp"
 
 struct can2040_msg;
 
@@ -39,8 +42,19 @@ namespace piccante::elm327 {
 class emulator {
         public:
     explicit emulator(out::stream& out, QueueHandle_t queue, uint8_t bus = 0)
-        : out(out), cmd_rx_queue(queue), bus(bus) {};
-    virtual ~emulator() { stop(); };
+        : out(out), cmd_rx_queue(queue), bus(bus) {
+        state_mutex = xSemaphoreCreateMutex();
+        if (!state_mutex) {
+            Log::error << "ELM327: Failed to create mutex\n";
+        }
+    };
+    virtual ~emulator() {
+        stop();
+        if (state_mutex) {
+            vSemaphoreDelete(state_mutex);
+            state_mutex = nullptr;
+        }
+    };
 
     emulator(const emulator&) = delete;
     emulator& operator=(const emulator&) = delete;
@@ -59,11 +73,11 @@ class emulator {
     constexpr static uint32_t obd2_29bit_broadcast = 0x18DB33F1;
     constexpr static std::string_view obdlink_desc = "ODBLink MX"; // TODO?
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
-    constexpr static std::string_view elm_id = "ELM327 v1.3a"; // TODO:
+    constexpr static std::string_view elm_id = "ELM327 v1.4"; // TODO:
 
-    constexpr static uint64_t min_timeout_ms = 6;
-    constexpr static uint64_t max_timeout_ms = 1500;
-    uint64_t average_response_time_ms = 150;
+    constexpr static uint64_t min_timeout_ms = 40;
+    constexpr static uint64_t max_timeout_ms = 2500;
+    uint64_t average_response_time_ms = 1000;
 
     constexpr static uint8_t SLOW_RESPONSE_WEIGHT =
         4; // How much weight to give new slow responses
@@ -72,10 +86,10 @@ class emulator {
     constexpr static uint8_t FAST_RESPONSE_WEIGHT =
         2; // How much weight to give new fast responses
     constexpr static uint8_t FAST_RESPONSE_HISTORY_WEIGHT =
-        12; // Weight for history with fast responses
+        20; // Weight for history with fast responses
 
     constexpr static uint8_t TIMEOUT_SAFETY_FACTOR =
-        2; // Multiply avg response time by this
+        3; // Multiply avg response time by this
 
 
         private:
@@ -83,6 +97,8 @@ class emulator {
     QueueHandle_t cmd_rx_queue;
     uint8_t bus;
     std::string last_command;
+
+    SemaphoreHandle_t state_mutex = nullptr;
 
     uint8_t expected_frames = 0;
     uint8_t received_frames = 0;
