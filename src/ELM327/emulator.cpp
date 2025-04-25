@@ -18,6 +18,7 @@
 #include "emulator.hpp"
 #include <string_view>
 #include <functional>
+#include <cctype>
 #include "at_commands/commands.hpp"
 #include "CanBus/CanBus.hpp"
 #include <can2040.h>
@@ -108,17 +109,25 @@ void emulator::handle_pid_request(std::string_view command) {
     }
 
     frame.dlc = 8;
-    frame.data32[0] = 0xAAAAAAAA;
-    frame.data32[1] = 0xAAAAAAAA;
+    frame.data32[0] = 0xCCCCCCCC;
+    frame.data32[1] = 0xCCCCCCCC;
 
     uint8_t mode = hex::parse(command.substr(0, 2));
     if (command.size() == 4) {
         uint8_t pid = hex::parse(command.substr(2, 2));
+
+        // Log::debug << "B1: Cmd: " << command << " Mode: " << (int)mode
+        //            << " PID: " << (int)pid << "\n";
+
         frame.data[0] = 2;
         frame.data[1] = mode;
         frame.data[2] = pid;
     } else {
         uint16_t pid = hex::parse(command.substr(2, 4));
+
+        // Log::debug << "B2: Cmd: " << command << " Mode: " << (int)mode
+        //            << " PID: " << (int)pid << "\n";
+
         frame.data[0] = 2;
         frame.data[1] = mode;
         frame.data[2] = pid >> 8;
@@ -135,6 +144,8 @@ void emulator::handle_pid_request(std::string_view command) {
     out << "\r";
 
     last_can_event_time = pdTICKS_TO_MS(xTaskGetTickCount());
+    is_waiting_for_response = true;
+    processed_response = false;
 }
 
 
@@ -142,6 +153,9 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
     if (!params.monitor_mode) {
+        if (!is_waiting_for_response) {
+            return;
+        }
         if (params.use_extended_frames) {
             // is an answer to us?
             // If the vehicle responds, you will see responses with CAN IDs 0x18DAF100
@@ -157,21 +171,8 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
                 }
             }
         }
-        const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-        if (last_can_event_time != 0 && last_can_event_time + params.timeout < now) {
-            const auto diff = now - last_can_event_time;
-            if (diff < max_timeout_ms) {
-                Log::debug << "OBD Answer received " << diff << "ms after timeout...\n";
-                if (params.adaptive_timing) {
-                    min_timeout_ms += 5;
-                    params.timeout = params.timeout * timeout_multiplier;
-                    Log::debug << "Re-Evaluating timeout; min: " << min_timeout_ms
-                               << "ms timeout: " << params.timeout << "ms" << "\n";
-                }
-                return;
-            }
-        }
     }
+
 
     std::string outBuff{};
     if (params.print_headers) {
@@ -195,7 +196,7 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     }
 
 
-    for (size_t i = 0; i < frame.data[0]; i++) {
+    for (size_t i = 0; i < frame.data[0] && i < frame.dlc; i++) {
         outBuff += fmt::sprintf("%02X", frame.data[1 + i]);
         if (params.white_spaces && i < frame.dlc - 1) {
             outBuff += " ";
@@ -205,22 +206,85 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     out << "\r";
 
     if (!params.monitor_mode) {
-        last_can_event_time = pdTICKS_TO_MS(xTaskGetTickCount());
-    }
-
-    if (!params.monitor_mode && params.adaptive_timing) {
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-        const auto diff = now - last_can_event_time;
-        params.timeout =
-            std::min(std::max(diff * timeout_multiplier, min_timeout_ms), max_timeout_ms);
+        if (params.adaptive_timing) {
+            update_timeout(now);
+        }
+        last_can_event_time = now;
+        processed_response = true;
     }
 
     out.flush();
 }
 
+void emulator::reset(bool settings, bool timeout) {
+    if (settings) {
+        params = elm327::settings{
+            .obd_header = obd2_11bit_broadcast,
+            .timeout = 250,
+            .line_feed = false,
+            .echo = false,
+            .white_spaces = true,
+            .dlc = false,
+            .monitor_mode = false,
+            .memory = false,
+            .print_headers = false,
+            .use_extended_frames = false,
+            .adaptive_timing = true,
+        };
+    }
+    if (timeout) {
+        params.timeout = 250;
+        params.adaptive_timing = true;
+        average_response_time_ms = 150;
+    }
+}
+
+void emulator::update_timeout(uint64_t now) {
+    const auto diff = now - last_can_event_time;
+
+    if (average_response_time_ms < diff) {
+        // Response is slower than expected - increase quickly
+        const uint8_t total_weight = SLOW_RESPONSE_WEIGHT + SLOW_RESPONSE_HISTORY_WEIGHT;
+        average_response_time_ms =
+            ((diff * SLOW_RESPONSE_WEIGHT) +
+             (SLOW_RESPONSE_HISTORY_WEIGHT * average_response_time_ms)) /
+            total_weight;
+    } else {
+        // Response is faster than expected - decrease very slowly
+        const uint8_t total_weight = FAST_RESPONSE_WEIGHT + FAST_RESPONSE_HISTORY_WEIGHT;
+        average_response_time_ms =
+            ((diff * FAST_RESPONSE_WEIGHT) +
+             (FAST_RESPONSE_HISTORY_WEIGHT * average_response_time_ms)) /
+            total_weight;
+    }
+
+    params.timeout =
+        std::min(std::max(uint64_t(average_response_time_ms * TIMEOUT_SAFETY_FACTOR),
+                          min_timeout_ms),
+                 max_timeout_ms);
+}
+
+void emulator::check_for_timeout() {
+    const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
+    if (last_can_event_time + params.timeout < now) {
+        if (!processed_response) {
+            update_timeout(now);
+        }
+        is_waiting_for_response = false;
+        if (params.line_feed) {
+            out << "\n>";
+        } else {
+            out << "\r>";
+        }
+        out.flush();
+    }
+}
+
 bool emulator::is_valid_hex(std::string_view str) {
-    return std::all_of(str.begin(), str.end(), [](char c) {
-        return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+    return std::all_of(str.begin(), str.end(), [](char byte) {
+        return (byte >= '0' && byte <= '9') || (byte >= 'A' && byte <= 'F') ||
+               (byte >= 'a' && byte <= 'f');
     });
 }
 
@@ -250,25 +314,17 @@ void emulator::emulator_task(void* params) {
                     }
                     // only push back valid ascii and strip spaces
                     if (byte > ' ' && byte < 0x7F) { // 0x7F = del, 0x7E = ~
-                        buff.push_back(byte);
+                        buff.push_back(std::toupper(byte));
                     }
                 }
             }
             received = true;
         }
-        if (self->last_can_event_time != 0) {
-            const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-            if (self->last_can_event_time + self->params.timeout < now) {
-                if (self->params.line_feed) {
-                    self->out << "\n>";
-                } else {
-                    self->out << "\r>";
-                }
-                self->out.flush();
-                self->last_can_event_time = 0;
-            }
+        if (self->is_waiting_for_response) {
+            self->check_for_timeout();
+            vTaskDelay(1);
         }
-        if (!received) {
+        if (!received && !self->is_waiting_for_response) {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     }

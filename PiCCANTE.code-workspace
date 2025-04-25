@@ -99,6 +99,6 @@
             "stdfloat": "cpp",
             "cfenv": "cpp"
         },
-        "cortex-debug.variableUseNaturalFormat": false
+        "cortex-debug.variableUseNaturalFormat": true
     }
 }

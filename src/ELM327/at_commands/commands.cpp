@@ -61,7 +61,7 @@ void at::ATD(const std::string_view cmd) {
 }
 
 void at::ATZ([[maybe_unused]] const std::string_view cmd) {
-    // todo: set to defaults (what are the defaults ???)
+    reset(true, true);
     out << emulator::elm_id;
     if (params.line_feed) {
         out << "\r\n>";
@@ -115,6 +115,7 @@ void at::ATSH(const std::string_view cmd) {
 }
 
 void at::ATSTx(const std::string_view cmd) {
+    reset(false, true);
     auto timeout = hex::parse(cmd) * 4;
     if (timeout > 0) {
         params.timeout = std::max(timeout, 60U);
@@ -165,6 +166,7 @@ void at::ATSPx(const std::string_view cmd) {
     out << end_ok();
 }
 void at::ATATx(const std::string_view cmd) {
+    reset(false, true);
     if (cmd == "0") {
         params.adaptive_timing = false;
         params.timeout = 250;
@@ -198,52 +200,47 @@ void at::ATRV() {
     }
     out << end_ok();
 }
+
 void at::handle(const std::string_view command) {
-    std::string upper_str;
-    upper_str.reserve(command.size());
-    for (char c :
-         command | std::views::transform([](char c) { return std::toupper(c); })) {
-        upper_str.push_back(c);
-    }
     // check longest commands first
-    if (upper_str.starts_with("ATDESC")) {
+    if (command.starts_with("ATDESC")) {
         ATDESC();
-    } else if (upper_str.starts_with("ATSP")) {
-        ATSPx(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATAT")) {
-        ATATx(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATST")) {
-        ATSTx(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATDP")) {
-        ATDP(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATPC")) {
+    } else if (command.starts_with("ATSP")) {
+        ATSPx(command.substr(4));
+    } else if (command.starts_with("ATAT")) {
+        ATATx(command.substr(4));
+    } else if (command.starts_with("ATST")) {
+        ATSTx(command.substr(4));
+    } else if (command.starts_with("ATDP")) {
+        ATDP(command.substr(4));
+    } else if (command.starts_with("ATPC")) {
         ATPC();
-    } else if (upper_str.starts_with("ATRV")) {
+    } else if (command.starts_with("ATRV")) {
         ATRV();
-    } else if (upper_str.starts_with("AT@1")) {
-        ATat1(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATSH")) {
-        ATSH(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATMA")) {
-        ATMA(upper_str.substr(4));
-    } else if (upper_str.starts_with("ATE")) {
-        ATEx(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATM")) {
-        ATMx(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATL")) {
-        ATLx(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATS")) {
-        ATSx(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATH")) {
-        ATHx(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATD")) {
-        ATD(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATZ")) {
-        ATZ(upper_str.substr(3));
-    } else if (upper_str.starts_with("ATI")) {
-        ATI(upper_str.substr(3));
+    } else if (command.starts_with("AT@1")) {
+        ATat1(command.substr(4));
+    } else if (command.starts_with("ATSH")) {
+        ATSH(command.substr(4));
+    } else if (command.starts_with("ATMA")) {
+        ATMA(command.substr(4));
+    } else if (command.starts_with("ATE")) {
+        ATEx(command.substr(3));
+    } else if (command.starts_with("ATM")) {
+        ATMx(command.substr(3));
+    } else if (command.starts_with("ATL")) {
+        ATLx(command.substr(3));
+    } else if (command.starts_with("ATS")) {
+        ATSx(command.substr(3));
+    } else if (command.starts_with("ATH")) {
+        ATHx(command.substr(3));
+    } else if (command.starts_with("ATD")) {
+        ATD(command.substr(3));
+    } else if (command.starts_with("ATZ")) {
+        ATZ(command.substr(3));
+    } else if (command.starts_with("ATI")) {
+        ATI(command.substr(3));
     } else {
-        Log::error << "Unknown AT command: " << upper_str << "\n";
+        Log::error << "Unknown AT command: " << command << "\n";
         return;
     }
     out.flush();

@@ -20,6 +20,7 @@
 #include <string_view>
 #include <outstream/stream.hpp>
 #include <optional>
+#include <functional>
 #include "settings.hpp"
 #include "at_commands/commands.hpp"
 #include "FreeRTOS.h"
@@ -27,6 +28,10 @@
 #include "task.h"
 
 struct can2040_msg;
+
+#if defined bind
+#undef bind
+#endif
 
 namespace piccante::elm327 {
 
@@ -56,11 +61,23 @@ class emulator {
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
     constexpr static std::string_view elm_id = "ELM327 v1.3a"; // TODO:
 
-    // TODO: re-do adaptive/dynamic timeout!
-    uint64_t min_timeout_ms = 20;
+    constexpr static uint64_t min_timeout_ms = 6;
     constexpr static uint64_t max_timeout_ms = 1500;
+    uint64_t average_response_time_ms = 150;
 
-    uint16_t timeout_multiplier = 3;
+    constexpr static uint8_t SLOW_RESPONSE_WEIGHT =
+        4; // How much weight to give new slow responses
+    constexpr static uint8_t SLOW_RESPONSE_HISTORY_WEIGHT =
+        6; // Weight for history with slow responses
+    constexpr static uint8_t FAST_RESPONSE_WEIGHT =
+        2; // How much weight to give new fast responses
+    constexpr static uint8_t FAST_RESPONSE_HISTORY_WEIGHT =
+        12; // Weight for history with fast responses
+
+    constexpr static uint8_t TIMEOUT_SAFETY_FACTOR =
+        2; // Multiply avg response time by this
+
+    uint16_t timeout_multiplier = 2;
 
         private:
     out::stream& out;
@@ -82,12 +99,22 @@ class emulator {
         .adaptive_timing = true,
     };
 
-    elm327::at at_h{out, params};
 
+    elm327::at at_h{
+        out, params,
+        std::bind(&emulator::reset, this, std::placeholders::_1, std::placeholders::_2)};
+
+    bool is_waiting_for_response = false;
+    bool processed_response = false;
     uint64_t last_can_event_time = 0;
 
     bool running = false;
     TaskHandle_t task_handle;
+
+    void reset(bool settings, bool timeout);
+
+    void update_timeout(uint64_t now);
+    void check_for_timeout();
 
     inline std::string_view end_ok() {
         if (params.line_feed) {

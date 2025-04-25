@@ -18,6 +18,7 @@
 #pragma once
 #include <string_view>
 #include <outstream/stream.hpp>
+#include <functional>
 #include "../settings.hpp"
 
 namespace piccante::elm327 {
@@ -25,8 +26,9 @@ namespace piccante::elm327 {
 class at {
         public:
     struct params;
-    explicit at(out::stream& out, elm327::settings& settings)
-        : out(out), params(settings) {};
+    explicit at(out::stream& out, elm327::settings& settings,
+                std::function<void(bool settings, bool timeout)> reset)
+        : out(out), params(settings), reset(reset) {};
     void handle(const std::string_view command);
 
     bool is_at_command(const std::string_view command);
@@ -34,6 +36,7 @@ class at {
         private:
     out::stream& out;
     elm327::settings& params;
+    std::function<void(bool all, bool timeout)> reset;
 
     inline std::string_view end_ok() {
         if (params.line_feed) {
