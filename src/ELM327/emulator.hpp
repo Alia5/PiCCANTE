@@ -77,13 +77,17 @@ class emulator {
     constexpr static uint8_t TIMEOUT_SAFETY_FACTOR =
         2; // Multiply avg response time by this
 
-    uint16_t timeout_multiplier = 2;
 
         private:
     out::stream& out;
     QueueHandle_t cmd_rx_queue;
     uint8_t bus;
     std::string last_command;
+
+    uint8_t expected_frames = 0;
+    uint8_t received_frames = 0;
+    constexpr static uint8_t MULTI_FRAME_TIMEOUT_MULTIPLIER =
+        3; // Adjust based on testing
 
     elm327::settings params{
         .obd_header = obd2_11bit_broadcast,

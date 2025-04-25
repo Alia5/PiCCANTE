@@ -97,13 +97,9 @@ void emulator::handle_command(std::string_view command) {
 }
 
 void emulator::handle_pid_request(std::string_view command) {
-    // TODO: build can frame and send to bus
-
     can2040_msg frame{};
 
-    // TODO: Ecu Header?!
     frame.id = params.obd_header;
-
     if (params.use_extended_frames) {
         frame.id |= CAN2040_ID_EFF;
     }
@@ -113,27 +109,38 @@ void emulator::handle_pid_request(std::string_view command) {
     frame.data32[1] = 0xCCCCCCCC;
 
     uint8_t mode = hex::parse(command.substr(0, 2));
-    if (command.size() == 4) {
+    if (command.size() == 4 || command.size() == 5) {
+        // Standard mode + PID (01 0C)
         uint8_t pid = hex::parse(command.substr(2, 2));
-
-        // Log::debug << "B1: Cmd: " << command << " Mode: " << (int)mode
-        //            << " PID: " << (int)pid << "\n";
-
         frame.data[0] = 2;
         frame.data[1] = mode;
         frame.data[2] = pid;
-    } else {
+
+        if (command.size() == 5) {
+            expected_frames = hex::parse(command.substr(4, 1));
+        } else {
+            expected_frames = 0;
+        }
+
+    } else if (command.size() == 6 || command.size() == 7) {
+        // Mode + 16-bit PID (09 0200)
         uint16_t pid = hex::parse(command.substr(2, 4));
-
-        // Log::debug << "B2: Cmd: " << command << " Mode: " << (int)mode
-        //            << " PID: " << (int)pid << "\n";
-
-        frame.data[0] = 2;
+        frame.data[0] = 3; // 3 bytes of data
         frame.data[1] = mode;
         frame.data[2] = pid >> 8;
         frame.data[3] = pid & 0xFF;
-    }
 
+        if (command.size() == 7) {
+            expected_frames = hex::parse(command.substr(6, 1));
+        } else {
+            expected_frames = 0;
+        }
+    } else {
+        // Invalid format
+        Log::error << "ELM327: Invalid PID request format: " << command << "\n";
+        out << "?\r\n>";
+        return;
+    }
 
     const auto res = can::send_can(bus, frame);
     if (res < 0) {
@@ -144,6 +151,14 @@ void emulator::handle_pid_request(std::string_view command) {
     out << "\r";
 
     last_can_event_time = pdTICKS_TO_MS(xTaskGetTickCount());
+
+    // Apply increased timeout for multi-frame responses
+    if (expected_frames > 0) {
+        params.timeout = std::min(average_response_time_ms * TIMEOUT_SAFETY_FACTOR *
+                                      MULTI_FRAME_TIMEOUT_MULTIPLIER,
+                                  max_timeout_ms);
+    }
+
     is_waiting_for_response = true;
     processed_response = false;
 }
@@ -212,6 +227,17 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
         }
         last_can_event_time = now;
         processed_response = true;
+        received_frames++;
+        if (expected_frames > 0 && received_frames >= expected_frames) {
+            if (params.line_feed) {
+                out << "\n>";
+            } else {
+                out << "\r>";
+            }
+            is_waiting_for_response = false;
+            expected_frames = 0;
+            received_frames = 0;
+        }
     }
 
     out.flush();
@@ -259,19 +285,22 @@ void emulator::update_timeout(uint64_t now) {
             total_weight;
     }
 
-    params.timeout =
-        std::min(std::max(uint64_t(average_response_time_ms * TIMEOUT_SAFETY_FACTOR),
-                          min_timeout_ms),
-                 max_timeout_ms);
+    params.timeout = std::min(
+        std::max((average_response_time_ms * TIMEOUT_SAFETY_FACTOR), min_timeout_ms),
+        max_timeout_ms);
 }
 
 void emulator::check_for_timeout() {
     const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
     if (last_can_event_time + params.timeout < now) {
         if (!processed_response) {
+            Log::debug << "ELM327: Timeout after " << params.timeout
+                       << "ms waiting for response\n";
             update_timeout(now);
         }
         is_waiting_for_response = false;
+        expected_frames = 0;
+        received_frames = 0;
         if (params.line_feed) {
             out << "\n>";
         } else {
