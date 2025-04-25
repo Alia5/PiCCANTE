@@ -208,7 +208,7 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     }
 
     if (params.dlc) {
-        outBuff += fmt::sprintf("%u ", frame.dlc);
+        outBuff += fmt::sprintf("%u ", frame.data[0]);
     }
 
     if (params.white_spaces) {
