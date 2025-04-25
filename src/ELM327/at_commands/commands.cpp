@@ -103,14 +103,19 @@ void at::ATLx(const std::string_view cmd) {
 }
 
 void at::ATSH(const std::string_view cmd) {
-    Log::debug << "ELM327 new ECU Address: " << cmd.substr(1) << "\n";
+    Log::debug << "ELM327 ECU Address String: " << cmd.substr(0) << "\n";
     if (cmd.starts_with("0x")) {
         params.obd_header = hex::parse(cmd.substr(2));
     } else if (cmd.starts_with("0")) {
         params.obd_header = hex::parse(cmd.substr(1));
+    } else if (cmd.size() >= 5) {
+        std::string extended_cmd = "18" + std::string(cmd);
+        params.obd_header = hex::parse(extended_cmd);
     } else {
         params.obd_header = hex::parse(cmd);
     }
+    Log::debug << "ELM327 new ECU Address: " << fmt::sprintf("%x", params.obd_header)
+               << "\n";
     out << end_ok();
 }
 

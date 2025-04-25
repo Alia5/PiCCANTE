@@ -165,7 +165,7 @@ void emulator::handle_pid_request(std::string_view command) {
 
 
 void emulator::handle_can_frame(const can2040_msg& frame) {
-    const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
+    auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
     if (!params.monitor_mode) {
         if (!is_waiting_for_response) {
@@ -178,6 +178,8 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
             if (id < 0x18DAF100 || id > 0x18DAF1FF) {
                 return; // ignore
             }
+            // Remove the leading "18" prefix for extended addressing
+            id &= 0x00FFFFFF;
         } else {
             if (id != params.obd_header + 0x08) {
                 // is an answer to us?
@@ -192,7 +194,7 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     std::string outBuff{};
     if (params.print_headers) {
         if (params.use_extended_frames) {
-            outBuff += fmt::sprintf("%08X ", id);
+            outBuff += fmt::sprintf("%06X ", id); // Output only 6 hex characters
         } else {
             outBuff += fmt::sprintf("%03X ", id);
         }
