@@ -232,7 +232,8 @@ void emulator::emulator_task(void* params) {
     std::vector<char> buff;
     buff.reserve(64);
     while (self->running) {
-        while (xQueueReceive(self->cmd_rx_queue, &byte, 1) == pdTRUE) {
+        auto received = false;
+        if (xQueueReceive(self->cmd_rx_queue, &byte, 0) == pdTRUE) {
             if (self->params.echo) {
                 self->out << byte;
             }
@@ -253,6 +254,7 @@ void emulator::emulator_task(void* params) {
                     }
                 }
             }
+            received = true;
         }
         if (self->last_can_event_time != 0) {
             const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
@@ -265,6 +267,9 @@ void emulator::emulator_task(void* params) {
                 self->out.flush();
                 self->last_can_event_time = 0;
             }
+        }
+        if (!received) {
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 }
