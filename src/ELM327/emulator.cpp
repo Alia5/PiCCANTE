@@ -221,7 +221,36 @@ void emulator::update_timeout(uint64_t now,
                               uint64_t response_time,
                               uint8_t service,
                               uint32_t pid) {
-    params.timeout = std::min((response_time + min_timeout_ms) * 3, max_timeout_ms);
+    // if (is_capability_request(service, pid)) {
+    //     params.timeout = 1000;
+    // }
+    if (processed_response) {
+        // For successful responses, be more aggressive about lowering timeout
+        // Target: response_time + 20% margin
+        const uint32_t target_timeout = response_time * 1.2;
+
+        // If target is significantly lower than current (more than 30% lower)
+        if (target_timeout < (params.timeout * 0.7)) {
+            // Drop faster - 50/50 weighted average
+            params.timeout = (params.timeout + target_timeout) / 2;
+        } else {
+            // Normal case - 70/30 weighted average
+            params.timeout = (params.timeout * 7 + target_timeout * 3) / 10;
+        }
+    } else {
+        // Timeout occurred - same as before
+        params.timeout = (params.timeout * 3) / 2;
+    }
+
+    // Enforce min/max bounds
+    params.timeout = std::min(std::max(params.timeout, uint32_t(min_timeout_ms)),
+                              uint32_t(max_timeout_ms));
+
+
+    Log::debug << "ELM327: Timeout " << (processed_response ? "updated" : "increased")
+               << " to " << params.timeout << "ms for service "
+               << fmt::sprintf("0x%x", service) << " pid " << fmt::sprintf("0x%x", pid)
+               << "\n";
 }
 
 void emulator::check_for_timeout() {
@@ -380,15 +409,15 @@ void emulator::emulator_task(void* params) {
         //     self->process_can_frame(frame);
         // }
 
-        if (xQueueReceive(self->cmd_rx_queue,
-                          &byte,
-                          self->is_waiting_for_response ? 0 : 5) == pdPASS) {
+        while (xQueueReceive(self->cmd_rx_queue,
+                             &byte,
+                             self->is_waiting_for_response ? 0 : 2) == pdPASS) {
             self->process_input_byte(byte, buff);
         }
+        vTaskDelay(pdMS_TO_TICKS(2));
         if (self->is_waiting_for_response) {
             self->check_for_timeout();
         }
-        taskYIELD();
     }
 }
 

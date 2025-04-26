@@ -50,6 +50,7 @@ extern "C" {
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
+#include "wifi/bt_spp/bt_spp.hpp"
 #endif
 // TODO: remove
 #include "wifi/telnet/telnet_server.hpp"
@@ -161,11 +162,14 @@ class elm_sink : public piccante::out::base_sink {
 
 static void cmd_gvret_task(void* parameter) {
     (void)parameter;
-    vTaskDelay(60);
+    vTaskDelay(6000);
     piccante::Log::info << ("Starting PiCCANTE CMD + GVRET Task!\n");
 
 #ifdef WIFI_ENABLED
-    auto sink = piccante::wifi::telnet::mux_sink({piccante::usb_cdc::sinks[0].get()});
+    auto sink = piccante::out::sink_mux{};
+    sink.add_sink(&piccante::wifi::telnet::get_sink());
+    // sink.add_sink(&piccante::bluetooth::get_sink());
+    sink.add_sink(piccante::usb_cdc::sinks[0].get());
     auto outstream = piccante::out::stream{sink};
 #else
     const auto sink = piccante::usb_cdc::sinks[0].get();
@@ -175,11 +179,11 @@ static void cmd_gvret_task(void* parameter) {
     gvret_handler = std::make_unique<piccante::gvret::handler>(outstream);
     piccante::sys::shell::handler shell_handler(*gvret_handler.get(), outstream);
 
-    elm_telnet_server =
-        std::make_unique<piccante::wifi::telnet::server>("ELM327 Telnet", 35000, ">");
-    elm_sink elm_telnet_sink;
-    piccante::out::stream elm_stream = piccante::out::stream{elm_telnet_sink};
-    const auto elm_queue = elm_telnet_server->get_rx_queue();
+    // elm_telnet_server =
+    //     std::make_unique<piccante::wifi::telnet::server>("ELM327 Telnet", 35000, ">");
+    piccante::out::stream elm_stream =
+        piccante::out::stream{piccante::bluetooth::get_sink()};
+    const auto elm_queue = piccante::bluetooth::get_rx_queue();
 
     elmulator = std::make_unique<piccante::elm327::emulator>(elm_stream, elm_queue);
     elm_telnet_server->start();
@@ -284,6 +288,9 @@ int main() {
 
 #ifdef WIFI_ENABLED
     static TaskHandle_t wifiTaskHandle = piccante::wifi::task();
+
+    static TaskHandle_t btSppTaskHandle = piccante::bluetooth::create_task();
+
 #endif
 
     vTaskStartScheduler();

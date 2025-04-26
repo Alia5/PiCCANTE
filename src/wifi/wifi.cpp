@@ -40,6 +40,8 @@ extern "C" {
 #include "dhcpd/dhcpserver.h"
 }
 
+#include "bt_spp/bt_spp.hpp"
+
 namespace piccante::wifi {
 
 namespace {

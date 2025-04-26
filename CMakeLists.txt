@@ -214,6 +214,7 @@ else()
 endif()
 
 pico_enable_stdio_usb(${target_name} 0)
+pico_enable_stdio_uart(${target_name} 1)
 
 # Add the standard library to the build
 target_link_libraries(${target_name}
@@ -397,7 +398,9 @@ if(IS_WIFI_BOARD)
         pico_lwip_http
         pico_lwip_mdns
         pico_btstack_classic
-        pico_btstack_ble
+        pico_btstack_cyw43
+        pico_lwip_freertos
+        pico_btstack_bnep_lwip_sys_freertos
     )
 
     # Make sure we include lwIP headers
@@ -406,7 +409,10 @@ if(IS_WIFI_BOARD)
         ${PICO_SDK_PATH}/lib/btstack/src
     )
 
-    add_compile_definitions(CYW43_HOST_NAME="PiCCANTE")
+    add_compile_definitions(CYW43_HOST_NAME="PiCCANTE"
+        CYW43_ENABLE_BLUETOOTH=1
+        HAVE_LWIP=1
+    )
 endif()
 
 # pico_enable_stdio_usb(${target_name} 0)

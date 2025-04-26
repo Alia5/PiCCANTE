@@ -332,9 +332,9 @@ void canTask(void* parameters) {
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
             while (xQueueReceive(can_queues[i].tx, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
                 did_tx = true;
-                if (can2040_check_transmit(&(can_buses[i])) < 0) {
-                    taskYIELD();
-                    if (can2040_check_transmit(&(can_buses[i])) < 0) {
+                if (!can2040_check_transmit(&(can_buses[i]))) {
+                    vTaskDelay(pdMS_TO_TICKS(2));
+                    if (!can2040_check_transmit(&(can_buses[i]))) {
                         // TODO:!
                         Log::debug << "Waiting did not help...\n";
                     } else {
