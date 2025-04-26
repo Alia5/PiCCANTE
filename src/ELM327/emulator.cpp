@@ -20,6 +20,7 @@
 #include <functional>
 #include <cctype>
 #include "at_commands/commands.hpp"
+#include <cmath>
 #include "CanBus/CanBus.hpp"
 extern "C" {
 #include <can2040.h>
@@ -149,19 +150,22 @@ void emulator::handle_pid_request(std::string_view command) {
         out << "?\r\n>";
         return;
     }
+    current_request.request_start_time = pdTICKS_TO_MS(xTaskGetTickCount());
+    if (is_capability_request(current_request.service, current_request.pid) ||
+        expected_frames > 0) {
+        params.timeout = 500; // TODO:
+    }
 
+    is_waiting_for_response = true;
+    processed_response = false;
     const auto res = can::send_can(bus, frame);
     if (res < 0) {
         Log::error << "ELM327: Failed to send CAN frame: " << res << "\n";
         out << "ERROR\r\n>"; // TODO
+        is_waiting_for_response = false;
         return;
     }
     out << "\r";
-
-    current_request.request_start_time = pdTICKS_TO_MS(xTaskGetTickCount());
-
-    is_waiting_for_response = true;
-    processed_response = false;
 }
 
 
@@ -178,17 +182,16 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
                 return; // ignore
             }
         } else {
-            if (id != params.obd_header + 0x08) {
-                if (id < 0x7e8 || id > 0x7ef) {
-                    return; // ignore
-                }
+            if (id < 0x7e8 || id > 0x7ef) {
+                return; // ignore
             }
         }
     }
 
-    if (xQueueSend(response_queue, &frame, 0) != pdTRUE) {
-        Log::error << "ELM327: Failed to enqueue CAN frame\n";
-    }
+    process_can_frame(frame);
+    // if (xQueueSend(response_queue, &frame, 0) != pdTRUE) {
+    //     Log::error << "ELM327: Failed to enqueue CAN frame\n";
+    // }
 }
 
 void emulator::reset(bool settings, bool timeout) {
@@ -217,7 +220,9 @@ void emulator::reset(bool settings, bool timeout) {
 void emulator::update_timeout(uint64_t now,
                               uint64_t response_time,
                               uint8_t service,
-                              uint32_t pid) {}
+                              uint32_t pid) {
+    params.timeout = std::min((response_time + min_timeout_ms) * 3, max_timeout_ms);
+}
 
 void emulator::check_for_timeout() {
     const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
@@ -271,11 +276,11 @@ void emulator::process_can_frame(const can2040_msg& frame) {
         processed_response = true;
         received_frames++;
 
-        if (params.adaptive_timing) {
+        if (params.adaptive_timing && expected_frames > 0) {
             const auto diff = now - current_request.request_start_time;
             update_timeout(now, diff, current_request.service, current_request.pid);
         }
-        // current_request.request_start_time = now;
+        current_request.request_start_time = now; // alow more frames to come through.
 
         if (expected_frames > 0 && received_frames >= expected_frames) {
             if (params.line_feed) {
@@ -288,6 +293,7 @@ void emulator::process_can_frame(const can2040_msg& frame) {
             received_frames = 0;
         }
     }
+
     std::string outBuff{};
     format_frame_output(frame, id, outBuff);
     out << outBuff;
@@ -368,18 +374,21 @@ void emulator::emulator_task(void* params) {
     std::vector<char> buff;
     buff.reserve(64);
     while (self->running) {
-        while (xQueueReceive(self->response_queue,
-                             &frame,
-                             self->is_waiting_for_response ? 2 : 0) == pdPASS) {
-            self->process_can_frame(frame);
-        }
+        // while (xQueueReceive(self->response_queue,
+        //                      &frame,
+        //                      self->is_waiting_for_response ? 2 : 0) == pdPASS) {
+        //     self->process_can_frame(frame);
+        // }
 
-        while (xQueueReceive(self->cmd_rx_queue, &byte, 0) == pdPASS) {
+        if (xQueueReceive(self->cmd_rx_queue,
+                          &byte,
+                          self->is_waiting_for_response ? 0 : 5) == pdPASS) {
             self->process_input_byte(byte, buff);
         }
         if (self->is_waiting_for_response) {
             self->check_for_timeout();
         }
+        taskYIELD();
     }
 }
 

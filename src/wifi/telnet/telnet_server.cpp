@@ -73,7 +73,7 @@ bool server::start() {
                                           name.c_str(),
                                           configMINIMAL_STACK_SIZE * 2,
                                           this,
-                                          tskIDLE_PRIORITY + 15,
+                                          configMAX_PRIORITIES - 8,
                                           &server_task_handle);
 
     if (task_created != pdPASS) {
@@ -287,7 +287,7 @@ void server::accept_connections() {
                         "TelnetClient",
                         configMINIMAL_STACK_SIZE * 2,
                         new std::pair<server*, int>(this, client_socket),
-                        tskIDLE_PRIORITY + 10,
+                        configMAX_PRIORITIES - 9,
                         &client_task_handle);
 
         if (task_created != pdPASS) {

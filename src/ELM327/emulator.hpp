@@ -78,7 +78,7 @@ class emulator {
     constexpr static std::string_view elm_id = "ELM327 v1.4"; // TODO:
 
     constexpr static uint64_t min_timeout_ms = 5;
-    constexpr static uint64_t max_timeout_ms = 1500;
+    constexpr static uint64_t max_timeout_ms = 2555;
 
 
         private:
@@ -145,6 +145,28 @@ class emulator {
     void process_can_frame(const can2040_msg& frame);
     void format_frame_output(const can2040_msg& frame, uint32_t id,
                              std::string& outBuff) const;
+
+
+    static inline bool is_capability_request(uint8_t service, uint32_t pid) {
+        // Service 01, PIDs 00, 20, 40, 60, 80, A0, C0, E0
+        if (service == 0x01 &&
+            (pid == 0x00 || pid == 0x20 || pid == 0x40 || pid == 0x60 || pid == 0x80 ||
+             pid == 0xA0 || pid == 0xC0 || pid == 0xE0)) {
+            return true;
+        }
+
+        // Service 09, PIDs 00, 20, 40, 60, 80, etc.
+        if (service == 0x09 && (pid % 0x20) == 0x00) {
+            return true;
+        }
+
+        // Service 02, PIDs 00, 20, 40, etc. (similar to 01)
+        if (service == 0x02 && (pid % 0x20) == 0x00) {
+            return true;
+        }
+
+        return false;
+    }
 
     inline std::string_view end_ok() {
         if (params.line_feed) {

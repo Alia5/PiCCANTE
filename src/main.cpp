@@ -274,8 +274,8 @@ int main() {
 
         TaskHandle_t canRxHandle;
         xTaskCreate(can_recieveTask, fmt::sprintf("CAN RX%d", i).c_str(),
-                    configMINIMAL_STACK_SIZE, reinterpret_cast<void*>(i), 5,
-                    &canRxHandle);
+                    configMINIMAL_STACK_SIZE, reinterpret_cast<void*>(i),
+                    configMAX_PRIORITIES - 10, &canRxHandle);
     }
 
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
