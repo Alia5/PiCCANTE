@@ -151,10 +151,10 @@ void emulator::handle_pid_request(std::string_view command) {
         return;
     }
     current_request.request_start_time = pdTICKS_TO_MS(xTaskGetTickCount());
-    if (is_capability_request(current_request.service, current_request.pid) ||
-        expected_frames > 0) {
-        params.timeout = 500; // TODO:
-    }
+    // if (is_capability_request(current_request.service, current_request.pid) ||
+    //     expected_frames > 0) {
+    //     params.timeout = 500; // TODO:
+    // }
 
     is_waiting_for_response = true;
     processed_response = false;
@@ -213,6 +213,7 @@ void emulator::reset(bool settings, bool timeout) {
     if (timeout) {
         params.timeout = 1000;
         params.adaptive_timing = true;
+        average_response_time = 1000;
     }
     current_request = {0, 0, 0};
 }
@@ -221,56 +222,61 @@ void emulator::update_timeout(uint64_t now,
                               uint64_t response_time,
                               uint8_t service,
                               uint32_t pid) {
-    // if (is_capability_request(service, pid)) {
-    //     params.timeout = 1000;
-    // }
-    if (processed_response) {
-        // For successful responses, be more aggressive about lowering timeout
-        // Target: response_time + 20% margin
-        const uint32_t target_timeout = response_time * 1.2;
+    static uint64_t avg_response_time = 1000;
+    avg_response_time = (avg_response_time * 7 + response_time * 3) / 10;
 
-        // If target is significantly lower than current (more than 30% lower)
-        if (target_timeout < (params.timeout * 0.7)) {
-            // Drop faster - 50/50 weighted average
-            params.timeout = (params.timeout + target_timeout) / 2;
-        } else {
-            // Normal case - 70/30 weighted average
-            params.timeout = (params.timeout * 7 + target_timeout * 3) / 10;
-        }
-    } else {
-        // Timeout occurred - same as before
-        params.timeout = (params.timeout * 3) / 2;
-    }
+    uint64_t new_timeout = avg_response_time * 5;
 
-    // Enforce min/max bounds
-    params.timeout = std::min(std::max(params.timeout, uint32_t(min_timeout_ms)),
-                              uint32_t(max_timeout_ms));
+    new_timeout = std::max(new_timeout, min_timeout_ms);
+    new_timeout = std::min(new_timeout, max_timeout_ms);
 
+    params.timeout = new_timeout;
 
-    Log::debug << "ELM327: Timeout " << (processed_response ? "updated" : "increased")
-               << " to " << params.timeout << "ms for service "
-               << fmt::sprintf("0x%x", service) << " pid " << fmt::sprintf("0x%x", pid)
-               << "\n";
+    // Log::debug << "ELM327: Adjusted timeout to " << params.timeout
+    //            << "ms (avg response: " << avg_response_time << "ms)\n";
 }
+
 
 void emulator::check_for_timeout() {
     const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
-    const auto diff = now - current_request.request_start_time;
-    if (diff > params.timeout) {
-        if (!processed_response) {
-            Log::debug << "ELM327: Timeout after " << params.timeout
-                       << "ms waiting for response\n";
-            update_timeout(now, diff, current_request.service, current_request.pid);
+
+    // If we've received responses, use a short grace period to wait for more
+    if (received_frames > 0) {
+        // Short grace period (100ms) after last response to allow for other ECUs
+        if (now - last_response_time > 100) {
+            // We've received responses and waited a bit for more - done!
+            is_waiting_for_response = false;
+            expected_frames = 0;
+            received_frames = 0;
+
+            if (params.line_feed) {
+                out << "\n>";
+            } else {
+                out << "\r>";
+            }
+            out.flush();
+            return;
         }
-        is_waiting_for_response = false;
-        expected_frames = 0;
-        received_frames = 0;
-        if (params.line_feed) {
-            out << "\n>";
-        } else {
-            out << "\r>";
+    } else {
+        // No responses yet, check main timeout
+        const auto diff = now - current_request.request_start_time;
+        if (diff > params.timeout) {
+            if (!processed_response) {
+                Log::debug << "ELM327: Timeout after " << params.timeout
+                           << "ms waiting for response\n";
+                update_timeout(now, diff, current_request.service, current_request.pid);
+            }
+            is_waiting_for_response = false;
+            expected_frames = 0;
+            received_frames = 0;
+
+            if (params.line_feed) {
+                out << "\n>";
+            } else {
+                out << "\r>";
+            }
+            out.flush();
         }
-        out.flush();
     }
 }
 
@@ -305,11 +311,10 @@ void emulator::process_can_frame(const can2040_msg& frame) {
         processed_response = true;
         received_frames++;
 
-        if (params.adaptive_timing && expected_frames > 0) {
+        if (params.adaptive_timing && received_frames == 1) {
             const auto diff = now - current_request.request_start_time;
             update_timeout(now, diff, current_request.service, current_request.pid);
         }
-        current_request.request_start_time = now; // alow more frames to come through.
 
         if (expected_frames > 0 && received_frames >= expected_frames) {
             if (params.line_feed) {
@@ -321,6 +326,7 @@ void emulator::process_can_frame(const can2040_msg& frame) {
             expected_frames = 0;
             received_frames = 0;
         }
+        last_response_time = now;
     }
 
     std::string outBuff{};
@@ -403,21 +409,16 @@ void emulator::emulator_task(void* params) {
     std::vector<char> buff;
     buff.reserve(64);
     while (self->running) {
-        // while (xQueueReceive(self->response_queue,
-        //                      &frame,
-        //                      self->is_waiting_for_response ? 2 : 0) == pdPASS) {
-        //     self->process_can_frame(frame);
-        // }
-
-        while (xQueueReceive(self->cmd_rx_queue,
-                             &byte,
-                             self->is_waiting_for_response ? 0 : 2) == pdPASS) {
-            self->process_input_byte(byte, buff);
-        }
-        vTaskDelay(pdMS_TO_TICKS(2));
         if (self->is_waiting_for_response) {
             self->check_for_timeout();
         }
+        while (xQueueReceive(self->cmd_rx_queue,
+                             &byte,
+                             self->is_waiting_for_response ? 0 : pdMS_TO_TICKS(1)) ==
+               pdPASS) {
+            self->process_input_byte(byte, buff);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 

@@ -44,19 +44,8 @@ namespace piccante::elm327 {
 class emulator {
         public:
     explicit emulator(out::stream& out, QueueHandle_t queue, uint8_t bus = 0)
-        : out(out), cmd_rx_queue(queue), bus(bus) {
-        response_queue = xQueueCreate(RESPONSE_QUEUE_SIZE, RESPONSE_QUEUE_ITEM_SIZE);
-        if (!response_queue) {
-            Log::error << "ELM327: Failed to create response queue\n";
-        }
-    };
-    virtual ~emulator() {
-        stop();
-        if (response_queue) {
-            vQueueDelete(response_queue);
-            response_queue = nullptr;
-        }
-    };
+        : out(out), cmd_rx_queue(queue), bus(bus) {};
+    virtual ~emulator() { stop(); };
 
     emulator(const emulator&) = delete;
     emulator& operator=(const emulator&) = delete;
@@ -79,7 +68,7 @@ class emulator {
 
     constexpr static uint64_t min_timeout_ms = 5;
     constexpr static uint64_t max_timeout_ms = 2555;
-
+    uint32_t average_response_time = 1000;
 
         private:
     out::stream& out;
@@ -87,9 +76,7 @@ class emulator {
     uint8_t bus;
     std::string last_command;
 
-    QueueHandle_t response_queue;
-    constexpr static uint8_t RESPONSE_QUEUE_SIZE = 32;
-    constexpr static uint8_t RESPONSE_QUEUE_ITEM_SIZE = sizeof(can2040_msg);
+    uint64_t last_response_time = 0;
 
     uint8_t expected_frames = 0;
     uint8_t received_frames = 0;
@@ -107,18 +94,6 @@ class emulator {
         .use_extended_frames = false,
         .adaptive_timing = true,
     };
-
-    struct PidTimeoutData {
-        uint64_t avg_response_time;
-        uint8_t sample_count;
-        uint64_t last_update_time;
-    };
-
-    std::unordered_map<uint32_t, PidTimeoutData> pid_timing_history;
-
-    uint32_t make_pid_key(uint8_t service, uint32_t pid) {
-        return (static_cast<uint32_t>(service) << 24) | (pid & 0x00FFFFFF);
-    }
 
     elm327::at at_h{
         out, params,
@@ -140,34 +115,13 @@ class emulator {
     void update_timeout(uint64_t now, uint64_t response_time, uint8_t service,
                         uint32_t pid);
     void check_for_timeout();
-    void cleanup_pid_history(uint64_t now);
     void process_input_byte(uint8_t byte, std::vector<char>& buff);
     void process_can_frame(const can2040_msg& frame);
+    void update_response_stats(const can2040_msg& frame);
+    void check_response_completion();
+    void format_and_output_frame(const can2040_msg& frame, uint32_t id);
     void format_frame_output(const can2040_msg& frame, uint32_t id,
                              std::string& outBuff) const;
-
-
-    static inline bool is_capability_request(uint8_t service, uint32_t pid) {
-        // Service 01, PIDs 00, 20, 40, 60, 80, A0, C0, E0
-        if (service == 0x01 &&
-            (pid == 0x00 || pid == 0x20 || pid == 0x40 || pid == 0x60 || pid == 0x80 ||
-             pid == 0xA0 || pid == 0xC0 || pid == 0xE0)) {
-            return true;
-        }
-
-        // Service 09, PIDs 00, 20, 40, 60, 80, etc.
-        if (service == 0x09 && (pid % 0x20) == 0x00) {
-            return true;
-        }
-
-        // Service 02, PIDs 00, 20, 40, etc. (similar to 01)
-        if (service == 0x02 && (pid % 0x20) == 0x00) {
-            return true;
-        }
-
-        return false;
-    }
-
     inline std::string_view end_ok() {
         if (params.line_feed) {
             return "\rOK\r\n>";
