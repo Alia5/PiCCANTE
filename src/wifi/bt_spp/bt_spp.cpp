@@ -47,6 +47,8 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
 static void spp_bt_task(void* params);
 static constexpr int SPP_TX_QUEUE_SIZE = 256;
 static QueueHandle_t tx_queue = nullptr;
+static SemaphoreHandle_t bt_stack_mutex = nullptr;
+bool send_pending = false;
 
 } // namespace
 
@@ -76,7 +78,19 @@ class spp_sink : public out::base_sink {
         if (!running || rfcomm_channel_id == 0) {
             return;
         }
-        rfcomm_request_can_send_now_event(rfcomm_channel_id);
+        if (uxQueueMessagesWaiting(tx_queue) > 0 && !send_pending) {
+            if (xSemaphoreTake(bt_stack_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                send_pending = true; // Set the flag to indicate pending request
+                const auto status = rfcomm_request_can_send_now_event(rfcomm_channel_id);
+                if (status != ERROR_CODE_SUCCESS) {
+                    Log::error << "BT: Failed to request can send now event: " << status
+                               << "\n";
+                }
+                xSemaphoreGive(bt_stack_mutex);
+            } else {
+                Log::debug << "BT: Failed to take mutex for flush\n";
+            }
+        }
     }
 };
 
@@ -90,6 +104,14 @@ static uint16_t max_tx_size = 0;
 bool initialize() {
     if (running) {
         return true;
+    }
+
+    if (!bt_stack_mutex) {
+        bt_stack_mutex = xSemaphoreCreateMutex();
+        if (!bt_stack_mutex) {
+            Log::error << "Failed to create Bluetooth stack mutex\n";
+            return false;
+        }
     }
 
     // Create queue for received bytes
@@ -107,7 +129,6 @@ bool initialize() {
         rx_queue = nullptr;
         return false;
     }
-
 
     hci_event_callback_registration.callback = &packet_handler;
 
@@ -239,7 +260,56 @@ static void spp_bt_task(void* params) {
     vTaskDelete(NULL);
 }
 
-// Packet handler for Bluetooth events and data
+
+static void process_can_send_now() {
+    if (tx_queue == nullptr || !send_pending || rfcomm_channel_id == 0) {
+        send_pending = false;
+        return;
+    }
+
+    UBaseType_t queued_items = uxQueueMessagesWaiting(tx_queue);
+    if (queued_items == 0) {
+        send_pending = false;
+        return;
+    }
+
+    // Determine how many bytes to send
+    uint16_t bytes_to_send = std::min(queued_items, (UBaseType_t)max_tx_size);
+
+    // Create buffer for the data
+    std::vector<uint8_t> tx_packet_buffer(bytes_to_send);
+
+    // Fill buffer with data from queue
+    size_t actual_bytes = 0;
+    for (uint16_t i = 0; i < bytes_to_send; i++) {
+        if (xQueueReceive(tx_queue, &tx_packet_buffer[i], 0) != pdTRUE) {
+            break;
+        }
+        actual_bytes++;
+    }
+
+    // Send the data if we got any
+    if (actual_bytes > 0) {
+        rfcomm_send(rfcomm_channel_id, tx_packet_buffer.data(), actual_bytes);
+    }
+
+    // Check if we need to request another event
+    queued_items = uxQueueMessagesWaiting(tx_queue);
+    if (queued_items > 0 && rfcomm_channel_id != 0) {
+        // Small delay to prevent buffer collision
+        vTaskDelay(pdMS_TO_TICKS(5));
+
+        // Verify channel is still valid
+        if (rfcomm_channel_id != 0) {
+            rfcomm_request_can_send_now_event(rfcomm_channel_id);
+            // Keep send_pending true as we've requested another event
+            return;
+        }
+    }
+
+    // If we get here, we're done sending or can't send more
+    send_pending = false;
+}
 static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
                            uint16_t size) {
     (void)channel;
@@ -300,30 +370,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                     break;
 
                 case RFCOMM_EVENT_CAN_SEND_NOW:
-                    if (tx_queue != nullptr) {
-                        UBaseType_t queued_items = uxQueueMessagesWaiting(tx_queue);
-                        if (queued_items > 0) {
-                            uint16_t bytes_to_send =
-                                (queued_items > max_tx_size) ? max_tx_size : queued_items;
-
-                            std::vector<uint8_t> tx_packet_buffer(
-                                std::min(uint16_t(queued_items), max_tx_size));
-
-                            for (uint16_t i = 0; i < bytes_to_send; i++) {
-                                if (xQueueReceive(tx_queue, &tx_packet_buffer[i], 0) !=
-                                    pdTRUE) {
-                                    break;
-                                }
-                            }
-
-                            rfcomm_send(rfcomm_channel_id, tx_packet_buffer.data(),
-                                        bytes_to_send);
-
-                            if (uxQueueMessagesWaiting(tx_queue) > 0) {
-                                rfcomm_request_can_send_now_event(rfcomm_channel_id);
-                            }
-                        }
-                    }
+                    process_can_send_now();
                     break;
                 case RFCOMM_EVENT_CHANNEL_CLOSED:
                     Log::info << "Bluetooth RFCOMM channel closed\n";

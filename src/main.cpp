@@ -87,7 +87,7 @@ static std::unique_ptr<piccante::gvret::handler> gvret_handler = nullptr;
 static void can_recieveTask(void* parameter) {
     const auto bus = reinterpret_cast<int>(parameter);
     // Wait until can is up.
-    vTaskDelay(2000 + 100 * bus); // TODO
+    vTaskDelay(7000 + 100 * bus); // TODO
     const auto num_busses = piccante::can::get_num_busses();
 
     if (bus >= num_busses) {
