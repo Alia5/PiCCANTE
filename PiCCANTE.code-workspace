@@ -97,7 +97,8 @@
             "condition_variable": "cpp",
             "semaphore": "cpp",
             "stdfloat": "cpp",
-            "cfenv": "cpp"
+            "cfenv": "cpp",
+            "*.ipp": "cpp"
         },
         "cortex-debug.variableUseNaturalFormat": true
     }

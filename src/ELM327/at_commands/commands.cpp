@@ -103,7 +103,6 @@ void at::ATLx(const std::string_view cmd) {
 }
 
 void at::ATSH(const std::string_view cmd) {
-    Log::debug << "ELM327 ECU Address String: " << cmd.substr(0) << "\n";
     if (cmd.starts_with("0x")) {
         params.obd_header = hex::parse(cmd.substr(2));
     } else if (cmd.starts_with("0")) {
@@ -120,6 +119,7 @@ void at::ATSH(const std::string_view cmd) {
 }
 
 void at::ATSTx(const std::string_view cmd) {
+    Log::debug << "ATSTx: " << cmd << "\n";
     reset(false, true);
     auto timeout = hex::parse(cmd) * 4;
     if (timeout > 0) {
@@ -127,6 +127,7 @@ void at::ATSTx(const std::string_view cmd) {
     } else {
         params.timeout = 250;
     }
+    Log::debug << "ATSTx: timeout set to " << params.timeout << "\n";
     out << end_ok();
 }
 

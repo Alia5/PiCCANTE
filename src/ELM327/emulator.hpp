@@ -26,9 +26,11 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
-#include "semphr.h"
-
+extern "C" {
+#include <can2040.h>
+}
 #include "Logger/Logger.hpp"
+
 
 struct can2040_msg;
 
@@ -43,16 +45,16 @@ class emulator {
         public:
     explicit emulator(out::stream& out, QueueHandle_t queue, uint8_t bus = 0)
         : out(out), cmd_rx_queue(queue), bus(bus) {
-        state_mutex = xSemaphoreCreateMutex();
-        if (!state_mutex) {
-            Log::error << "ELM327: Failed to create mutex\n";
+        response_queue = xQueueCreate(RESPONSE_QUEUE_SIZE, RESPONSE_QUEUE_ITEM_SIZE);
+        if (!response_queue) {
+            Log::error << "ELM327: Failed to create response queue\n";
         }
     };
     virtual ~emulator() {
         stop();
-        if (state_mutex) {
-            vSemaphoreDelete(state_mutex);
-            state_mutex = nullptr;
+        if (response_queue) {
+            vQueueDelete(response_queue);
+            response_queue = nullptr;
         }
     };
 
@@ -75,21 +77,8 @@ class emulator {
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
     constexpr static std::string_view elm_id = "ELM327 v1.4"; // TODO:
 
-    constexpr static uint64_t min_timeout_ms = 40;
-    constexpr static uint64_t max_timeout_ms = 2500;
-    uint64_t average_response_time_ms = 1000;
-
-    constexpr static uint8_t SLOW_RESPONSE_WEIGHT =
-        4; // How much weight to give new slow responses
-    constexpr static uint8_t SLOW_RESPONSE_HISTORY_WEIGHT =
-        6; // Weight for history with slow responses
-    constexpr static uint8_t FAST_RESPONSE_WEIGHT =
-        2; // How much weight to give new fast responses
-    constexpr static uint8_t FAST_RESPONSE_HISTORY_WEIGHT =
-        20; // Weight for history with fast responses
-
-    constexpr static uint8_t TIMEOUT_SAFETY_FACTOR =
-        3; // Multiply avg response time by this
+    constexpr static uint64_t min_timeout_ms = 5;
+    constexpr static uint64_t max_timeout_ms = 1500;
 
 
         private:
@@ -98,12 +87,12 @@ class emulator {
     uint8_t bus;
     std::string last_command;
 
-    SemaphoreHandle_t state_mutex = nullptr;
+    QueueHandle_t response_queue;
+    constexpr static uint8_t RESPONSE_QUEUE_SIZE = 32;
+    constexpr static uint8_t RESPONSE_QUEUE_ITEM_SIZE = sizeof(can2040_msg);
 
     uint8_t expected_frames = 0;
     uint8_t received_frames = 0;
-    constexpr static uint8_t MULTI_FRAME_TIMEOUT_MULTIPLIER =
-        3; // Adjust based on testing
 
     elm327::settings params{
         .obd_header = obd2_11bit_broadcast,
@@ -119,6 +108,17 @@ class emulator {
         .adaptive_timing = true,
     };
 
+    struct PidTimeoutData {
+        uint64_t avg_response_time;
+        uint8_t sample_count;
+        uint64_t last_update_time;
+    };
+
+    std::unordered_map<uint32_t, PidTimeoutData> pid_timing_history;
+
+    uint32_t make_pid_key(uint8_t service, uint32_t pid) {
+        return (static_cast<uint32_t>(service) << 24) | (pid & 0x00FFFFFF);
+    }
 
     elm327::at at_h{
         out, params,
@@ -126,15 +126,25 @@ class emulator {
 
     bool is_waiting_for_response = false;
     bool processed_response = false;
-    uint64_t last_can_event_time = 0;
+    struct {
+        uint8_t service;
+        uint32_t pid;
+        uint64_t request_start_time;
+    } current_request;
 
     bool running = false;
     TaskHandle_t task_handle;
 
     void reset(bool settings, bool timeout);
 
-    void update_timeout(uint64_t now);
+    void update_timeout(uint64_t now, uint64_t response_time, uint8_t service,
+                        uint32_t pid);
     void check_for_timeout();
+    void cleanup_pid_history(uint64_t now);
+    void process_input_byte(uint8_t byte, std::vector<char>& buff);
+    void process_can_frame(const can2040_msg& frame);
+    void format_frame_output(const can2040_msg& frame, uint32_t id,
+                             std::string& outBuff) const;
 
     inline std::string_view end_ok() {
         if (params.line_feed) {
@@ -142,6 +152,7 @@ class emulator {
         }
         return "\rOK\r\r>";
     };
+
     static bool is_valid_hex(std::string_view str);
     static void emulator_task(void* params);
 };

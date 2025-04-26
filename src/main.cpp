@@ -70,7 +70,7 @@ static void usbDeviceTask(void* parameters) {
     for (;;) {
         tud_task();
         if (tud_suspended() || !tud_connected()) {
-            xTaskDelayUntil(&wake, piccanteIDLE_SLEEP_MS);
+            xTaskDelayUntil(&wake, 10);
         } else if (!tud_task_event_ready()) {
             xTaskDelayUntil(&wake, 1);
         }
@@ -109,10 +109,8 @@ static void can_recieveTask(void* parameter) {
         if (received) {
             piccante::led::blink();
             piccante::power::sleep::reset_idle_timer();
-
-
         } else {
-            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+            taskYIELD();
         }
     }
 }
@@ -214,7 +212,7 @@ static void cmd_gvret_task(void* parameter) {
         if (received) {
             taskYIELD();
         } else {
-            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 }
@@ -276,8 +274,8 @@ int main() {
 
         TaskHandle_t canRxHandle;
         xTaskCreate(can_recieveTask, fmt::sprintf("CAN RX%d", i).c_str(),
-                    configMINIMAL_STACK_SIZE, reinterpret_cast<void*>(i),
-                    configMAX_PRIORITIES - 7, &canRxHandle);
+                    configMINIMAL_STACK_SIZE, reinterpret_cast<void*>(i), 5,
+                    &canRxHandle);
     }
 
     static TaskHandle_t canTaskHandle = piccante::can::create_task();

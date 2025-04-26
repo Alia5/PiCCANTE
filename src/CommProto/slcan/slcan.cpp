@@ -394,10 +394,8 @@ void handler::task() {
                 buffer.push_back(c);
             }
         }
-        if (received) {
-            taskYIELD();
-        } else {
-            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+        if (!received) {
+            vTaskDelay(pdMS_TO_TICKS(1));
         }
     }
 }

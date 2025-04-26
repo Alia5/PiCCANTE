@@ -121,11 +121,6 @@ if(NOT DEFINED CAN2_TX_PIN)
     set(CAN2_TX_PIN 9)
 endif()
 
-if(NOT DEFINED IDLE_SLEEP_MS)
-    message(STATUS "IDLE_SLEEP_MS not defined, defaulting to 10")
-    set(IDLE_SLEEP_MS 10)
-endif()
-
 if(NOT DEFINED CAN_QUEUE_TIMEOUT_MS)
     message(STATUS "CAN_QUEUE_TIMEOUT_MS not defined, defaulting to 10")
     set(CAN_QUEUE_TIMEOUT_MS 10)

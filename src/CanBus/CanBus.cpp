@@ -330,9 +330,18 @@ void canTask(void* parameters) {
     for (;;) {
         bool did_tx = false;
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
-            while (xQueueReceive(can_queues[i].tx, &msg,
-                                 pdMS_TO_TICKS(CAN_IDLE_SLEEP_TIME_MS)) == pdTRUE) {
+            while (xQueueReceive(can_queues[i].tx, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
                 did_tx = true;
+                if (can2040_check_transmit(&(can_buses[i])) < 0) {
+                    taskYIELD();
+                    if (can2040_check_transmit(&(can_buses[i])) < 0) {
+                        // TODO:!
+                        Log::debug << "Waiting did not help...\n";
+                    } else {
+                        Log::debug
+                            << "Waiting for can succeeded, message can go through...";
+                    }
+                }
                 int res = can2040_transmit(&(can_buses[i]), &msg);
                 if (res < 0) {
                     Log::error << "CAN" << fmt::sprintf("%d", i)
@@ -340,9 +349,7 @@ void canTask(void* parameters) {
                 }
             }
         }
-        if (!did_tx) {
-            vTaskDelay(pdMS_TO_TICKS(1));
-        } else {
+        if (did_tx) {
             led::blink();
         }
     }
@@ -381,12 +388,14 @@ int send_can(uint8_t bus, can2040_msg& msg) {
 int receive(uint8_t bus, can2040_msg& msg) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        vTaskDelay(pdMS_TO_TICKS(10));
         return -1;
     }
     if (!settings.bus_config[bus].enabled) {
+        vTaskDelay(pdMS_TO_TICKS(10));
         return -1;
     }
-    if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
+    if (xQueueReceive(can_queues[bus].rx, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
         return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].rx);
     }
     return -1;
