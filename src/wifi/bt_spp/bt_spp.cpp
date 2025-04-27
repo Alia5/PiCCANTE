@@ -60,18 +60,26 @@ class spp_sink : public out::base_sink {
             return;
         }
 
+        if (len > 1 && uxQueueSpacesAvailable(tx_queue) >= len) {
+            for (size_t i = 0; i < len; i++) {
+                xQueueSendToBack(tx_queue, &data[i], 0);
+            }
+            flush();
+            return;
+        }
+
         for (size_t i = 0; i < len; i++) {
-            // Try to send with a timeout
-            if (xQueueSend(tx_queue, &data[i], pdMS_TO_TICKS(1)) != pdTRUE) {
+            if (xQueueSend(tx_queue, &data[i], 0) != pdTRUE) {
                 flush();
                 vTaskDelay(pdMS_TO_TICKS(1));
-                // Try again
-                if (xQueueSend(tx_queue, &data[i], pdMS_TO_TICKS(5)) != pdPASS) {
+                // Try again with a small timeout
+                if (xQueueSend(tx_queue, &data[i], pdMS_TO_TICKS(1)) != pdPASS) {
                     // Still failed, drop byte
                     Log::debug << "BT TX queue overflow, dropped byte\n";
                 }
             }
         }
+        flush();
     }
 
     void flush() override {
@@ -273,13 +281,9 @@ static void process_can_send_now() {
         return;
     }
 
-    // Determine how many bytes to send
     uint16_t bytes_to_send = std::min(queued_items, (UBaseType_t)max_tx_size);
+    static uint8_t tx_packet_buffer[TX_BUFFER_SIZE];
 
-    // Create buffer for the data
-    std::vector<uint8_t> tx_packet_buffer(bytes_to_send);
-
-    // Fill buffer with data from queue
     size_t actual_bytes = 0;
     for (uint16_t i = 0; i < bytes_to_send; i++) {
         if (xQueueReceive(tx_queue, &tx_packet_buffer[i], 0) != pdTRUE) {
@@ -288,21 +292,14 @@ static void process_can_send_now() {
         actual_bytes++;
     }
 
-    // Send the data if we got any
     if (actual_bytes > 0) {
-        rfcomm_send(rfcomm_channel_id, tx_packet_buffer.data(), actual_bytes);
+        rfcomm_send(rfcomm_channel_id, tx_packet_buffer, actual_bytes);
     }
 
-    // Check if we need to request another event
     queued_items = uxQueueMessagesWaiting(tx_queue);
     if (queued_items > 0 && rfcomm_channel_id != 0) {
-        // Small delay to prevent buffer collision
-        vTaskDelay(pdMS_TO_TICKS(5));
-
-        // Verify channel is still valid
         if (rfcomm_channel_id != 0) {
             rfcomm_request_can_send_now_event(rfcomm_channel_id);
-            // Keep send_pending true as we've requested another event
             return;
         }
     }
@@ -375,7 +372,8 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                 case RFCOMM_EVENT_CHANNEL_CLOSED:
                     Log::info << "Bluetooth RFCOMM channel closed\n";
                     rfcomm_channel_id = 0;
-                    // TODO: clean queue;
+                    xQueueReset(tx_queue);
+                    xQueueReset(rx_queue);
                     break;
 
                 default:

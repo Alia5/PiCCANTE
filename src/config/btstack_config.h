@@ -54,8 +54,12 @@
 #define MAX_NR_LE_DEVICE_DB_ENTRIES 16
 
 // Limit number of ACL/SCO Buffer to use by stack to avoid cyw43 shared bus overrun
-#define MAX_NR_CONTROLLER_ACL_BUFFERS 3
-#define MAX_NR_CONTROLLER_SCO_PACKETS 3
+#define MAX_NR_CONTROLLER_ACL_BUFFERS 4
+#define MAX_NR_CONTROLLER_SCO_PACKETS 4
+
+// RFCOMM optimizations for SPP throughput
+#define RFCOMM_CREDITS_INCREMENT 30 // More credits for flow control
+#define RFCOMM_FLOW_CONTROL_THRESHOLD 5
 
 // Enable and configure HCI Controller to Host Flow Control to avoid cyw43 shared bus
 // overrun

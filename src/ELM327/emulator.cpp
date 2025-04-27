@@ -39,12 +39,8 @@ bool emulator::start() {
 
 
     running = true;
-    BaseType_t res = xTaskCreate(emulator_task,
-                                 "ELM327 Emu",
-                                 configMINIMAL_STACK_SIZE,
-                                 this,
-                                 tskIDLE_PRIORITY + 5,
-                                 &task_handle);
+    BaseType_t res = xTaskCreate(
+        emulator_task, "ELM327 Emu", configMINIMAL_STACK_SIZE, this, 20, &task_handle);
 
     if (res != pdPASS) {
         running = false;
@@ -485,15 +481,17 @@ void emulator::emulator_task(void* params) {
     buff.reserve(64);
     while (self->running) {
         if (self->is_waiting_for_response) {
-            if (xSemaphoreTake(self->mtx, 0)) {
+            if (xSemaphoreTake(self->mtx, 0) == pdTRUE) {
                 self->check_for_timeout();
                 xSemaphoreGive(self->mtx);
             }
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(pdMS_TO_TICKS(1));
         } else {
-            if (xQueueReceive(self->cmd_rx_queue, &byte, pdMS_TO_TICKS(10)) == pdPASS) {
+            while (xQueueReceive(self->cmd_rx_queue, &byte, pdMS_TO_TICKS(10)) ==
+                   pdPASS) {
                 self->process_input_byte(byte, buff);
             }
+            vTaskDelay(pdMS_TO_TICKS(1));
         }
     }
 }

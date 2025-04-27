@@ -50,6 +50,7 @@ class emulator {
         if (mtx == nullptr) {
             Log::error << "ELM327: Failed to create mutex\n";
         };
+        outBuff.reserve(256);
     }
     virtual ~emulator() {
         stop();
