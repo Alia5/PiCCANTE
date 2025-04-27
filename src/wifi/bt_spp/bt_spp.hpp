@@ -23,13 +23,10 @@
 #include "outstream/stream.hpp"
 
 namespace piccante::bluetooth {
-bool initialize();
 void stop();
 bool is_running();
 QueueHandle_t get_rx_queue();
 out::base_sink& get_sink();
-out::sink_mux& mux_sink(std::initializer_list<out::base_sink*> sinks);
 TaskHandle_t create_task();
-bool reconfigure();
 
 } // namespace piccante::bluetooth

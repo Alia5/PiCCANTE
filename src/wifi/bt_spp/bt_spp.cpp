@@ -33,287 +33,255 @@ namespace piccante::bluetooth {
 namespace {
 constexpr uint8_t RFCOMM_SERVER_CHANNEL = 1;
 constexpr uint16_t SPP_RX_QUEUE_SIZE = 256;
-constexpr size_t TX_BUFFER_SIZE = 64;
+constexpr uint16_t SPP_TX_BUFFER_SIZE = 256;
+constexpr uint32_t THROUGHPUT_REPORT_INTERVAL_MS = 3000;
+constexpr uint8_t BT_REQUEST_QUEUE_SIZE = 10;
 
-static QueueHandle_t rx_queue = nullptr;
-static uint16_t rfcomm_channel_id = 0;
-static bool running = false;
-static uint8_t spp_service_buffer[150];
-static btstack_packet_callback_registration_t hci_event_callback_registration;
-static TaskHandle_t bt_task_handle = nullptr;
+enum class BtRequestType : uint8_t { REQUEST_CAN_SEND_NOW, DISCONNECT };
 
-static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
-                           uint16_t size);
-static void spp_bt_task(void* params);
-static constexpr int SPP_TX_QUEUE_SIZE = 256;
-static QueueHandle_t tx_queue = nullptr;
-static SemaphoreHandle_t bt_stack_mutex = nullptr;
-bool send_pending = false;
-
-} // namespace
-
-// Implementation of sink class for SPP output
-class spp_sink : public out::base_sink {
-        public:
-    void write(const char* data, std::size_t len) override {
-        if (!running || rfcomm_channel_id == 0) {
-            return;
-        }
-
-        if (len > 1 && uxQueueSpacesAvailable(tx_queue) >= len) {
-            for (size_t i = 0; i < len; i++) {
-                xQueueSendToBack(tx_queue, &data[i], 0);
-            }
-            flush();
-            return;
-        }
-
-        for (size_t i = 0; i < len; i++) {
-            if (xQueueSend(tx_queue, &data[i], 0) != pdTRUE) {
-                flush();
-                vTaskDelay(pdMS_TO_TICKS(1));
-                // Try again with a small timeout
-                if (xQueueSend(tx_queue, &data[i], pdMS_TO_TICKS(1)) != pdPASS) {
-                    // Still failed, drop byte
-                    Log::debug << "BT TX queue overflow, dropped byte\n";
-                }
-            }
-        }
-        flush();
-    }
-
-    void flush() override {
-        if (!running || rfcomm_channel_id == 0) {
-            return;
-        }
-        if (uxQueueMessagesWaiting(tx_queue) > 0 && !send_pending) {
-            if (xSemaphoreTake(bt_stack_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-                send_pending = true; // Set the flag to indicate pending request
-                const auto status = rfcomm_request_can_send_now_event(rfcomm_channel_id);
-                if (status != ERROR_CODE_SUCCESS) {
-                    Log::error << "BT: Failed to request can send now event: " << status
-                               << "\n";
-                }
-                xSemaphoreGive(bt_stack_mutex);
-            } else {
-                Log::debug << "BT: Failed to take mutex for flush\n";
-            }
-        }
-    }
+struct BtRequest {
+    BtRequestType type;
+    uint16_t rfcomm_cid;
 };
 
-// Static instance of the sink
-static spp_sink bluetooth_spp_sink;
-static out::sink_mux sink_muxxer;
-static bool spp_sink_added = false;
-static uint16_t max_tx_size = 0;
+SemaphoreHandle_t tx_buffer_mutex = nullptr;
+SemaphoreHandle_t state_mutex = nullptr;
 
-// Public API implementations
-bool initialize() {
-    if (running) {
-        return true;
-    }
+QueueHandle_t rx_queue = nullptr;
+QueueHandle_t bt_request_queue = nullptr;
+std::array<uint8_t, SPP_TX_BUFFER_SIZE> tx_buffer;
+uint16_t tx_buffer_size = 0;
 
-    if (!bt_stack_mutex) {
-        bt_stack_mutex = xSemaphoreCreateMutex();
-        if (!bt_stack_mutex) {
-            Log::error << "Failed to create Bluetooth stack mutex\n";
-            return false;
+uint16_t rfcomm_channel_id = 0;
+bool running = false;
+bool send_pending = false;
+std::array<uint8_t, 150> spp_service_buffer;
+btstack_packet_callback_registration_t hci_event_callback_registration;
+TaskHandle_t bt_task_handle = nullptr;
+
+uint32_t data_sent = 0;
+uint32_t data_received = 0;
+uint32_t last_throughput_time = 0;
+uint16_t max_frame_size = 0;
+
+btstack_context_callback_registration_t can_send_now_callback_registration;
+
+// Forward declarations
+void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
+                    uint16_t size);
+void process_can_send_now();
+void report_throughput(bool force = false);
+void bt_task(void* params);
+bool enqueue_bt_request(BtRequestType type, uint16_t rfcomm_cid);
+
+void request_can_send_now() {
+    send_pending = true;
+    if (rfcomm_channel_id != 0) {
+        if (!enqueue_bt_request(BtRequestType::REQUEST_CAN_SEND_NOW, rfcomm_channel_id)) {
+            Log::error << "BT: Failed to queue can-send-now request\n";
+            send_pending = false;
         }
+    } else {
+        send_pending = false;
     }
+}
 
-    // Create queue for received bytes
-    rx_queue = xQueueCreate(SPP_RX_QUEUE_SIZE, sizeof(uint8_t));
-    if (!rx_queue) {
-        Log::error << "Failed to create Bluetooth SPP RX queue\n";
+// Enqueue a BT request to be processed on the main BT thread
+bool enqueue_bt_request(BtRequestType type, uint16_t rfcomm_cid) {
+    if (!bt_request_queue) {
         return false;
     }
 
+    BtRequest request = {.type = type, .rfcomm_cid = rfcomm_cid};
 
-    tx_queue = xQueueCreate(SPP_TX_QUEUE_SIZE, sizeof(uint8_t));
-    if (!tx_queue) {
-        Log::error << "Failed to create Bluetooth SPP TX queue\n";
-        vQueueDelete(rx_queue);
-        rx_queue = nullptr;
-        return false;
-    }
-
-    hci_event_callback_registration.callback = &packet_handler;
-
-    // Don't call BTstack functions directly here - they'll be called from the task
-    running = true;
-    Log::info << "Bluetooth SPP initialized, starting task\n";
-
-    return true;
+    return xQueueSend(bt_request_queue, &request, pdMS_TO_TICKS(5)) == pdTRUE;
 }
 
-TaskHandle_t create_task() {
-    if (bt_task_handle != nullptr) {
-        return bt_task_handle;
-    }
-
-    // Create a task for Bluetooth operations
-    if (xTaskCreate(spp_bt_task, "BT SPP", configMINIMAL_STACK_SIZE, nullptr,
-                    configMAX_PRIORITIES - 8, &bt_task_handle) != pdPASS) {
-        Log::error << "Failed to create Bluetooth SPP task\n";
-        return nullptr;
-    }
-
-    return bt_task_handle;
+// Callback for can-send-now event to be executed in BTstack thread context
+void can_send_now_callback(void* context) {
+    uint16_t rfcomm_cid = *((uint16_t*)context);
+    rfcomm_request_can_send_now_event(rfcomm_cid);
 }
 
-void stop() {
-    if (!running) {
-        return;
-    }
-
-    // Stop the Bluetooth task
-    if (bt_task_handle != nullptr) {
-        vTaskDelete(bt_task_handle);
-        bt_task_handle = nullptr;
-    }
-
-    // Clean up resources
+void cleanup_resources() {
     if (rx_queue) {
         vQueueDelete(rx_queue);
         rx_queue = nullptr;
     }
 
-    if (tx_queue) {
-        vQueueDelete(tx_queue);
-        tx_queue = nullptr;
+    if (bt_request_queue) {
+        vQueueDelete(bt_request_queue);
+        bt_request_queue = nullptr;
     }
 
-    running = false;
-    Log::info << "Bluetooth SPP server stopped\n";
+    if (tx_buffer_mutex) {
+        vSemaphoreDelete(tx_buffer_mutex);
+        tx_buffer_mutex = nullptr;
+    }
+
+    if (state_mutex) {
+        vSemaphoreDelete(state_mutex);
+        state_mutex = nullptr;
+    }
 }
 
-bool is_running() { return running; }
-
-QueueHandle_t get_rx_queue() { return rx_queue; }
-
-out::base_sink& get_sink() { return bluetooth_spp_sink; }
-
-out::sink_mux& mux_sink(std::initializer_list<out::base_sink*> sinks) {
-    if (!spp_sink_added) {
-        sink_muxxer.add_sink(&bluetooth_spp_sink);
-        spp_sink_added = true;
+bool init_resources() {
+    // Create mutexes
+    tx_buffer_mutex = xSemaphoreCreateMutex();
+    if (!tx_buffer_mutex) {
+        Log::error << "Failed to create BT TX buffer mutex\n";
+        return false;
     }
 
-    for (auto* sink : sinks) {
-        sink_muxxer.add_sink(sink);
+    state_mutex = xSemaphoreCreateMutex();
+    if (!state_mutex) {
+        cleanup_resources();
+        Log::error << "Failed to create BT state mutex\n";
+        return false;
     }
 
-    return sink_muxxer;
-}
+    // Create queues
+    rx_queue = xQueueCreate(SPP_RX_QUEUE_SIZE, sizeof(uint8_t));
+    if (!rx_queue) {
+        cleanup_resources();
 
-bool reconfigure() {
-    if (!running) {
-        return initialize();
+        Log::error << "Failed to create BT RX queue\n";
+        return false;
     }
+
+    bt_request_queue = xQueueCreate(BT_REQUEST_QUEUE_SIZE, sizeof(BtRequest));
+    if (!bt_request_queue) {
+        cleanup_resources();
+        Log::error << "Failed to create BT request queue\n";
+        return false;
+    }
+
+    tx_buffer_size = 0;
+    send_pending = false;
+    rfcomm_channel_id = 0;
+    data_sent = 0;
+    data_received = 0;
+
+    running = true;
     return true;
 }
 
-namespace {
-
-// Bluetooth task - handles initialization and events
-static void spp_bt_task(void* params) {
-    (void)params;
-
-    Log::info << "Starting Bluetooth SPP task\n";
-
-    // Wait a bit for the system to stabilize
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    initialize();
-
-    // Register for HCI events - AFTER hci_init
-    hci_add_event_handler(&hci_event_callback_registration);
-
-    // Initialize L2CAP
+void init() {
     l2cap_init();
 
 #ifdef ENABLE_BLE
-    // Initialize LE Security Manager (needed for cross-transport key derivation)
     sm_init();
 #endif
 
-    // Initialize RFCOMM
     rfcomm_init();
     rfcomm_register_service(packet_handler, RFCOMM_SERVER_CHANNEL, 0xffff);
 
-    // Initialize SDP and create SPP service record
     sdp_init();
-    memset(spp_service_buffer, 0, sizeof(spp_service_buffer));
-    spp_create_sdp_record(spp_service_buffer, sdp_create_service_record_handle(),
+    spp_create_sdp_record(spp_service_buffer.data(), sdp_create_service_record_handle(),
                           RFCOMM_SERVER_CHANNEL, "PiCCANTE SPP");
-    sdp_register_service(spp_service_buffer);
+    sdp_register_service(spp_service_buffer.data());
 
-    // Set device as discoverable and enable SSP
+    hci_event_callback_registration.callback = &packet_handler;
+    hci_add_event_handler(&hci_event_callback_registration);
+
     gap_discoverable_control(1);
     gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
     gap_set_local_name("PiCCANTE SPP");
 
-    // Turn on Bluetooth
     hci_power_control(HCI_POWER_ON);
 
-    Log::info << "Bluetooth SPP initialization complete\n";
+    last_throughput_time = btstack_run_loop_get_time_ms();
 
-    // Enter the BTstack run loop - this never returns
-    btstack_run_loop_execute();
-
-    // If we somehow exit the run loop, clean up
-    Log::error << "Bluetooth SPP run loop exited unexpectedly\n";
-    running = false;
-    vTaskDelete(NULL);
+    Log::info << "Bluetooth SPP stack initialized\n";
 }
 
-
-static void process_can_send_now() {
-    if (tx_queue == nullptr || !send_pending || rfcomm_channel_id == 0) {
-        send_pending = false;
-        return;
-    }
-
-    UBaseType_t queued_items = uxQueueMessagesWaiting(tx_queue);
-    if (queued_items == 0) {
-        send_pending = false;
-        return;
-    }
-
-    uint16_t bytes_to_send = std::min(queued_items, (UBaseType_t)max_tx_size);
-    static uint8_t tx_packet_buffer[TX_BUFFER_SIZE];
-
-    size_t actual_bytes = 0;
-    for (uint16_t i = 0; i < bytes_to_send; i++) {
-        if (xQueueReceive(tx_queue, &tx_packet_buffer[i], 0) != pdTRUE) {
-            break;
-        }
-        actual_bytes++;
-    }
-
-    if (actual_bytes > 0) {
-        rfcomm_send(rfcomm_channel_id, tx_packet_buffer, actual_bytes);
-    }
-
-    queued_items = uxQueueMessagesWaiting(tx_queue);
-    if (queued_items > 0 && rfcomm_channel_id != 0) {
-        if (rfcomm_channel_id != 0) {
-            rfcomm_request_can_send_now_event(rfcomm_channel_id);
+class spp_sink : public out::base_sink {
+        public:
+    void write(const char* data, std::size_t len) override {
+        if (xSemaphoreTake(tx_buffer_mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
+            Log::debug << "BT: Failed to take TX mutex\n";
             return;
         }
+
+        std::memcpy(tx_buffer.data() + tx_buffer_size, data, len);
+        tx_buffer_size += len;
+
+        xSemaphoreGive(tx_buffer_mutex);
     }
 
-    // If we get here, we're done sending or can't send more
-    send_pending = false;
+    void flush() override {
+        if (!send_pending) {
+            request_can_send_now();
+        }
+    }
+};
+spp_sink bluetooth_spp_sink;
+
+
+void process_can_send_now() {
+    if (!running || rfcomm_channel_id == 0 || !send_pending) {
+        send_pending = false;
+        return;
+    }
+
+    if (xSemaphoreTake(tx_buffer_mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
+        Log::error << "BT: Failed to take TX mutex\n";
+        return;
+    }
+
+    if (tx_buffer_size > 0) {
+        uint16_t bytes_to_send =
+            tx_buffer_size > max_frame_size ? max_frame_size : tx_buffer_size;
+
+        uint8_t status = rfcomm_send(rfcomm_channel_id, tx_buffer.data(), bytes_to_send);
+
+        if (status == ERROR_CODE_SUCCESS) {
+            data_sent += bytes_to_send;
+            std::memmove(tx_buffer.data(), tx_buffer.data() + bytes_to_send,
+                         tx_buffer_size - bytes_to_send);
+            tx_buffer_size -= bytes_to_send;
+            report_throughput();
+        } else {
+            Log::error << "BT send error: " << status << "\n";
+        }
+    }
+
+    if (tx_buffer_size > 0) {
+        request_can_send_now();
+    } else {
+        send_pending = false;
+    }
+
+    xSemaphoreGive(tx_buffer_mutex);
 }
-static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
-                           uint16_t size) {
+
+void report_throughput(bool force) {
+    const uint32_t now = btstack_run_loop_get_time_ms();
+    const uint32_t time_passed = now - last_throughput_time;
+
+    if (force || time_passed >= THROUGHPUT_REPORT_INTERVAL_MS) {
+        if (data_sent > 0 || data_received > 0) {
+            const int tx_bytes_per_second = data_sent * 1000 / time_passed;
+            const int rx_bytes_per_second = data_received * 1000 / time_passed;
+
+            Log::debug << "BT Throughput - TX: " << (tx_bytes_per_second / 1000) << "."
+                       << (tx_bytes_per_second % 1000)
+                       << " kB/s, RX: " << (rx_bytes_per_second / 1000) << "."
+                       << (rx_bytes_per_second % 1000) << " kB/s\n";
+        }
+
+        last_throughput_time = now;
+        data_sent = 0;
+        data_received = 0;
+    }
+}
+
+void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
+                    uint16_t size) {
     (void)channel;
 
     bd_addr_t event_addr;
     uint8_t rfcomm_channel_nr;
-    uint16_t mtu;
 
     switch (packet_type) {
         case HCI_EVENT_PACKET:
@@ -334,6 +302,8 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                 case HCI_EVENT_USER_CONFIRMATION_REQUEST:
                     // Auto-accept SSP confirmation
                     Log::debug << "Bluetooth SSP User Confirmation Auto accept\n";
+                    // Note: Not calling gap_user_confirmation_response since it doesn't
+                    // exist
                     break;
 
                 case RFCOMM_EVENT_INCOMING_CONNECTION:
@@ -341,10 +311,13 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                     rfcomm_event_incoming_connection_get_bd_addr(packet, event_addr);
                     rfcomm_channel_nr =
                         rfcomm_event_incoming_connection_get_server_channel(packet);
+
                     rfcomm_channel_id =
                         rfcomm_event_incoming_connection_get_rfcomm_cid(packet);
+
                     Log::debug << "Bluetooth RFCOMM channel "
                                << static_cast<int>(rfcomm_channel_nr) << " requested\n";
+
                     rfcomm_accept_connection(rfcomm_channel_id);
                     break;
 
@@ -356,24 +329,52 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                                    << "\n";
                         rfcomm_channel_id = 0;
                     } else {
-                        rfcomm_channel_id =
-                            rfcomm_event_channel_opened_get_rfcomm_cid(packet);
-                        mtu = rfcomm_event_channel_opened_get_max_frame_size(packet);
-                        max_tx_size = mtu;
-                        Log::info << "Bluetooth RFCOMM channel opened. Channel ID "
-                                  << rfcomm_channel_id << ", max frame size " << mtu
-                                  << "\n";
+                        if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                            rfcomm_channel_id =
+                                rfcomm_event_channel_opened_get_rfcomm_cid(packet);
+                            max_frame_size =
+                                rfcomm_event_channel_opened_get_max_frame_size(packet);
+
+                            last_throughput_time = btstack_run_loop_get_time_ms();
+                            data_sent = 0;
+                            data_received = 0;
+
+                            xSemaphoreGive(state_mutex);
+                        }
+
+                        Log::info
+                            << "Bluetooth RFCOMM channel opened. Channel ID "
+                            << rfcomm_event_channel_opened_get_rfcomm_cid(packet)
+                            << ", max frame size "
+                            << rfcomm_event_channel_opened_get_max_frame_size(packet)
+                            << "\n";
+                        gap_discoverable_control(0);
                     }
                     break;
 
                 case RFCOMM_EVENT_CAN_SEND_NOW:
                     process_can_send_now();
                     break;
+
                 case RFCOMM_EVENT_CHANNEL_CLOSED:
                     Log::info << "Bluetooth RFCOMM channel closed\n";
-                    rfcomm_channel_id = 0;
-                    xQueueReset(tx_queue);
-                    xQueueReset(rx_queue);
+                    if (xSemaphoreTake(state_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                        rfcomm_channel_id = 0;
+                        send_pending = false;
+                        xSemaphoreGive(state_mutex);
+                    }
+
+                    if (xSemaphoreTake(tx_buffer_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                        tx_buffer_size = 0;
+                        xSemaphoreGive(tx_buffer_mutex);
+                    }
+
+                    if (rx_queue) {
+                        xQueueReset(rx_queue);
+                    }
+
+                    report_throughput(true);
+                    gap_discoverable_control(1);
                     break;
 
                 default:
@@ -382,14 +383,23 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
             break;
 
         case RFCOMM_DATA_PACKET:
-            // Process received data
-            for (uint16_t i = 0; i < size; i++) {
-                // Add to rx queue
-                if (rx_queue) {
+            data_received += size;
+
+            if (rx_queue) {
+                for (uint16_t i = 0; i < size; i++) {
+                    // Add to rx queue
                     uint8_t byte = packet[i];
-                    xQueueSend(rx_queue, &byte, 0);
+                    BaseType_t result = xQueueSend(rx_queue, &byte, 0);
+                    if (result != pdTRUE) {
+                        // Queue full - discard oldest byte and try again
+                        uint8_t dummy;
+                        xQueueReceive(rx_queue, &dummy, 0);
+                        xQueueSend(rx_queue, &byte, 0);
+                    }
                 }
             }
+
+            report_throughput();
             break;
 
         default:
@@ -397,6 +407,96 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
     }
 }
 
-} // anonymous namespace
+void bt_task(void* params) {
+    (void)params;
+
+    Log::info << "Starting Bluetooth SPP task\n";
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    if (!init_resources()) {
+        Log::error << "Failed to initialize Bluetooth resources\n";
+        vTaskDelete(NULL);
+        return;
+    }
+
+    init();
+
+    // Main task loop - process BT requests
+    // The CYW43 driver handles the BTstack run loop with CYW43_ENABLE_BLUETOOTH=1
+    BtRequest request;
+    uint16_t rfcomm_cid_context;
+    while (running) {
+        while (xQueueReceive(bt_request_queue, &request, pdMS_TO_TICKS(5)) == pdTRUE) {
+            switch (request.type) {
+                case BtRequestType::REQUEST_CAN_SEND_NOW:
+                    rfcomm_cid_context = request.rfcomm_cid;
+                    can_send_now_callback_registration.callback = &can_send_now_callback;
+                    can_send_now_callback_registration.context = &rfcomm_cid_context;
+                    btstack_run_loop_execute_on_main_thread(
+                        &can_send_now_callback_registration);
+                    // rfcomm_request_can_send_now_event(request.rfcomm_cid);
+                    break;
+                case BtRequestType::DISCONNECT:
+                    if (request.rfcomm_cid != 0) {
+                        rfcomm_disconnect(request.rfcomm_cid);
+                    }
+                    break;
+            }
+        }
+    }
+
+    if (rfcomm_channel_id != 0) {
+        rfcomm_disconnect(rfcomm_channel_id);
+    }
+
+    hci_power_control(HCI_POWER_OFF);
+
+    Log::info << "Bluetooth SPP task exiting\n";
+    cleanup_resources();
+    vTaskDelete(NULL);
+}
+
+} // namespace
+
+TaskHandle_t create_task() {
+    if (bt_task_handle != nullptr) {
+        return bt_task_handle;
+    }
+
+    if (xTaskCreate(bt_task, "BT Task", configMINIMAL_STACK_SIZE, nullptr,
+                    configMAX_PRIORITIES - 8, &bt_task_handle) != pdPASS) {
+        Log::error << "Failed to create Bluetooth task\n";
+        return nullptr;
+    }
+
+    // Set core affinity to match cyw43 driver // TODO: needed?
+    vTaskCoreAffinitySet(bt_task_handle, 0x01);
+
+    return bt_task_handle;
+}
+
+void stop() {
+    if (!running) {
+        return;
+    }
+
+    running = false;
+
+    vTaskDelay(pdMS_TO_TICKS(300));
+
+    if (bt_task_handle != nullptr) {
+        vTaskDelete(bt_task_handle);
+        bt_task_handle = nullptr;
+    }
+
+    Log::info << "Bluetooth SPP server stopped\n";
+}
+
+bool is_running() { return running; }
+
+QueueHandle_t get_rx_queue() { return rx_queue; }
+
+out::base_sink& get_sink() { return bluetooth_spp_sink; }
 
 } // namespace piccante::bluetooth
