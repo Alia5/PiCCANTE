@@ -70,7 +70,6 @@ btstack_context_callback_registration_t can_send_now_callback_registration;
 void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
                     uint16_t size);
 void process_can_send_now();
-void report_throughput(bool force = false);
 void bt_task(void* params);
 bool enqueue_bt_request(BtRequestType type, uint16_t rfcomm_cid);
 
@@ -240,7 +239,6 @@ void process_can_send_now() {
             std::memmove(tx_buffer.data(), tx_buffer.data() + bytes_to_send,
                          tx_buffer_size - bytes_to_send);
             tx_buffer_size -= bytes_to_send;
-            report_throughput();
         } else {
             Log::error << "BT send error: " << status << "\n";
         }
@@ -255,27 +253,6 @@ void process_can_send_now() {
     }
 
     xSemaphoreGive(tx_buffer_mutex);
-}
-
-void report_throughput(bool force) {
-    const uint32_t now = btstack_run_loop_get_time_ms();
-    const uint32_t time_passed = now - last_throughput_time;
-
-    if (force || time_passed >= THROUGHPUT_REPORT_INTERVAL_MS) {
-        if (data_sent > 0 || data_received > 0) {
-            const int tx_bytes_per_second = data_sent * 1000 / time_passed;
-            const int rx_bytes_per_second = data_received * 1000 / time_passed;
-
-            Log::debug << "BT Throughput - TX: " << (tx_bytes_per_second / 1000) << "."
-                       << (tx_bytes_per_second % 1000)
-                       << " kB/s, RX: " << (rx_bytes_per_second / 1000) << "."
-                       << (rx_bytes_per_second % 1000) << " kB/s\n";
-        }
-
-        last_throughput_time = now;
-        data_sent = 0;
-        data_received = 0;
-    }
 }
 
 void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
@@ -375,7 +352,6 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
                         xQueueReset(rx_queue);
                     }
 
-                    report_throughput(true);
                     gap_discoverable_control(1);
                     break;
 
@@ -400,8 +376,6 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
                     }
                 }
             }
-
-            report_throughput();
             break;
 
         default:
@@ -466,14 +440,14 @@ TaskHandle_t create_task() {
         return bt_task_handle;
     }
 
-    if (xTaskCreate(bt_task, "BT Task", configMINIMAL_STACK_SIZE, nullptr,
-                    configMAX_PRIORITIES - 8, &bt_task_handle) != pdPASS) {
+    if (xTaskCreate(bt_task, "BT Task", configMINIMAL_STACK_SIZE, nullptr, 7,
+                    &bt_task_handle) != pdPASS) {
         Log::error << "Failed to create Bluetooth task\n";
         return nullptr;
     }
 
-    // Set core affinity to match cyw43 driver // TODO: needed?
-    vTaskCoreAffinitySet(bt_task_handle, 0x01);
+    // // Set core affinity to match cyw43 driver // TODO: needed?
+    // vTaskCoreAffinitySet(bt_task_handle, 0x01);
 
     return bt_task_handle;
 }
