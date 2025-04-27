@@ -80,13 +80,15 @@ class emulator {
 
     constexpr static uint64_t min_timeout_ms = 5;
     constexpr static uint64_t max_timeout_ms = 2555;
-    uint32_t average_response_time = 1000;
+    uint32_t average_response_time = 500;
 
         private:
     out::stream& out;
     QueueHandle_t cmd_rx_queue;
     uint8_t bus;
     std::string last_command;
+    std::string outBuff{};
+
 
     SemaphoreHandle_t mtx = nullptr;
 
@@ -97,9 +99,9 @@ class emulator {
 
     elm327::settings params{
         .obd_header = obd2_11bit_broadcast,
-        .timeout = 250,
+        .timeout = 500,
         .line_feed = false,
-        .echo = false,
+        .echo = true,
         .white_spaces = true,
         .dlc = false,
         .monitor_mode = false,
@@ -135,9 +137,9 @@ class emulator {
                              std::string& outBuff) const;
     inline std::string_view end_ok() {
         if (params.line_feed) {
-            return "\rOK\r\n>";
+            return "OK\r\n>";
         }
-        return "\rOK\r\r>";
+        return "OK\r\r>";
     };
 
     static inline bool is_valid_hex(std::string_view str) {

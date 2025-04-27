@@ -162,9 +162,8 @@ void emulator::handle_pid_request(std::string_view command) {
         is_waiting_for_response = false;
         return;
     }
-    out << "\r";
 
-    Log::debug << "ELM327: PID Request: " << command << "\n";
+    // Log::debug << "ELM327: PID Request: " << command << "\n";
 }
 
 
@@ -193,9 +192,6 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
     }
 
     process_can_frame(frame);
-    // if (xQueueSend(response_queue, &frame, 0) != pdTRUE) {
-    //     Log::error << "ELM327: Failed to enqueue CAN frame\n";
-    // }
     xSemaphoreGive(mtx);
 }
 
@@ -205,7 +201,7 @@ void emulator::reset(bool settings, bool timeout) {
             .obd_header = obd2_11bit_broadcast,
             .timeout = 250,
             .line_feed = false,
-            .echo = false,
+            .echo = true,
             .white_spaces = true,
             .dlc = false,
             .monitor_mode = false,
@@ -216,9 +212,9 @@ void emulator::reset(bool settings, bool timeout) {
         };
     }
     if (timeout) {
-        params.timeout = 1000;
+        params.timeout = 500;
         params.adaptive_timing = true;
-        average_response_time = 1000;
+        average_response_time = 500;
     }
     current_request = {0, 0, 0};
 }
@@ -230,7 +226,7 @@ void emulator::update_timeout(uint64_t now,
     static uint64_t avg_response_time = 1000;
     avg_response_time = (avg_response_time * 7 + response_time * 3) / 10;
 
-    uint64_t new_timeout = avg_response_time * 3;
+    uint64_t new_timeout = avg_response_time * 4;
 
     new_timeout = std::max(new_timeout, min_timeout_ms);
     new_timeout = std::min(new_timeout, max_timeout_ms);
@@ -251,7 +247,18 @@ void emulator::check_for_timeout() {
     // If we've received responses, use a short grace period to wait for more
     if (received_frames > 0) {
         // Short grace period (150ms) after last response to allow for other ECUs
-        if (now - last_response_time > 150) {
+        if (now - last_response_time > 250) {
+            Log::debug << "Grace Period expired, stopping waiting for response\n";
+            Log::debug << "Requeststart " << current_request.request_start_time
+                       << ", last_response_time: " << last_response_time
+                       << ", now: " << now
+                       << ", Received Frames: " << uint32_t(received_frames)
+                       << ", Expected Frames: " << uint32_t(expected_frames) << "\n";
+            Log::debug << "Service: " << fmt::sprintf("%02X", current_request.service)
+                       << ", PID: " << fmt::sprintf("%04X", current_request.pid) << "\n";
+            Log::debug << "Timeout: " << params.timeout << "\n";
+            Log::debug << "Last command: " << last_command << "\n\n";
+
             // We've received responses and waited a bit for more - done!
             is_waiting_for_response = false;
             expected_frames = 0;
@@ -263,7 +270,6 @@ void emulator::check_for_timeout() {
                 out << "\r>";
             }
             out.flush();
-            Log::debug << "Grace Period expired, stopping waiting for response\n";
             return;
         }
     } else {
@@ -273,6 +279,9 @@ void emulator::check_for_timeout() {
             if (!processed_response) {
                 Log::debug << "ELM327: Timeout after " << params.timeout
                            << "ms waiting for response\n";
+                Log::debug << "Service: " << fmt::sprintf("%02X", current_request.service)
+                           << ", PID: " << fmt::sprintf("%04X", current_request.pid)
+                           << "\n";
                 update_timeout(now, diff, current_request.service, current_request.pid);
             }
             is_waiting_for_response = false;
@@ -314,10 +323,9 @@ void emulator::process_can_frame(const can2040_msg& frame) {
     auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
 
-    std::string outBuff{};
     format_frame_output(frame, id, outBuff);
     out << outBuff;
-    Log::debug << "ELM327: CAN Frame: " << outBuff << "\n";
+    // Log::debug << "ELM327: CAN Frame: " << outBuff << "\n";
 
     if (!params.monitor_mode) {
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
@@ -340,7 +348,7 @@ void emulator::process_can_frame(const can2040_msg& frame) {
             is_waiting_for_response = false;
             expected_frames = 0;
             received_frames = 0;
-            Log::debug << "ELM327: Received all expected frames\n";
+            // Log::debug << "ELM327: Received all expected frames\n";
         }
     }
     out.flush();
@@ -349,25 +357,41 @@ void emulator::process_can_frame(const can2040_msg& frame) {
 void emulator::format_frame_output(const can2040_msg& frame,
                                    uint32_t id,
                                    std::string& outBuff) const {
-    // Max size: 8 bytes for header + 1 for space + 2 for DLC + 1 for space +
-    // (frame.data[0] * 3) for data bytes and spaces + 1 for \r
     outBuff.clear();
-    outBuff.reserve(11 + (frame.data[0] * 3));
+    const auto is_multi_frame = (frame.data[0] >= 0x10);
+    if (is_multi_frame) {
+        // first byte is "0x10" for every first multi
+        // next frame first byte is 21 for second frame 22 for third and so on.
+        // second byte is number of data bytes (frist frame only)
+        // third is service+0x40
+        // fourth is PID
+        // rest are data bytes
 
+        if (!params.print_headers) {
+            if (frame.data[0] == 0x10) { // first frame?
+                // print the second nibble of the first
+                // byte and the second byte
+                outBuff.push_back(HEX_CHARS[(frame.data[0]) & 0xF]);
+                outBuff.push_back(HEX_CHARS[(frame.data[1] >> 4) & 0xF]);
+                outBuff.push_back(HEX_CHARS[(frame.data[1]) & 0xF]);
+                outBuff.push_back('\r');
+            }
+            // print sequence number
+            outBuff.push_back(HEX_CHARS[frame.data[0] & 0xF]);
+            outBuff.push_back(':');
+            outBuff.push_back(' ');
+        }
+
+        // continue with the rest of the frame
+    }
 
     if (params.print_headers) {
         if (params.use_extended_frames) {
-            char header[7];
-            header[0] = HEX_CHARS[(id >> 20) & 0xF];
-            header[1] = HEX_CHARS[(id >> 16) & 0xF];
-            header[2] = HEX_CHARS[(id >> 12) & 0xF];
-            header[3] = HEX_CHARS[(id >> 8) & 0xF];
-            header[4] = HEX_CHARS[(id >> 4) & 0xF];
-            header[5] = HEX_CHARS[id & 0xF];
-            header[6] = '\0';
-            outBuff.append(header);
-            if (params.white_spaces) {
-                outBuff.push_back(' ');
+            for (int i = 7; i >= 0; i--) {
+                outBuff.push_back(HEX_CHARS[(id >> (i * 4)) & 0xF]);
+                if (params.white_spaces && i % 2 == 0) {
+                    outBuff.push_back(' ');
+                }
             }
         } else {
             char header[4];
@@ -380,22 +404,40 @@ void emulator::format_frame_output(const can2040_msg& frame,
                 outBuff.push_back(' ');
             }
         }
+        if (!is_multi_frame) {
+            // When headers are enabled, always output the DLC as a 2-digit hex value
+            // China ELM v1.5 (lol) does seem to do this... ¯\_(ツ)_/¯
+            outBuff.push_back(HEX_CHARS[(frame.dlc >> 4) & 0xF]);
+            outBuff.push_back(HEX_CHARS[frame.dlc & 0xF]);
+
+            if (params.white_spaces) {
+                outBuff.push_back(' ');
+            }
+        }
     }
 
-    if (params.dlc) {
+
+    if (!params.print_headers && !is_multi_frame && params.dlc) {
         outBuff.push_back(HEX_CHARS[frame.data[0] & 0xF]);
+
         if (params.white_spaces) {
             outBuff.push_back(' ');
         }
     }
 
+    const auto from = is_multi_frame                                                 //
+                          ? frame.data[0] == 0x10 ? params.print_headers ? 0 : 2 : 0 //
+                          : 1;
+    const auto to = is_multi_frame  //
+                        ? frame.dlc //
+                        : std::min(frame.data[0] + 1, (int)frame.dlc);
 
-    for (size_t i = 0; i < frame.data[0] && i < frame.dlc; i++) {
-        uint8_t byte = frame.data[1 + i];
+    for (size_t i = from; i < to; i++) {
+        const uint8_t byte = frame.data[i];
         outBuff.push_back(HEX_CHARS[(byte >> 4) & 0xF]);
         outBuff.push_back(HEX_CHARS[byte & 0xF]);
 
-        if (params.white_spaces && i < frame.data[0] - 1 && i < frame.dlc - 1) {
+        if (params.white_spaces && i < to - 1) {
             outBuff.push_back(' ');
         }
     }

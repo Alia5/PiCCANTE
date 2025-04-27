@@ -48,10 +48,10 @@ namespace {
 // TODO: gather proto via extended flag and bus speed.
 char current_proto = '6';
 std::unordered_map<char, std::string_view> proto_map = {
-    {'6', "can11/500k"},
-    {'7', "can29/500k"},
-    {'8', "can11/250k"},
-    {'9', "can29/250k"},
+    {'6', "ISO 15765-4 (CAN 11/500)"},
+    {'7', "ISO 15765-4 (CAN 29/500)"},
+    {'8', "ISO 15765-4 (CAN 11/250)"},
+    {'9', "ISO 15765-4 (CAN 29/250)"},
 };
 } // namespace
 
