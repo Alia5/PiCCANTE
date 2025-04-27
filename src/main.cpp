@@ -110,8 +110,6 @@ static void can_recieveTask(void* parameter) {
         if (received) {
             piccante::led::blink();
             piccante::power::sleep::reset_idle_timer();
-        } else {
-            taskYIELD();
         }
     }
 }
