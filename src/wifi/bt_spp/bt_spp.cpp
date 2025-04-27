@@ -247,7 +247,9 @@ void process_can_send_now() {
     }
 
     if (tx_buffer_size > 0) {
+        xSemaphoreGive(tx_buffer_mutex);
         request_can_send_now();
+        return;
     } else {
         send_pending = false;
     }

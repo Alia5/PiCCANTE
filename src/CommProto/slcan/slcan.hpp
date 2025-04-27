@@ -73,7 +73,7 @@ class handler {
         : host_out(out_stream), read_itf(read_itf), bus(bus_num) {};
     virtual ~handler() = default;
 
-    TaskHandle_t& create_task(UBaseType_t priority = configMAX_PRIORITIES - 15);
+    TaskHandle_t& create_task(UBaseType_t priority = tskIDLE_PRIORITY + 3);
 
     void handle_short_cmd(char cmd);
     void handle_long_cmd(const std::string_view& cmd);
