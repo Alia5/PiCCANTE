@@ -31,6 +31,10 @@
 #include "queue.h"
 #include "pico/multicore.h"
 
+#ifdef WIFI_ENABLED
+#include "pico/cyw43_arch.h"
+#endif
+
 
 #include "fs/littlefs_driver.hpp"
 #include "lfs.h"
@@ -250,7 +254,37 @@ std::vector<AdcStats> get_adc_stats() {
                        .name = "ADC2",
                        .unit = "V"});
 
-    // ADC3 (GPIO29) - Connected to VSYS/3
+// ADC3 (GPIO29) - Connected to VSYS/3
+#ifdef WIFI_ENABLED
+    // This is a Pico W with WiFi/BT enabled - GPIO29 is shared with CYW43
+    // To safely read VSYS, we need to set GPIO25 HIGH first
+    // https://github.com/orgs/micropython/discussions/10421#discussioncomment-4609576
+
+    // Save current state of GPIO25 (SPI CS pin)
+    const bool old_gpio25_state = cyw43_arch_gpio_get(CYW43_WL_GPIO_VBUS_PIN);
+
+    // Set GPIO25 HIGH to enable GPIO29 for ADC use
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_VBUS_PIN, true);
+    // Small delay to allow pin state to settle
+    vTaskDelay(pdMS_TO_TICKS(1));
+
+    // Now safe to read ADC3
+    adc_gpio_init(29);
+    adc_select_input(3);
+    uint16_t raw3 = adc_read();
+    float voltage3 = (raw3 * 3.3f) / 4095.0f;
+    float vsys = voltage3 * 3.0f; // VSYS has 1:3 voltage divider
+
+    // Restore GPIO25 to its previous state
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_VBUS_PIN, old_gpio25_state);
+
+    results.push_back({.value = vsys,
+                       .raw_value = raw3,
+                       .channel = 3,
+                       .name = "System Voltage",
+                       .unit = "V"});
+#else
+    // This is a regular Pico - we can safely read ADC3
     adc_gpio_init(29);
     adc_select_input(3);
     uint16_t raw3 = adc_read();
@@ -261,6 +295,7 @@ std::vector<AdcStats> get_adc_stats() {
                        .channel = 3,
                        .name = "System Voltage",
                        .unit = "V"});
+#endif
 
     // ADC4 - Internal temperature sensor
     adc_set_temp_sensor_enabled(true);
