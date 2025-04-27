@@ -327,6 +327,37 @@ void emulator::process_can_frame(const can2040_msg& frame) {
     out << outBuff;
     // Log::debug << "ELM327: CAN Frame: " << outBuff << "\n";
 
+    // Send flow control for multi-frame responses (ISO-TP)
+    if (frame.data[0] == 0x10 && !params.monitor_mode) {
+        // First frame of multi-frame message - need to send flow control
+        can2040_msg fc_frame{};
+
+        if (params.use_extended_frames) {
+            uint32_t source_addr = id & 0xFF;
+            uint32_t target_addr = (id & ~0xFF) | 0xF0;
+            fc_frame.id = target_addr;
+            fc_frame.id |= CAN2040_ID_EFF;
+        } else {
+            fc_frame.id = (id & ~0x07) | ((id & 0x07) ^ 0x08);
+        }
+
+        // Set flow control data
+        fc_frame.dlc = 8;
+        fc_frame.data[0] = 0x30; // Flow control
+        fc_frame.data[1] = 0x00; // Block size (0 = no limit)
+        fc_frame.data[2] = 0x00; // Separation time (0 = as fast as possible)
+
+        // Fill remaining bytes with padding
+        for (int i = 3; i < 8; i++) {
+            fc_frame.data[i] = 0x00; // TODO: padding? Clone uses 0x00
+        }
+
+        // Send the flow control frame
+        can::send_can(bus, fc_frame);
+        Log::debug << "ELM327: Sent flow control frame to "
+                   << fmt::sprintf("%08X", fc_frame.id) << "\n";
+    }
+
     if (!params.monitor_mode) {
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
 
