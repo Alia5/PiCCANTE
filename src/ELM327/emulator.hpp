@@ -26,6 +26,7 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
+#include "semphr.h"
 extern "C" {
 #include <can2040.h>
 }
@@ -44,8 +45,19 @@ namespace piccante::elm327 {
 class emulator {
         public:
     explicit emulator(out::stream& out, QueueHandle_t queue, uint8_t bus = 0)
-        : out(out), cmd_rx_queue(queue), bus(bus) {};
-    virtual ~emulator() { stop(); };
+        : out(out), cmd_rx_queue(queue), bus(bus) {
+        mtx = xSemaphoreCreateMutex();
+        if (mtx == nullptr) {
+            Log::error << "ELM327: Failed to create mutex\n";
+        };
+    }
+    virtual ~emulator() {
+        stop();
+        if (mtx) {
+            vSemaphoreDelete(mtx);
+            mtx = nullptr;
+        }
+    };
 
     emulator(const emulator&) = delete;
     emulator& operator=(const emulator&) = delete;
@@ -75,6 +87,8 @@ class emulator {
     QueueHandle_t cmd_rx_queue;
     uint8_t bus;
     std::string last_command;
+
+    SemaphoreHandle_t mtx = nullptr;
 
     uint64_t last_response_time = 0;
 
@@ -117,9 +131,6 @@ class emulator {
     void check_for_timeout();
     void process_input_byte(uint8_t byte, std::vector<char>& buff);
     void process_can_frame(const can2040_msg& frame);
-    void update_response_stats(const can2040_msg& frame);
-    void check_response_completion();
-    void format_and_output_frame(const can2040_msg& frame, uint32_t id);
     void format_frame_output(const can2040_msg& frame, uint32_t id,
                              std::string& outBuff) const;
     inline std::string_view end_ok() {
@@ -129,8 +140,16 @@ class emulator {
         return "\rOK\r\r>";
     };
 
-    static bool is_valid_hex(std::string_view str);
+    static inline bool is_valid_hex(std::string_view str) {
+        return std::all_of(str.begin(), str.end(), [](char byte) {
+            return (byte >= '0' && byte <= '9') || (byte >= 'A' && byte <= 'F') ||
+                   (byte >= 'a' && byte <= 'f');
+        });
+    }
+
     static void emulator_task(void* params);
+
+    static constexpr char HEX_CHARS[] = "0123456789ABCDEF";
 };
 
 } // namespace piccante::elm327

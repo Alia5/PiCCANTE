@@ -112,9 +112,10 @@ void emulator::handle_pid_request(std::string_view command) {
     frame.data32[1] = 0xAAAAAAAA;
 
     uint8_t mode = hex::parse(command.substr(0, 2));
+    uint16_t pid = 0;
     if (command.size() == 4 || command.size() == 5) {
         // Standard mode + PID (01 0C)
-        uint8_t pid = hex::parse(command.substr(2, 2));
+        pid = hex::parse(command.substr(2, 2));
         frame.data[0] = 2;
         frame.data[1] = mode;
         frame.data[2] = pid;
@@ -130,7 +131,7 @@ void emulator::handle_pid_request(std::string_view command) {
 
     } else if (command.size() == 6 || command.size() == 7) {
         // Mode + 16-bit PID (09 0200)
-        uint16_t pid = hex::parse(command.substr(2, 4));
+        pid = hex::parse(command.substr(2, 4));
         frame.data[0] = 3; // 3 bytes of data
         frame.data[1] = mode;
         frame.data[2] = pid >> 8;
@@ -151,10 +152,6 @@ void emulator::handle_pid_request(std::string_view command) {
         return;
     }
     current_request.request_start_time = pdTICKS_TO_MS(xTaskGetTickCount());
-    // if (is_capability_request(current_request.service, current_request.pid) ||
-    //     expected_frames > 0) {
-    //     params.timeout = 500; // TODO:
-    // }
 
     is_waiting_for_response = true;
     processed_response = false;
@@ -166,6 +163,8 @@ void emulator::handle_pid_request(std::string_view command) {
         return;
     }
     out << "\r";
+
+    Log::debug << "ELM327: PID Request: " << command << "\n";
 }
 
 
@@ -188,10 +187,16 @@ void emulator::handle_can_frame(const can2040_msg& frame) {
         }
     }
 
+    if (!xSemaphoreTake(mtx, pdMS_TO_TICKS(10))) {
+        Log::error << "ELM327: Failed to take mutex\n";
+        return;
+    }
+
     process_can_frame(frame);
     // if (xQueueSend(response_queue, &frame, 0) != pdTRUE) {
     //     Log::error << "ELM327: Failed to enqueue CAN frame\n";
     // }
+    xSemaphoreGive(mtx);
 }
 
 void emulator::reset(bool settings, bool timeout) {
@@ -225,7 +230,7 @@ void emulator::update_timeout(uint64_t now,
     static uint64_t avg_response_time = 1000;
     avg_response_time = (avg_response_time * 7 + response_time * 3) / 10;
 
-    uint64_t new_timeout = avg_response_time * 5;
+    uint64_t new_timeout = avg_response_time * 3;
 
     new_timeout = std::max(new_timeout, min_timeout_ms);
     new_timeout = std::min(new_timeout, max_timeout_ms);
@@ -238,12 +243,15 @@ void emulator::update_timeout(uint64_t now,
 
 
 void emulator::check_for_timeout() {
+    if (!is_waiting_for_response || params.monitor_mode) {
+        return;
+    }
     const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
 
     // If we've received responses, use a short grace period to wait for more
     if (received_frames > 0) {
-        // Short grace period (100ms) after last response to allow for other ECUs
-        if (now - last_response_time > 100) {
+        // Short grace period (150ms) after last response to allow for other ECUs
+        if (now - last_response_time > 150) {
             // We've received responses and waited a bit for more - done!
             is_waiting_for_response = false;
             expected_frames = 0;
@@ -255,6 +263,7 @@ void emulator::check_for_timeout() {
                 out << "\r>";
             }
             out.flush();
+            Log::debug << "Grace Period expired, stopping waiting for response\n";
             return;
         }
     } else {
@@ -305,9 +314,15 @@ void emulator::process_can_frame(const can2040_msg& frame) {
     auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
 
+    std::string outBuff{};
+    format_frame_output(frame, id, outBuff);
+    out << outBuff;
+    Log::debug << "ELM327: CAN Frame: " << outBuff << "\n";
+
     if (!params.monitor_mode) {
         const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
 
+        last_response_time = now;
         processed_response = true;
         received_frames++;
 
@@ -325,13 +340,9 @@ void emulator::process_can_frame(const can2040_msg& frame) {
             is_waiting_for_response = false;
             expected_frames = 0;
             received_frames = 0;
+            Log::debug << "ELM327: Received all expected frames\n";
         }
-        last_response_time = now;
     }
-
-    std::string outBuff{};
-    format_frame_output(frame, id, outBuff);
-    out << outBuff;
     out.flush();
 }
 
@@ -343,7 +354,6 @@ void emulator::format_frame_output(const can2040_msg& frame,
     outBuff.clear();
     outBuff.reserve(11 + (frame.data[0] * 3));
 
-    static constexpr char HEX_CHARS[] = "0123456789ABCDEF";
 
     if (params.print_headers) {
         if (params.use_extended_frames) {
@@ -393,32 +403,25 @@ void emulator::format_frame_output(const can2040_msg& frame,
     outBuff.push_back('\r');
 }
 
-bool emulator::is_valid_hex(std::string_view str) {
-    return std::all_of(str.begin(), str.end(), [](char byte) {
-        return (byte >= '0' && byte <= '9') || (byte >= 'A' && byte <= 'F') ||
-               (byte >= 'a' && byte <= 'f');
-    });
-}
-
 
 void emulator::emulator_task(void* params) {
     auto* self = static_cast<emulator*>(params);
 
-    can2040_msg frame;
     uint8_t byte = 0;
     std::vector<char> buff;
     buff.reserve(64);
     while (self->running) {
         if (self->is_waiting_for_response) {
-            self->check_for_timeout();
+            if (xSemaphoreTake(self->mtx, 0)) {
+                self->check_for_timeout();
+                xSemaphoreGive(self->mtx);
+            }
+            vTaskDelay(pdMS_TO_TICKS(10));
+        } else {
+            if (xQueueReceive(self->cmd_rx_queue, &byte, pdMS_TO_TICKS(10)) == pdPASS) {
+                self->process_input_byte(byte, buff);
+            }
         }
-        while (xQueueReceive(self->cmd_rx_queue,
-                             &byte,
-                             self->is_waiting_for_response ? 0 : pdMS_TO_TICKS(1)) ==
-               pdPASS) {
-            self->process_input_byte(byte, buff);
-        }
-        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
