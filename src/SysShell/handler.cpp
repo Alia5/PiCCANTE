@@ -48,6 +48,9 @@ void handler::process_byte(char byte) {
         }
         return;
     }
+    if (byte == 0) {
+        return; // Ignore null bytes
+    }
 
     if (byte == 3) { // Ctrl+C
         cancel_requested = true;
