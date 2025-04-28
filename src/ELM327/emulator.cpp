@@ -289,13 +289,17 @@ void emulator::process_can_frame(const can2040_msg& frame) {
         // First frame of multi-frame message - need to send flow control
         can2040_msg fc_frame{};
 
+        uint32_t fc_target_id = id;
         if (params.use_extended_frames) {
-            uint32_t source_addr = id & 0xFF;
-            uint32_t target_addr = (id & ~0xFF) | 0xF0;
-            fc_frame.id = target_addr;
-            fc_frame.id |= CAN2040_ID_EFF;
+            uint32_t byte3 = (fc_target_id & 0x0000FF00) >> 8;
+            uint32_t byte4 = (fc_target_id & 0x000000FF) << 8;
+            uint32_t result = fc_target_id & 0xFFFF0000;
+
+            result |= byte3 | byte4;
+            fc_frame.id = fc_target_id | CAN2040_ID_EFF;
         } else {
-            fc_frame.id = (id & ~0x07) | ((id & 0x07) ^ 0x08);
+            fc_target_id = id - 0x08;
+            fc_frame.id = fc_target_id;
         }
 
         const auto len = frame.data[1];
@@ -326,7 +330,7 @@ void emulator::process_can_frame(const can2040_msg& frame) {
         // Send the flow control frame
         can::send_can(bus, fc_frame);
         Log::debug << "ELM327: Sent flow control frame to "
-                   << fmt::sprintf("%08X", fc_frame.id) << "\n";
+                   << fmt::sprintf("%08X", fc_target_id) << "\n";
     }
 
     if (current_request.return_after_n_frames > 0) {
@@ -344,6 +348,9 @@ void emulator::process_can_frame(const can2040_msg& frame) {
 
     if (current_request.return_after_n_frames > 0 &&
         current_request.received_frames >= current_request.return_after_n_frames) {
+        Log::debug << "ELM327: Received " << current_request.received_frames << " of "
+                   << current_request.return_after_n_frames
+                   << " frames, returning prompt\n";
         if (params.line_feed) {
             out << "\n>";
         } else {
