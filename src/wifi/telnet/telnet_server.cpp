@@ -488,7 +488,7 @@ int sink::get_socket() const { return client_socket; }
 
 void sink::flush() {
     if (client_socket >= 0) {
-        lwip_send(client_socket, buffer.data(), buffer.size(), MSG_DONTWAIT);
+        lwip_send(client_socket, buffer.data(), buffer.size(), 0);
         buffer.clear();
     }
 }
