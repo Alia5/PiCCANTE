@@ -108,6 +108,7 @@ void server::stop() {
 
     if (xSemaphoreTake(clients_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
         for (auto& client : clients) {
+            all_clients_sink.remove_sink(client.sink.get());
             if (client.socket >= 0) {
                 lwip_close(client.socket);
                 client.socket = -1;
@@ -118,6 +119,7 @@ void server::stop() {
                 client.task_handle = nullptr;
             }
         }
+
 
         clients.clear();
         xSemaphoreGive(clients_mutex);
@@ -152,12 +154,11 @@ bool server::create_socket() {
     }
 
     int opt = 1;
-    // if (lwip_setsockopt(server_socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) <
-    // 0) {
-    //     Log::error << "Failed to set TCP_NODELAY on telnet server socket\n";
-    //     close_socket();
-    //     return false;
-    // }
+    if (lwip_setsockopt(server_socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0) {
+        Log::error << "Failed to set TCP_NODELAY on telnet server socket\n";
+        close_socket();
+        return false;
+    }
 
     opt = 1;
     if (lwip_ioctl(server_socket, FIONBIO, &opt) < 0) {
@@ -254,8 +255,8 @@ void server::accept_connections() {
                   << ((client_addr.sin_addr.s_addr >> 24) & 0xFF) << ":"
                   << ntohs(client_addr.sin_port) << "\n";
 
-        // int flag = 1;
-        // lwip_setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+        int flag = 1;
+        lwip_setsockopt(client_socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 
         int sendbuf = 4096;
         lwip_setsockopt(client_socket, SOL_SOCKET, SO_SNDBUF, &sendbuf, sizeof(sendbuf));
@@ -274,6 +275,7 @@ void server::accept_connections() {
             lwip_close(client_socket);
             continue;
         }
+        all_clients_sink.add_sink(client_sink.get());
         client_connection new_client;
         new_client.socket = client_socket;
         new_client.sink = client_sink;
@@ -293,6 +295,7 @@ void server::accept_connections() {
         if (task_created != pdPASS) {
             Log::error << "Failed to create telnet client handler task\n";
             if (xSemaphoreTake(clients_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+                all_clients_sink.remove_sink(client_sink.get());
                 clients.erase(std::remove_if(clients.begin(), clients.end(),
                                              [client_socket](const auto& client) {
                                                  return client.socket == client_socket;
@@ -418,6 +421,7 @@ void server::client_handler_task(void* params) {
     lwip_close(client_socket);
 
     if (xSemaphoreTake(server_instance->clients_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        server_instance->all_clients_sink.remove_sink(client_sink.get());
         server_instance->clients.erase(
             std::remove_if(server_instance->clients.begin(),
                            server_instance->clients.end(),
@@ -460,6 +464,7 @@ void server::process_telnet_command(int client_socket, const uint8_t* data, size
 
 sink::sink(int socket) : client_socket(socket), write_mutex(nullptr) {
     write_mutex = xSemaphoreCreateMutex();
+    buffer.reserve(1024);
 }
 
 sink::~sink() {
@@ -471,7 +476,10 @@ sink::~sink() {
 
 void sink::write(const char* data, size_t len) {
     if (xSemaphoreTake(write_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        lwip_send(client_socket, data, len, 0);
+        if (buffer.size() + len > 1024) {
+            flush();
+        }
+        buffer.insert(buffer.end(), data, data + len);
         xSemaphoreGive(write_mutex);
     }
 }
@@ -480,7 +488,8 @@ int sink::get_socket() const { return client_socket; }
 
 void sink::flush() {
     if (client_socket >= 0) {
-        lwip_send(client_socket, nullptr, 0, MSG_DONTWAIT);
+        lwip_send(client_socket, buffer.data(), buffer.size(), MSG_DONTWAIT);
+        buffer.clear();
     }
 }
 
