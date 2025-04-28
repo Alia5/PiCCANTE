@@ -110,8 +110,10 @@ void at::ATSH(const std::string_view cmd) {
     } else if (cmd.size() >= 5) {
         std::string extended_cmd = "18" + std::string(cmd);
         params.obd_header = hex::parse(extended_cmd);
+        params.use_extended_frames = true;
     } else {
         params.obd_header = hex::parse(cmd);
+        params.use_extended_frames = true; // TODO:
     }
     Log::debug << "ELM327 new ECU Address: " << fmt::sprintf("%x", params.obd_header)
                << "\n";
