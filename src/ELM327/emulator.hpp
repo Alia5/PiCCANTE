@@ -67,9 +67,9 @@ class emulator {
     void stop();
     bool is_running() const;
 
-    void handle(std::string_view command);
+    int handle(std::string_view command);
     void handle_command(std::string_view command);
-    void handle_pid_request(std::string_view command);
+    int handle_pid_request(std::string_view command);
 
     void handle_can_frame(const can2040_msg& frame);
 
@@ -78,10 +78,6 @@ class emulator {
     constexpr static std::string_view obdlink_desc = "ODBLink MX"; // TODO?
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
     constexpr static std::string_view elm_id = "ELM327 v1.4"; // TODO:
-
-    constexpr static uint64_t min_timeout_ms = 5;
-    constexpr static uint64_t max_timeout_ms = 2555;
-    uint32_t average_response_time = 500;
 
         private:
     out::stream& out;
@@ -92,11 +88,6 @@ class emulator {
 
 
     SemaphoreHandle_t mtx = nullptr;
-
-    uint64_t last_response_time = 0;
-
-    uint8_t expected_frames = 0;
-    uint8_t received_frames = 0;
 
     elm327::settings params{
         .obd_header = obd2_11bit_broadcast,
@@ -112,17 +103,21 @@ class emulator {
         .adaptive_timing = true,
     };
 
+    bool is_waiting_for_response = false;
+    struct {
+        uint64_t last_response_time = 0;
+        uint64_t request_start_time;
+        uint32_t pid;
+        uint8_t service;
+        uint8_t received_frames = 0;
+        uint8_t return_after_n_frames = 0;
+        bool processed_response = false;
+    } current_request;
+
     elm327::at at_h{
         out, params,
         std::bind(&emulator::reset, this, std::placeholders::_1, std::placeholders::_2)};
 
-    bool is_waiting_for_response = false;
-    bool processed_response = false;
-    struct {
-        uint8_t service;
-        uint32_t pid;
-        uint64_t request_start_time;
-    } current_request;
 
     bool running = false;
     TaskHandle_t task_handle;
@@ -131,12 +126,12 @@ class emulator {
 
     void update_timeout(uint64_t now, uint64_t response_time, uint8_t service,
                         uint32_t pid);
-    void check_for_timeout();
-    void process_input_byte(uint8_t byte, std::vector<char>& buff);
+    int check_for_timeout();
+    int process_input_byte(uint8_t byte, std::vector<char>& buff);
     void process_can_frame(const can2040_msg& frame);
     void format_frame_output(const can2040_msg& frame, uint32_t id,
                              std::string& outBuff) const;
-    inline std::string_view end_ok() {
+    std::string_view end_ok() {
         if (params.line_feed) {
             return "OK\r\n>";
         }
@@ -154,5 +149,13 @@ class emulator {
 
     static constexpr char HEX_CHARS[] = "0123456789ABCDEF";
 };
+
+namespace iso_tp {
+enum FrameType : uint8_t {
+    FirstFrame = 0x10,
+    ConsecutiveFrame = 0x20,
+    FlowControl = 0x30,
+};
+}
 
 } // namespace piccante::elm327
