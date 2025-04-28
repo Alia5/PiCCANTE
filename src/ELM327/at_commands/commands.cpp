@@ -175,10 +175,8 @@ void at::ATATx(const std::string_view cmd) {
     reset(false, true);
     if (cmd == "0") {
         params.adaptive_timing = false;
-        params.timeout = 250;
     } else {
         params.adaptive_timing = true;
-        params.timeout = 250;
     }
 
     out << end_ok();
