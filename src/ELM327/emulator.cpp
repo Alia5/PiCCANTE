@@ -291,11 +291,9 @@ void emulator::process_can_frame(const can2040_msg& frame) {
 
         uint32_t fc_target_id = id;
         if (params.use_extended_frames) {
-            uint32_t byte3 = (fc_target_id & 0x0000FF00) >> 8;
-            uint32_t byte4 = (fc_target_id & 0x000000FF) << 8;
-            uint32_t result = fc_target_id & 0xFFFF0000;
-
-            result |= byte3 | byte4;
+            uint32_t byte0 = id & 0xFF;
+            uint32_t byte1 = (id >> 8) & 0xFF;
+            fc_target_id = (id & 0xFFFF0000) | (byte0 << 8) | byte1;
             fc_frame.id = fc_target_id | CAN2040_ID_EFF;
         } else {
             fc_target_id = id - 0x08;
@@ -328,9 +326,15 @@ void emulator::process_can_frame(const can2040_msg& frame) {
         }
 
         // Send the flow control frame
-        can::send_can(bus, fc_frame);
-        Log::debug << "ELM327: Sent flow control frame to "
-                   << fmt::sprintf("%08X", fc_target_id) << "\n";
+        const auto send_fc_res = can::send_can(bus, fc_frame);
+        taskYIELD();
+        if (send_fc_res < 0) {
+            Log::error << "ELM327: Failed to send flow control frame: " << send_fc_res
+                       << "\n";
+        } else {
+            Log::debug << "ELM327: Sent flow control frame to "
+                       << fmt::sprintf("%08X", fc_target_id) << "\n";
+        }
     }
 
     if (current_request.return_after_n_frames > 0) {
@@ -348,8 +352,8 @@ void emulator::process_can_frame(const can2040_msg& frame) {
 
     if (current_request.return_after_n_frames > 0 &&
         current_request.received_frames >= current_request.return_after_n_frames) {
-        Log::debug << "ELM327: Received " << current_request.received_frames << " of "
-                   << current_request.return_after_n_frames
+        Log::debug << "ELM327: Received " << int(current_request.received_frames)
+                   << " of " << int(current_request.return_after_n_frames)
                    << " frames, returning prompt\n";
         if (params.line_feed) {
             out << "\n>";
