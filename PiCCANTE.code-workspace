@@ -108,6 +108,6 @@
             "csignal": "cpp",
             "source_location": "cpp"
         },
-        "cortex-debug.variableUseNaturalFormat": true
+        "cortex-debug.variableUseNaturalFormat": false
     }
 }

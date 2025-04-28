@@ -23,6 +23,7 @@
 #include <functional>
 #include "settings.hpp"
 #include "at_commands/commands.hpp"
+#include "st_commands/commands.hpp"
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
@@ -117,7 +118,9 @@ class emulator {
     elm327::at at_h{
         out, params,
         std::bind(&emulator::reset, this, std::placeholders::_1, std::placeholders::_2)};
-
+    elm327::st st_h{
+        out, params,
+        std::bind(&emulator::reset, this, std::placeholders::_1, std::placeholders::_2)};
 
     bool running = false;
     TaskHandle_t task_handle;

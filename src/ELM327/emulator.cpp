@@ -91,7 +91,15 @@ int emulator::handle(std::string_view command) {
 void emulator::handle_command(std::string_view command) {
     if (at_h.is_at_command(command)) {
         at_h.handle(command);
+        return;
     }
+    if (st_h.is_st_command(command)) {
+        st_h.handle(command);
+        return;
+    }
+    Log::error << "ELM327: Invalid command: " << command << "\n";
+    out << "?\r\n>";
+    out.flush();
 }
 
 int emulator::handle_pid_request(std::string_view command) {

@@ -139,6 +139,16 @@ void at::ATHx(const std::string_view cmd) {
     params.print_headers = cmd.ends_with("1");
     out << end_ok();
 }
+
+void at::ATCRA(const std::string_view cmd) {
+    if (cmd.empty()) {
+        // restore filters
+    } else {
+        // set ID filter
+    }
+    out << end_ok();
+}
+
 void at::ATSPx(const std::string_view cmd) {
     char proto = cmd.back();
 
@@ -195,6 +205,23 @@ void at::ATDP(const std::string_view cmd) {
     }
     out << end_ok();
 }
+void at::ATVx(const std::string_view cmd) {
+    // set variable dlc on or off
+    // TODO: implement
+    out << end_ok();
+}
+
+void at::ATCPx(const std::string_view cmd) {
+    // sets priority bits in extended mode (0x18 by default)
+    // TODO: implement
+    out << end_ok();
+}
+
+void at::ATAR(const std::string_view cmd) {
+    // Set Auto receive address
+    out << end_ok();
+}
+
 void at::ATDESC() { out << emulator::device_desc << end_ok(); }
 void at::ATRV() {
     // TODO: Could read ADC here (if implemented...)
@@ -221,12 +248,18 @@ void at::handle(const std::string_view command) {
         ATPC();
     } else if (command.starts_with("ATRV")) {
         ATRV();
+    } else if (command.starts_with("ATCRA")) {
+        ATCRA(command.substr(5));
     } else if (command.starts_with("AT@1")) {
         ATat1(command.substr(4));
     } else if (command.starts_with("ATSH")) {
         ATSH(command.substr(4));
+    } else if (command.starts_with("ATCP")) {
+        ATCPx(command.substr(4));
     } else if (command.starts_with("ATMA")) {
         ATMA(command.substr(4));
+    } else if (command.starts_with("ATAR")) {
+        ATAR(command.substr(4));
     } else if (command.starts_with("ATE")) {
         ATEx(command.substr(3));
     } else if (command.starts_with("ATM")) {
@@ -237,6 +270,8 @@ void at::handle(const std::string_view command) {
         ATSx(command.substr(3));
     } else if (command.starts_with("ATH")) {
         ATHx(command.substr(3));
+    } else if (command.starts_with("ATV")) {
+        ATVx(command.substr(3));
     } else if (command.starts_with("ATD")) {
         ATD(command.substr(3));
     } else if (command.starts_with("ATZ")) {
@@ -244,7 +279,14 @@ void at::handle(const std::string_view command) {
     } else if (command.starts_with("ATI")) {
         ATI(command.substr(3));
     } else {
+        if (command.starts_with("ATPP")) {
+            // TODO: emulate Programmable Parameters
+            out << end_ok();
+            out.flush();
+            return;
+        }
         Log::error << "Unknown AT command: " << command << "\n";
+        out << "?\r\n>";
         return;
     }
     out.flush();

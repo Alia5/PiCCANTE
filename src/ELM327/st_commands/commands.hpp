@@ -23,15 +23,15 @@
 
 namespace piccante::elm327 {
 
-class at {
+class st {
         public:
     struct params;
-    explicit at(out::stream& out, elm327::settings& settings,
+    explicit st(out::stream& out, elm327::settings& settings,
                 std::function<void(bool settings, bool timeout)> reset)
         : out(out), params(settings), reset(reset) {};
     void handle(const std::string_view command);
 
-    bool is_at_command(const std::string_view command);
+    bool is_st_command(const std::string_view command);
 
         private:
     out::stream& out;
@@ -45,27 +45,6 @@ class at {
         return "\rOK\r\r>";
     };
 
-    void ATD(const std::string_view cmd);
-    void ATZ(const std::string_view cmd);
-    void ATI(const std::string_view cmd);
-    void ATat1(const std::string_view cmd);
-    void ATEx(const std::string_view cmd);
-    void ATMA(const std::string_view cmd);
-    void ATCRA(const std::string_view cmd);
-    void ATMx(const std::string_view cmd);
-    void ATLx(const std::string_view cmd);
-    void ATCPx(const std::string_view cmd);
-    void ATSH(const std::string_view cmd);
-    void ATSTx(const std::string_view cmd);
-    void ATSx(const std::string_view cmd);
-    void ATHx(const std::string_view cmd);
-    void ATSPx(const std::string_view cmd);
-    void ATATx(const std::string_view cmd);
-    void ATDP(const std::string_view cmd);
-    void ATVx(const std::string_view cmd);
-    void ATAR(const std::string_view cmd);
-    void ATPC();
-    void ATDESC();
-    void ATRV();
+    void STDI(const std::string_view cmd);
 };
 } // namespace piccante::elm327
