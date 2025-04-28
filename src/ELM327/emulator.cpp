@@ -141,6 +141,41 @@ void emulator::handle_pid_request(std::string_view command) {
         } else {
             expected_frames = 0;
         }
+    } else if (command.size() == 8 || command.size() == 9) {
+        // Mode + 24-bit PID (09 010203)
+        pid = hex::parse(command.substr(2, 6));
+        frame.data[0] = 4; // 4 bytes of data
+        frame.data[1] = mode;
+        frame.data[2] = (pid >> 16) & 0xFF;
+        frame.data[3] = (pid >> 8) & 0xFF;
+        frame.data[4] = pid & 0xFF;
+
+        current_request.service = mode;
+        current_request.pid = pid;
+
+        if (command.size() == 9) {
+            expected_frames = hex::parse(command.substr(8, 1));
+        } else {
+            expected_frames = 0;
+        }
+    } else if (command.size() == 10 || command.size() == 11) {
+        // Mode + 32-bit PID (09 01020304)
+        pid = hex::parse(command.substr(2, 8));
+        frame.data[0] = 5; // 5 bytes of data
+        frame.data[1] = mode;
+        frame.data[2] = (pid >> 24) & 0xFF;
+        frame.data[3] = (pid >> 16) & 0xFF;
+        frame.data[4] = (pid >> 8) & 0xFF;
+        frame.data[5] = pid & 0xFF;
+
+        current_request.service = mode;
+        current_request.pid = pid;
+
+        if (command.size() == 11) {
+            expected_frames = hex::parse(command.substr(10, 1));
+        } else {
+            expected_frames = 0;
+        }
     } else {
         // Invalid format
         Log::error << "ELM327: Invalid PID request format: " << command << "\n";
