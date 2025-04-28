@@ -177,11 +177,14 @@ static void cmd_gvret_task(void* parameter) {
     gvret_handler = std::make_unique<piccante::gvret::handler>(outstream);
     piccante::sys::shell::handler shell_handler(*gvret_handler.get(), outstream);
 
-    // elm_telnet_server =
-    //     std::make_unique<piccante::wifi::telnet::server>("ELM327 Telnet", 35000, ">");
+    elm_telnet_server =
+        std::make_unique<piccante::wifi::telnet::server>("ELM327 Telnet", 35000, ">");
     piccante::out::stream elm_stream =
-        piccante::out::stream{piccante::bluetooth::get_sink()};
-    const auto elm_queue = piccante::bluetooth::get_rx_queue();
+        piccante::out::stream{elm_telnet_server->get_all_sink()};
+    const auto elm_queue = elm_telnet_server->get_rx_queue();
+    // piccante::out::stream elm_stream =
+    //     piccante::out::stream{piccante::bluetooth::get_sink()};
+    // const auto elm_queue = piccante::bluetooth::get_rx_queue();
 
     elmulator = std::make_unique<piccante::elm327::emulator>(elm_stream, elm_queue);
     elm_telnet_server->start();
