@@ -98,7 +98,7 @@ static void can_recieveTask(void* parameter) {
     can2040_msg msg{};
     for (;;) {
         auto received = false;
-        if (piccante::can::receive(bus, msg) >= 0) {
+        if (piccante::can::receive(bus, msg, 10) >= 0) {
             if (bus == 0) {
                 elmulator->handle_can_frame(msg);
             }

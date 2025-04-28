@@ -330,17 +330,10 @@ void canTask(void* parameters) {
     for (;;) {
         bool did_tx = false;
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
-            while (xQueueReceive(can_queues[i].tx, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
+            if (xQueueReceive(can_queues[i].tx, &msg, 0) == pdTRUE) {
                 did_tx = true;
                 if (!can2040_check_transmit(&(can_buses[i]))) {
-                    vTaskDelay(pdMS_TO_TICKS(2));
-                    if (!can2040_check_transmit(&(can_buses[i]))) {
-                        // TODO:!
-                        Log::debug << "Waiting did not help...\n";
-                    } else {
-                        Log::debug
-                            << "Waiting for can succeeded, message can go through...";
-                    }
+                    can2040_pio_irq_handler(&(can_buses[i]));
                 }
                 int res = can2040_transmit(&(can_buses[i]), &msg);
                 if (res < 0) {
@@ -351,6 +344,8 @@ void canTask(void* parameters) {
         }
         if (did_tx) {
             led::blink();
+        } else {
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
         }
     }
 }
@@ -383,19 +378,20 @@ int send_can(uint8_t bus, can2040_msg& msg) {
         tx_overflow_counts[bus]++;
         return -1;
     }
+    xTaskNotifyGive(canTaskHandle);
     return 0;
 }
-int receive(uint8_t bus, can2040_msg& msg) {
+int receive(uint8_t bus, can2040_msg& msg, uint32_t timeout_ms) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(timeout_ms));
         return -1;
     }
     if (!settings.bus_config[bus].enabled) {
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(timeout_ms));
         return -1;
     }
-    if (xQueueReceive(can_queues[bus].rx, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
+    if (xQueueReceive(can_queues[bus].rx, &msg, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
         return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].rx);
     }
     return -1;

@@ -47,7 +47,7 @@ struct CanSettings {
 TaskHandle_t& create_task();
 
 int send_can(uint8_t bus, can2040_msg& msg);
-int receive(uint8_t bus, can2040_msg& msg);
+int receive(uint8_t bus, can2040_msg& msg, uint32_t timeout_ms = 0);
 
 int get_can_rx_buffered_frames(uint8_t bus);
 int get_can_tx_buffered_frames(uint8_t bus);
