@@ -161,7 +161,7 @@ void stats_task(void* /*parameters*/) {
 } // namespace
 void init_stats_collection() {
     if (!stats_initialized) {
-        xTaskCreate(stats_task, "StatsTask", configMINIMAL_STACK_SIZE, nullptr,
+        xTaskCreate(stats_task, "StatsTask", configMINIMAL_STACK_SIZE / 2, nullptr,
                     tskIDLE_PRIORITY + 1, &stats_task_handle);
     }
 }

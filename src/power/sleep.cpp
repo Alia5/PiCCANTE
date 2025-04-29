@@ -121,7 +121,7 @@ void idle_detection_task(void* params) {
 void init() {
     const auto result = xTaskCreate(idle_detection_task,
                                     "IdleDetect",
-                                    configMINIMAL_STACK_SIZE,
+                                    configMINIMAL_STACK_SIZE / 2,
                                     nullptr,
                                     tskIDLE_PRIORITY + 1,
                                     &idle_task_handle);

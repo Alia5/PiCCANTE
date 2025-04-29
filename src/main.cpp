@@ -267,7 +267,7 @@ int main() {
     static TaskHandle_t piccanteAndGvretTaskHandle;
 
 
-    xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE, nullptr,
+    xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE / 2, nullptr,
                 configMAX_PRIORITIES - 6, &usbTaskHandle);
     xTaskCreate(cmd_gvret_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE, nullptr, 3,
                 &piccanteAndGvretTaskHandle);

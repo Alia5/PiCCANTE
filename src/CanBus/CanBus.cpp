@@ -353,7 +353,7 @@ void canTask(void* parameters) {
 } // namespace
 
 TaskHandle_t& create_task() {
-    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
+    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE / 2, nullptr, CAN_TASK_PRIORITY,
                 &canTaskHandle);
     return canTaskHandle;
 }
