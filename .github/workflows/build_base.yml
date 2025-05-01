@@ -1,0 +1,128 @@
+name: PiCCANTE Build Base
+
+on:
+  workflow_call:
+    inputs:
+        artifact_suffix:
+            required: false
+            type: string
+            default: ""
+            description: "Suffix to add to artifact names"
+        upload_artifacts:
+            required: false
+            type: boolean
+            default: false
+            description: "Whether to upload build artifacts"
+
+env:
+  BUILD_TYPE: Release
+  PICO_SDK_PATH: ${{github.workspace}}/.pico-sdk         
+     
+jobs:
+    setup:
+      runs-on: ubuntu-latest
+      name: Setup Build Environment
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+          with:
+            submodules: recursive
+            fetch-depth: 0
+            
+        - name: Cache Pico SDK
+          id: cache-pico-sdk
+          uses: actions/cache@v3
+          with:
+            path: ${{github.workspace}}/.pico-sdk
+            key: ${{ runner.os }}-pico-sdk-v2.1.1-${{ hashFiles('pico_sdk_import.cmake') }}
+            
+        - name: Clone Pico SDK
+          if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+          uses: actions/checkout@v4
+          with:
+            submodules: recursive
+            repository: raspberrypi/pico-sdk
+            ref: 2.1.1
+            path: .pico-sdk
+  
+        - name: Create SDK cache
+          uses: actions/cache@v3
+          with:
+            path: |
+              ${{github.workspace}}/.pico-sdk
+            key: ${{ runner.os }}-pico-toolchain-sdk-${{ hashFiles('pico_sdk_import.cmake') }}
+  
+    build:
+      needs: setup
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          board: [
+            { name: "pico", platform: "rp2040", board_type: "pico" },
+            { name: "pico_w", platform: "rp2040", board_type: "pico_w" },
+            { name: "pico2", platform: "rp2350-arm-s", board_type: "pico2" },
+            { name: "pico2_w", platform: "rp2350-arm-s", board_type: "pico2_w" }
+          ]
+        fail-fast: false
+  
+      name: Build for ${{ matrix.board.name }}
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+          with:
+            submodules: recursive
+  
+        - name: Install Arm GNU Toolchain
+          id: arm-none-eabi-gcc-action
+          uses: carlosperate/arm-none-eabi-gcc-action@v1
+          with:
+            release: '14.2.Rel1'
+  
+        - name: Restore SDK
+          uses: actions/cache@v3
+          with:
+            path: |
+              ${{github.workspace}}/.pico-sdk
+            key: ${{ runner.os }}-pico-toolchain-sdk-${{ hashFiles('pico_sdk_import.cmake') }}
+        
+        - name: Cache build directory
+          uses: actions/cache@v3
+          with:
+            path: ${{github.workspace}}/build-${{ matrix.board.name }}
+            key: ${{ runner.os }}-build-${{ matrix.board.name }}-${{ hashFiles('**/*.cpp', '**/*.h', '**/*.c', 'CMakeLists.txt') }}
+            restore-keys: |
+              ${{ runner.os }}-build-${{ matrix.board.name }}-
+        
+        - name: Install Node.js and pnpm (for web build)
+          if: contains(matrix.board.name, '_w')
+          uses: actions/setup-node@v4
+          with:
+            node-version: 23
+  
+        - name: Enable corepack and prepare pnpm
+          run: |
+            corepack enable
+            corepack prepare pnpm@latest --activate
+  
+        - name: Configure CMake
+          run: |
+              cmake -B ${{github.workspace}}/build-${{ matrix.board.name }} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          env:
+            PICO_PLATFORM: ${{ matrix.board.platform }}
+            PICO_BOARD: ${{ matrix.board.board_type }}
+  
+        - name: Build
+          run: |
+              cmake --build ${{github.workspace}}/build-${{ matrix.board.name }} --config ${{env.BUILD_TYPE}} -j$(nproc)
+          env:
+            WEB_ASSET_OUT_DIR: ${{github.workspace}}/build-${{ matrix.board.name }}/fs_files/web
+
+        - name: Upload Artifacts
+          if: ${{ inputs.upload_artifacts }}
+          uses: actions/upload-artifact@v4
+          with:
+              name: PiCCANTE-${{ matrix.board.name }}-Snapshot
+              path: |
+                ${{github.workspace}}/build-${{ matrix.board.name }}/PiCCANTE.uf2
+                ${{github.workspace}}/build-${{ matrix.board.name }}/PiCCANTE.elf
+    
