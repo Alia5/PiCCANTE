@@ -31,6 +31,7 @@ void USB_CDC_Sink::write(const char* v, std::size_t s) {
     uint32_t written = tud_cdc_n_write(itf, v, chunk_size);
     if (written < s) {
         tud_cdc_n_write_flush(itf);
+        vTaskDelay(pdMS_TO_TICKS(1));
         size_t remaining = s - written;
         available = tud_cdc_n_write_available(itf);
         if (available > 0) {

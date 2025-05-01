@@ -94,16 +94,13 @@ void server::stop() {
     running = false;
 
     close_socket();
-    if (server_task_handle) {
-        for (int i = 0; i < 10 && eTaskGetState(server_task_handle) != eDeleted; i++) {
-            vTaskDelay(pdMS_TO_TICKS(100));
+    while (server_task_handle) {
+        if (eTaskGetState(server_task_handle) == eDeleted) {
+            server_task_handle = nullptr;
+            break;
         }
-
-        if (eTaskGetState(server_task_handle) != eDeleted) {
-            vTaskDelete(server_task_handle);
-        }
-
-        server_task_handle = nullptr;
+        xTaskNotifyGive(server_task_handle);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     if (xSemaphoreTake(clients_mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {

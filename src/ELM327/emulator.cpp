@@ -55,15 +55,14 @@ void emulator::stop() {
     if (!running) {
         return;
     }
-    if (task_handle) {
-        for (int i = 0; i < 10 && eTaskGetState(task_handle) != eDeleted; i++) {
-            vTaskDelay(pdMS_TO_TICKS(100));
+    running = false;
+    while (task_handle) {
+        if (eTaskGetState(task_handle) == eDeleted) {
+            task_handle = nullptr;
+            break;
         }
-
-        if (eTaskGetState(task_handle) != eDeleted) {
-            vTaskDelete(task_handle);
-        }
-        task_handle = nullptr;
+        xTaskNotifyGive(task_handle);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -484,8 +483,9 @@ void emulator::emulator_task(void* params) {
                 ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(wait_time));
             }
         } else {
-            while (xQueueReceive(self->cmd_rx_queue, &byte, pdMS_TO_TICKS(10)) ==
-                   pdPASS) {
+            while (self->running &&
+                   xQueueReceive(self->cmd_rx_queue, &byte, pdMS_TO_TICKS(10)) ==
+                       pdPASS) {
                 wait_time = self->process_input_byte(byte, buff);
                 if (wait_time > 0) {
                     ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(wait_time));
@@ -494,6 +494,8 @@ void emulator::emulator_task(void* params) {
             }
         }
     }
+    vTaskDelete(nullptr);
+    self->task_handle = nullptr;
 }
 
 } // namespace piccante::elm327

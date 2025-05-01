@@ -23,6 +23,8 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+#include "SysShell/settings.hpp"
+#include "fmt.hpp"
 
 extern "C" {
 #include "btstack.h"
@@ -184,8 +186,14 @@ void init() {
     hci_add_event_handler(&hci_event_callback_registration);
 
     gap_discoverable_control(1);
-    gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
-    gap_set_local_name("PiCCANTE SPP");
+
+    gap_ssp_set_enable(false);
+    gap_ssp_set_auto_accept(false);
+
+    gap_set_security_mode(GAP_SECURITY_MODE_2);
+
+
+    gap_set_local_name("PiCCANTE ELM327");
 
     hci_power_control(HCI_POWER_ON);
 
@@ -271,20 +279,15 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
                     }
                     break;
 
-                case HCI_EVENT_PIN_CODE_REQUEST:
-                    // Using fixed PIN "0000"
-                    Log::debug << "Bluetooth PIN code request - using '0000'\n";
+                case HCI_EVENT_PIN_CODE_REQUEST: {
+                    const auto& cfg = sys::settings::get_wifi_settings();
+                    Log::debug << "Bluetooth PIN code request - using '"
+                               << cfg.bluetooth_pin << "'\n";
                     hci_event_pin_code_request_get_bd_addr(packet, event_addr);
-                    gap_pin_code_response(event_addr, "0000");
+                    gap_pin_code_response(event_addr,
+                                          fmt::sprintf("%d", cfg.bluetooth_pin).c_str());
                     break;
-
-                case HCI_EVENT_USER_CONFIRMATION_REQUEST:
-                    // Auto-accept SSP confirmation
-                    Log::debug << "Bluetooth SSP User Confirmation Auto accept\n";
-                    // Note: Not calling gap_user_confirmation_response since it doesn't
-                    // exist
-                    break;
-
+                }
                 case RFCOMM_EVENT_INCOMING_CONNECTION:
                     Log::debug << "Bluetooth RFCOMM incoming connection\n";
                     rfcomm_event_incoming_connection_get_bd_addr(packet, event_addr);
@@ -387,15 +390,11 @@ void bt_task(void* params) {
     (void)params;
 
     Log::info << "Starting Bluetooth SPP task\n";
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
     if (!init_resources()) {
         Log::error << "Failed to initialize Bluetooth resources\n";
         vTaskDelete(NULL);
         return;
     }
-
     init();
 
     // Main task loop - process BT requests
@@ -461,9 +460,13 @@ void stop() {
 
     vTaskDelay(pdMS_TO_TICKS(300));
 
-    if (bt_task_handle != nullptr) {
-        vTaskDelete(bt_task_handle);
-        bt_task_handle = nullptr;
+    while (bt_task_handle) {
+        if (eTaskGetState(bt_task_handle) == eDeleted) {
+            bt_task_handle = nullptr;
+            break;
+        }
+        xTaskNotifyGive(bt_task_handle);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     Log::info << "Bluetooth SPP server stopped\n";

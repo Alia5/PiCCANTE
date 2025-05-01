@@ -26,7 +26,7 @@ namespace piccante::hex {
  * @param byte The hex character to convert.
  * @return The integer value of the hex character.
  */
-static inline unsigned int parse(char byte) {
+inline unsigned int parse(char byte) {
     constexpr char base = 10;
 
     if (byte >= '0' && byte <= '9') {
@@ -47,7 +47,7 @@ static inline unsigned int parse(char byte) {
  * @param len The length of the hex string. If 0, the length is determined automatically.
  * @return The integer value of the hex string.
  */
-static inline unsigned int parse(const std::string_view& str) {
+inline unsigned int parse(const std::string_view& str) {
     unsigned int res = 0;
     for (size_t i = 0; i < str.length(); i++) {
         res += parse(str[i]) << (sizeof(unsigned int) * (str.length() - 1 - i));

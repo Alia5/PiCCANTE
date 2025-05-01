@@ -80,6 +80,13 @@ class emulator {
     constexpr static std::string_view device_desc = "PiCCANTE ELM327 Emulator";
     constexpr static std::string_view elm_id = "ELM327 v1.4"; // TODO:
 
+    inline bool is_valid_hex(std::string_view str) {
+        return std::all_of(str.begin(), str.end(), [](char byte) {
+            return (byte >= '0' && byte <= '9') || (byte >= 'A' && byte <= 'F') ||
+                   (byte >= 'a' && byte <= 'f');
+        });
+    }
+
         private:
     out::stream& out;
     QueueHandle_t cmd_rx_queue;
@@ -140,13 +147,6 @@ class emulator {
         }
         return "OK\r\r>";
     };
-
-    static inline bool is_valid_hex(std::string_view str) {
-        return std::all_of(str.begin(), str.end(), [](char byte) {
-            return (byte >= '0' && byte <= '9') || (byte >= 'A' && byte <= 'F') ||
-                   (byte >= 'a' && byte <= 'f');
-        });
-    }
 
     static void emulator_task(void* params);
 

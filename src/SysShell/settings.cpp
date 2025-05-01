@@ -159,6 +159,9 @@ bool load_settings() {
                                ((wifi_buffer[pos_pwd_term + 2] & 0xFF) << 8);
         wifi_cfg.telnet.enabled = (wifi_buffer[pos_pwd_term + 3] != 0);
 
+        wifi_cfg.elm_interface = wifi_buffer[pos_pwd_term + 4];
+        memcpy(&wifi_cfg.bluetooth_pin, &wifi_buffer[pos_pwd_term + 5], sizeof(uint32_t));
+
         Log::debug << "Loaded SSID: '" << wifi_cfg.ssid << "'\n";
     }
 
@@ -229,6 +232,12 @@ bool store() {
         wifi_buffer.push_back((wifi_cfg.telnet.port >> 8) & 0xFF);
         wifi_buffer.push_back(wifi_cfg.telnet.enabled ? 1 : 0);
 
+        wifi_buffer.push_back(wifi_cfg.elm_interface);
+        wifi_buffer.push_back(wifi_cfg.bluetooth_pin & 0xFF);
+        wifi_buffer.push_back((wifi_cfg.bluetooth_pin >> 8) & 0xFF);
+        wifi_buffer.push_back((wifi_cfg.bluetooth_pin >> 16) & 0xFF);
+        wifi_buffer.push_back((wifi_cfg.bluetooth_pin >> 24) & 0xFF);
+
         if (lfs_file_write(&piccante::fs::lfs, &writeFile, wifi_buffer.data(),
                            wifi_buffer.size()) > 0) {
             success = true;
@@ -278,6 +287,8 @@ led::Mode get_led_mode() { return cfg.led_mode; }
 uint8_t get_idle_sleep_minutes() { return cfg.idle_sleep_minutes; }
 void set_idle_sleep_minutes(uint8_t minutes) { cfg.idle_sleep_minutes = minutes; }
 
+void set_elm_can_bus(uint8_t bus) { cfg.elm_can_bus = bus; }
+
 #ifdef WIFI_ENABLED
 
 uint8_t get_wifi_mode() { return cfg.wifi_mode; }
@@ -290,6 +301,8 @@ uint16_t get_telnet_port() { return wifi_cfg.telnet.port; }
 void set_telnet_port(uint16_t port) { wifi_cfg.telnet.port = port; }
 bool telnet_enabled() { return wifi_cfg.telnet.enabled; }
 void set_telnet_enabled(bool enabled) { wifi_cfg.telnet.enabled = enabled; }
+void set_elm_interface(uint8_t interface) { wifi_cfg.elm_interface = interface; }
+void set_bluetooth_pin(uint32_t pin) { wifi_cfg.bluetooth_pin = pin; }
 #endif
 
 } // namespace piccante::sys::settings

@@ -64,9 +64,9 @@ enum LONG_CMD : uint8_t {
 };
 
 
-static inline std::map<uint8_t, uint32_t> bus_speeds = {
-    {0, 10000},  {1, 20000},  {2, 50000},  {3, 100000}, {4, 125000},
-    {5, 250000}, {6, 500000}, {7, 750000}, {8, 1000000}};
+inline std::map<uint8_t, uint32_t> bus_speeds = {{0, 10000},  {1, 20000},  {2, 50000},
+                                                 {3, 100000}, {4, 125000}, {5, 250000},
+                                                 {6, 500000}, {7, 750000}, {8, 1000000}};
 class handler {
         public:
     explicit handler(out::stream& out_stream, uint8_t read_itf, uint8_t bus_num = 0)

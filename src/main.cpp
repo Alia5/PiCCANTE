@@ -25,9 +25,10 @@ extern "C" {
 
 #include "Logger/Logger.hpp"
 #include "CanBus/CanBus.hpp"
-#include "FreeRTOSConfig.h"
 #include "class/cdc/cdc_device.h"
 #include "device/usbd.h"
+
+#include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
 
@@ -47,16 +48,22 @@ extern "C" {
 #include "stats/stats.hpp"
 #include "led/led.hpp"
 #include "power/sleep.hpp"
+#include "ELM327/elm.hpp"
+#include "ELM327/emulator.hpp"
+#include "fmt.hpp"
+#include <pico/time.h>
+
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
 #include "wifi/bt_spp/bt_spp.hpp"
 #endif
-// TODO: remove
-#include "wifi/telnet/telnet_server.hpp"
-#include "ELM327/emulator.hpp"
-#include "fmt.hpp"
-#include <pico/time.h>
+
+
+static std::array<std::unique_ptr<piccante::slcan::handler>, piccanteNUM_CAN_BUSSES>
+    slcan_handler = {};
+static std::unique_ptr<piccante::gvret::handler> gvret_handler = nullptr;
+static TaskHandle_t piccanteAndGvretTaskHandle;
 
 
 static void usbDeviceTask(void* parameters) {
@@ -79,15 +86,9 @@ static void usbDeviceTask(void* parameters) {
 }
 
 
-std::unique_ptr<piccante::elm327::emulator> elmulator = nullptr;
-
-static std::array<std::unique_ptr<piccante::slcan::handler>, piccanteNUM_CAN_BUSSES>
-    slcan_handler = {nullptr};
-static std::unique_ptr<piccante::gvret::handler> gvret_handler = nullptr;
 static void can_recieveTask(void* parameter) {
     const auto bus = reinterpret_cast<int>(parameter);
-    // Wait until can is up.
-    vTaskDelay(7000 + 100 * bus); // TODO
+    vTaskDelay(100 * bus);
     const auto num_busses = piccante::can::get_num_busses();
 
     if (bus >= num_busses) {
@@ -95,12 +96,13 @@ static void can_recieveTask(void* parameter) {
     }
     piccante::Log::info << "Starting CAN Receive (Bus" << bus << ") Task!\n";
 
+    const auto& cfg = piccante::sys::settings::get();
     can2040_msg msg{};
     for (;;) {
         auto received = false;
         if (piccante::can::receive(bus, msg, 10) >= 0) {
-            if (bus == 0) {
-                elmulator->handle_can_frame(msg);
+            if (bus == cfg.elm_can_bus && piccante::elm327::emu() != nullptr) {
+                piccante::elm327::emu()->handle_can_frame(msg);
             }
 
             gvret_handler->comm_can_frame(bus, msg);
@@ -110,58 +112,16 @@ static void can_recieveTask(void* parameter) {
         if (received) {
             piccante::led::blink();
             piccante::power::sleep::reset_idle_timer();
+            xTaskNotifyGive(piccanteAndGvretTaskHandle);
         }
     }
 }
 
 
-std::unique_ptr<piccante::wifi::telnet::server> elm_telnet_server = nullptr;
-
-class elm_sink : public piccante::out::base_sink {
-        public:
-    void write(const char* data, std::size_t len) override {
-        if (!elm_telnet_server || !elm_telnet_server->is_running()) {
-            return;
-        }
-
-        if (xSemaphoreTake(elm_telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
-            pdTRUE) {
-            return;
-        }
-
-        for (const auto& client : elm_telnet_server->get_clients()) {
-            if (client.sink) {
-                client.sink->write(data, len);
-            }
-        }
-
-        xSemaphoreGive(elm_telnet_server->get_clients_mutex());
-    }
-
-    void flush() override {
-        if (!elm_telnet_server || !elm_telnet_server->is_running()) {
-            return;
-        }
-
-        if (xSemaphoreTake(elm_telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
-            pdTRUE) {
-            return;
-        }
-
-        for (const auto& client : elm_telnet_server->get_clients()) {
-            if (client.sink) {
-                client.sink->flush();
-            }
-        }
-
-        xSemaphoreGive(elm_telnet_server->get_clients_mutex());
-    }
-};
-
-static void cmd_gvret_task(void* parameter) {
+static void main_interface_task(void* parameter) {
     (void)parameter;
-    vTaskDelay(6000);
-    piccante::Log::info << ("Starting PiCCANTE CMD + GVRET Task!\n");
+    vTaskDelay(1000);
+    piccante::Log::info << ("Starting Main Interface + GVRET Task!\n");
 
 #ifdef WIFI_ENABLED
     auto sink = piccante::out::sink_mux{};
@@ -177,25 +137,31 @@ static void cmd_gvret_task(void* parameter) {
     gvret_handler = std::make_unique<piccante::gvret::handler>(outstream);
     piccante::sys::shell::handler shell_handler(*gvret_handler.get(), outstream);
 
-    elm_telnet_server =
-        std::make_unique<piccante::wifi::telnet::server>("ELM327 Telnet", 35000, ">");
-    piccante::out::stream elm_stream =
-        piccante::out::stream{elm_telnet_server->get_all_sink()};
-    const auto elm_queue = elm_telnet_server->get_rx_queue();
-    // piccante::out::stream elm_stream =
-    //     piccante::out::stream{piccante::bluetooth::get_sink()};
-    // const auto elm_queue = piccante::bluetooth::get_rx_queue();
-
-    elmulator = std::make_unique<piccante::elm327::emulator>(elm_stream, elm_queue);
-    elm_telnet_server->start();
-    elmulator->start();
+    const auto& cfg = piccante::sys::settings::get();
+#ifdef WIFI_ENABLED
+    const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+#endif
 
     for (;;) {
         auto received = false;
         while (tud_cdc_n_available(0) > 0) {
             received = true;
             const auto byte = tud_cdc_n_read_char(0);
-            const auto used = gvret_handler->process_byte(byte);
+            auto used = gvret_handler->process_byte(byte);
+#ifdef WIFI_ENABLED
+            if (wifi_cfg.elm_interface ==
+                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
+                if (piccante::elm327::emu() != nullptr) {
+                    used = true;
+                    xQueueSendToBack(piccante::elm327::queue(), &byte, 0);
+                }
+            }
+#else
+            if (piccante::elm327::emu() != nullptr) {
+                used = true;
+                xQueueSendToBack(piccante::elm327::queue(), &byte, 0);
+            }
+#endif
             if (!used) {
                 shell_handler.process_byte(byte);
             }
@@ -217,7 +183,7 @@ static void cmd_gvret_task(void* parameter) {
         if (received) {
             taskYIELD();
         } else {
-            vTaskDelay(pdMS_TO_TICKS(10));
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
         }
     }
 }
@@ -264,13 +230,12 @@ int main() {
 
 
     static TaskHandle_t usbTaskHandle;
-    static TaskHandle_t piccanteAndGvretTaskHandle;
 
 
     xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE / 2, nullptr,
                 configMAX_PRIORITIES - 6, &usbTaskHandle);
-    xTaskCreate(cmd_gvret_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE, nullptr, 3,
-                &piccanteAndGvretTaskHandle);
+    xTaskCreate(main_interface_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE, nullptr,
+                3, &piccanteAndGvretTaskHandle);
 
     for (size_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
         slcan_handler[i] = std::make_unique<piccante::slcan::handler>(
@@ -289,9 +254,22 @@ int main() {
 
 #ifdef WIFI_ENABLED
     static TaskHandle_t wifiTaskHandle = piccante::wifi::task();
-
-    static TaskHandle_t btSppTaskHandle = piccante::bluetooth::create_task();
-
+    const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+    if (wifi_cfg.elm_interface !=
+        static_cast<uint8_t>(piccante::elm327::interface::USB)) {
+        static TaskHandle_t elm_task_handle = nullptr;
+        xTaskCreate(
+            [](void* param) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                piccante::elm327::start();
+                vTaskDelete(nullptr);
+            },
+            "ELM_Init",
+            configMINIMAL_STACK_SIZE,
+            nullptr,
+            3,
+            &elm_task_handle);
+    }
 #endif
 
     vTaskStartScheduler();

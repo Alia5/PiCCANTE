@@ -25,6 +25,8 @@
 #include "../emulator.hpp"
 #include <charconv>
 #include <unordered_map>
+#include "SysShell/settings.hpp"
+#include "../elm.hpp"
 
 namespace piccante::elm327 {
 
@@ -195,9 +197,20 @@ void at::ATATx(const std::string_view cmd) {
 }
 
 void at::ATPC() {
-    // TODO: wouldn't hurt to close teh socket
+    // TODO: Close socket if on wifi
     // Terminate, whatever
     out << end_ok();
+
+    // If elm is on USB, stop it to give acces back to PiCCANTE/GVRET
+#ifdef WIFI_ENABLED
+    const auto& wifi_cfg = sys::settings::get_wifi_settings();
+    if (wifi_cfg.elm_interface ==
+        static_cast<uint8_t>(piccante::elm327::interface::USB)) {
+        elm327::stop();
+    }
+#else
+    elm327::stop();
+#endif
 }
 void at::ATDP(const std::string_view cmd) {
     if (cmd.starts_with("N")) {

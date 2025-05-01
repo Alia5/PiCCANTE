@@ -31,9 +31,11 @@
 #include "CommProto/gvret/handler.hpp"
 #include <hardware/watchdog.h>
 #include "power/sleep.hpp"
+#include "ELM327/elm.hpp"
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #endif
+#include <ranges>
 
 namespace piccante::sys::shell {
 
@@ -90,7 +92,12 @@ void handler::handle_cmd(const std::string_view& cmd) {
     std::string_view arg =
         (space_pos != std::string_view::npos) ? cmd.substr(space_pos + 1) : "";
 
-    auto it = commands.find(command);
+    std::string lowercase_command;
+    lowercase_command.reserve(command.size());
+    std::ranges::transform(command, std::back_inserter(lowercase_command),
+                           [](unsigned char c) { return std::tolower(c); });
+
+    auto it = commands.find(lowercase_command);
     if (it != commands.end()) {
         it->second(this, arg);
     } else {
@@ -152,6 +159,15 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
     {"idle_timeout", //
      {"Set idle timeout in minutes (idle_timeout disable|<minutes>)",
       &handler::cmd_idle_timeout}},
+    {"elm", //
+#ifdef WIFI_ENABLED
+     {"Configure ELM327 interface and mode (elm <usb|bt PIN|wifi>  <can0|can1|can2>)",
+#else
+     {"Configure ELM327 interface and mode (elm <can0|can1|can2>)",
+#endif
+      &handler::cmd_elm}},
+    {"atz", //
+     {"Enable ELM mode (if ELM327-Emulator is on USB)", &handler::cmd_elm_atz}},
 };
 
 void handler::cmd_echo(const std::string_view& arg) {
@@ -165,6 +181,7 @@ void handler::cmd_echo(const std::string_view& arg) {
     } else {
         host_out << "Usage: echo <on|off>\n";
     }
+    host_out.flush();
 }
 
 void handler::cmd_help([[maybe_unused]] const std::string_view& arg) {
@@ -189,6 +206,7 @@ void handler::cmd_help([[maybe_unused]] const std::string_view& arg) {
     }
 
     host_out << "\n";
+    host_out.flush();
 }
 
 void handler::cmd_toggle_binary(const std::string_view& arg) {
@@ -202,6 +220,7 @@ void handler::cmd_toggle_binary(const std::string_view& arg) {
         host_out << "Binary mode: " << (gvret.get_binary_mode() ? "on" : "off") << "\n";
         host_out << "Usage: binary <on|off>\n";
     }
+    host_out.flush();
 }
 
 void handler::cmd_can_enable(const std::string_view& arg) {
@@ -236,6 +255,7 @@ void handler::cmd_can_enable(const std::string_view& arg) {
     }
 
     host_out << "Usage: can_enable <bus> <bitrate>\n";
+    host_out.flush();
 }
 void handler::cmd_can_disable(const std::string_view& arg) {
     int bus = 0;
@@ -252,6 +272,7 @@ void handler::cmd_can_disable(const std::string_view& arg) {
     } else {
         host_out << "Usage: can_disable <bus>\n";
     }
+    host_out.flush();
 }
 
 void handler::cmd_can_bitrate(const std::string_view& arg) {
@@ -277,11 +298,13 @@ void handler::cmd_can_bitrate(const std::string_view& arg) {
                 host_out << "Invalid bus number. Valid range: 0-"
                          << (can::get_num_busses() - 1) << "\n";
             }
+            host_out.flush();
             return;
         }
     }
 
     host_out << "Usage: can_bitrate <bus> <bitrate>\n";
+    host_out.flush();
 }
 void handler::cmd_can_status([[maybe_unused]] const std::string_view& arg) {
     host_out << "\nCAN BUS STATUS\n";
@@ -328,6 +351,7 @@ void handler::cmd_can_status([[maybe_unused]] const std::string_view& arg) {
     }
 
     host_out << "\n";
+    host_out.flush();
 }
 
 void handler::cmd_can_num_busses(const std::string_view& arg) {
@@ -350,6 +374,7 @@ void handler::cmd_can_num_busses(const std::string_view& arg) {
                  << "Valid Range: 1-" << piccanteNUM_CAN_BUSSES << "\n";
         host_out << "Usage: can_num_busses <number>\n";
     }
+    host_out.flush();
 }
 
 void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
@@ -404,7 +429,17 @@ void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
                      ? "off"
                      : std::to_string(settings::get_idle_sleep_minutes()))
              << " minutes\n";
+
+
+    host_out << "ELM327 CAN bus:";
+    for (int i = 0; i < label_width - 15; i++)
+        host_out << ' ';
+    host_out << static_cast<int>(cfg.elm_can_bus) << "\n";
+
 #ifdef WIFI_ENABLED
+
+    const auto wifi_cfg = settings::get_wifi_settings();
+
     host_out << "WiFi mode:";
     for (int i = 0; i < label_width - 10; i++)
         host_out << ' ';
@@ -426,9 +461,22 @@ void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
     for (int i = 0; i < label_width - 12; i++)
         host_out << ' ';
     host_out << static_cast<int>(settings::get_wifi_settings().telnet.port) << "\n";
+
+    host_out << "ELM327 interface:";
+    for (int i = 0; i < label_width - 17; i++)
+        host_out << ' ';
+    host_out << (wifi_cfg.elm_interface == 0
+                     ? "USB"
+                     : (wifi_cfg.elm_interface == 1 ? "Bluetooth" : "WiFi"))
+             << "\n";
+    host_out << "Bluetooth PIN:";
+    for (int i = 0; i < label_width - 14; i++)
+        host_out << ' ';
+    host_out << static_cast<int>(wifi_cfg.bluetooth_pin) << "\n";
 #endif
 
     host_out << "\n";
+    host_out.flush();
 }
 
 void handler::cmd_settings_store([[maybe_unused]] const std::string_view& arg) {
@@ -437,6 +485,7 @@ void handler::cmd_settings_store([[maybe_unused]] const std::string_view& arg) {
     } else {
         host_out << "Failed to save settings\n";
     }
+    host_out.flush();
 }
 
 void handler::cmd_led_mode(const std::string_view& arg) {
@@ -489,6 +538,7 @@ void handler::cmd_log_level(const std::string_view& arg) {
         host_out << "  2: WARNING\n";
         host_out << "  3: ERROR\n";
     }
+    host_out.flush();
 }
 
 void handler::cmd_sys_stats([[maybe_unused]] const std::string_view& arg) {
@@ -724,6 +774,102 @@ void handler::cmd_idle_timeout(const std::string_view& arg) {
             host_out << "Usage: idle_timeout disable|<minutes>\n";
         }
     }
+    host_out.flush();
+}
+
+void handler::cmd_elm(const std::string_view& cmd) {
+    std::ranges::split_view splitted{cmd, ' '};
+    auto it = splitted.begin();
+    const auto end = splitted.end();
+
+    if (it == end) {
+#ifdef WIFI_ENABLED
+        host_out << "Configure ELM327 interface and mode (elm <usb|bt PIN|wifi>  "
+                    "<can0|can1|can2>)\n";
+#else
+        host_out << "Configure ELM327 interface and mode (elm <can0|can1|can2>)\n";
+#endif
+        host_out.flush();
+        return;
+    }
+
+    elm327::stop();
+
+    const std::string_view interface{(*it).data(), (*it).size()};
+    const auto& cfg = settings::get();
+#ifdef WIFI_ENABLED
+    const auto& wifi_cfg = settings::get_wifi_settings();
+    if (interface == "usb") {
+        settings::set_elm_interface(static_cast<uint8_t>(elm327::interface::USB));
+    } else if (interface == "bt") {
+        settings::set_elm_interface(static_cast<uint8_t>(elm327::interface::Bluetooth));
+        ++it;
+        const std::string_view pin{(*it).data(), (*it).size()};
+        if (pin.empty()) {
+            host_out << "Bluetooth PIN is required\n";
+            host_out.flush();
+
+            return;
+        }
+        int pin_value = 0;
+        auto [ptr, ec] = std::from_chars(pin.data(), pin.data() + pin.size(), pin_value);
+        if (ec != std::errc()) {
+            host_out << "Invalid Bluetooth PIN\n";
+            host_out.flush();
+
+            return;
+        }
+        settings::set_bluetooth_pin(pin_value);
+    } else if (interface == "wifi") {
+        settings::set_elm_interface(static_cast<uint8_t>(elm327::interface::WiFi));
+    } else {
+        host_out << "Invalid ELM327 interface. Valid values: usb, bt, wifi\n";
+        host_out.flush();
+
+        return;
+    }
+    ++it;
+#endif
+    const std::string_view can_bus{(*it).data(), (*it).size()};
+    if (can_bus == "can0") {
+        settings::set_elm_can_bus(0);
+    } else if (can_bus == "can1") {
+        settings::set_elm_can_bus(1);
+    } else if (can_bus == "can2") {
+        settings::set_elm_can_bus(2);
+    } else {
+        host_out << "Invalid CAN bus. Valid values: can0, can1, can2\n";
+        host_out.flush();
+
+        return;
+    }
+
+    host_out << "\n";
+    host_out.flush();
+
+#ifdef WIFI_ENABLED
+    if (wifi_cfg.elm_interface != static_cast<uint8_t>(elm327::interface::USB)) {
+        elm327::start();
+    }
+#endif
+}
+
+void handler::cmd_elm_atz([[maybe_unused]] const std::string_view& arg) {
+    const auto& cfg = settings::get();
+
+
+#ifdef WIFI_ENABLED
+    const auto& wifi_cfg = settings::get_wifi_settings();
+    if (wifi_cfg.elm_interface == static_cast<uint8_t>(elm327::interface::USB)) {
+#else
+    if (true) {
+#endif
+        host_out << "ELM327 v1.4\r\n";
+        elm327::start();
+    } else {
+        host_out << "ELM327 not enabled on USB\n";
+    }
+
     host_out.flush();
 }
 

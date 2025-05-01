@@ -163,8 +163,6 @@ add_compile_definitions(
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-pico_set_program_version(${target_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-
 file(GLOB_RECURSE srcFiles CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/src/*.c"
     "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
@@ -196,7 +194,7 @@ target_sources(${target_name} PRIVATE
 )
 
 pico_set_program_name(${target_name} "PiCCANTE")
-pico_set_program_version(${target_name} "0.1")
+pico_set_program_version(${target_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 if(DEFINED ENV{PICO_DEBUG} OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(PICO_DEOPTIMIZED_DEBUG 1)

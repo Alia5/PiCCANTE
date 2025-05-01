@@ -28,7 +28,7 @@ struct system_settings {
     led::Mode led_mode;
     uint8_t wifi_mode;
     uint8_t idle_sleep_minutes;
-    // bool bt_enabled; ...
+    uint8_t elm_can_bus; // interface always usb (or none)
 };
 #pragma pack(pop)
 
@@ -41,6 +41,8 @@ struct wifi_settings {
         uint16_t port;
         bool enabled;
     } telnet{};
+    uint8_t elm_interface; // usb, bt, wifi
+    uint32_t bluetooth_pin;
 };
 #endif
 
@@ -61,6 +63,8 @@ led::Mode get_led_mode();
 uint8_t get_idle_sleep_minutes();
 void set_idle_sleep_minutes(uint8_t minutes);
 
+void set_elm_can_bus(uint8_t bus);
+
 #ifdef WIFI_ENABLED
 
 uint8_t get_wifi_mode();
@@ -74,6 +78,9 @@ uint16_t get_telnet_port();
 void set_telnet_port(uint16_t port);
 bool telnet_enabled();
 void set_telnet_enabled(bool enabled);
+
+void set_elm_interface(uint8_t interface);
+void set_bluetooth_pin(uint32_t pin);
 
 #endif
 
