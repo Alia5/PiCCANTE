@@ -13,6 +13,8 @@
 
 PiCCANTE is a powerful hacking tool for accessing, exploring, and manipulating vehicle CAN bus networks, built on the affordable Raspberry Pi Pico platform. Designed for researchers, security professionals, and automotive enthusiasts looking to dive deep into vehicle systems without expensive proprietary equipment.
 
+⚠️ **Always exercise caution when connecting to vehicle systems.** ⚠️ 
+
 ## 🚧 WORK IN PROGRESS 🚧
 
 ## ℹ️ About PiCCANTE
@@ -22,8 +24,6 @@ As cars become more and more computerized, manufacturers keep locking them behin
 Car hacking and independent research grows increasingly important to discover security vulnerabilities, reverse engineer vehicle systems, and empower owners with custom tools for diagnostics and tuning that support the Right to Repair movement.
 
 The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for their exceptional affordability, global availability, impressive specifications, and well-documented open-source SDK.
-
-⚠️ Always exercise caution when connecting to vehicle systems.
 
 ### 🎯 Core Goals
 
