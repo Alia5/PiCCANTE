@@ -43,6 +43,8 @@ bool sleeping = false;
 TimerHandle_t idle_timer = nullptr;
 TaskHandle_t idle_task_handle = nullptr;
 
+bool timer_should_reset = false;
+
 void idle_timer_callback(TimerHandle_t timer) {
     if (!sleeping) {
         Log::info << "CAN idle timeout reached, entering sleep mode\n";
@@ -56,6 +58,7 @@ void idle_timer_callback(TimerHandle_t timer) {
 
 void idle_detection_task(void* params) {
     (void)params;
+
 
     vTaskDelay(pdMS_TO_TICKS(1000)); // Time for other tasks
     Log::info << "Idle detection task started\n";
@@ -89,7 +92,7 @@ void idle_detection_task(void* params) {
             } else if (idle_minutes_prev != idle_minutes) {
                 Log::info << "Idle timeout changed: " << std::to_string(idle_minutes_prev)
                           << " -> " << std::to_string(idle_minutes) << " minutes\n";
-
+                idle_minutes_prev = idle_minutes;
                 xTimerStop(idle_timer, 0);
                 xTimerChangePeriod(
                     idle_timer, pdMS_TO_TICKS(idle_minutes * 60 * 1000), 0);
@@ -106,8 +109,11 @@ void idle_detection_task(void* params) {
                 Log::info << "Idle timeout disabled\n";
             }
         }
-
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        if (timer_should_reset) {
+            xTimerReset(idle_timer, 0);
+            timer_should_reset = false;
+        }
+        vTaskDelay(pdTICKS_TO_MS(5000));
     }
 }
 } // namespace
@@ -115,7 +121,7 @@ void idle_detection_task(void* params) {
 void init() {
     const auto result = xTaskCreate(idle_detection_task,
                                     "IdleDetect",
-                                    configMINIMAL_STACK_SIZE,
+                                    configMINIMAL_STACK_SIZE / 2,
                                     nullptr,
                                     tskIDLE_PRIORITY + 1,
                                     &idle_task_handle);
@@ -124,14 +130,11 @@ void init() {
         Log::error << "Failed to create idle detection task\n";
         return;
     }
-
-    vTaskCoreAffinitySet(idle_task_handle, 0x01);
 }
 
 void reset_idle_timer() {
-    if (!sleeping && idle_timer != nullptr) {
-        xTimerReset(idle_timer, 0);
-    } else if (sleeping) {
+    timer_should_reset = true;
+    if (sleeping) {
         wake_up();
     }
 }
@@ -150,6 +153,7 @@ void enter_sleep_mode() {
 
 #ifdef WIFI_ENABLED
     wifi::stop();
+    vTaskDelay(pdMS_TO_TICKS(100));
     cyw43_arch_deinit();
 #endif
 

@@ -16,33 +16,35 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <string_view>
+#include <outstream/stream.hpp>
+#include <functional>
+#include "../settings.hpp"
 
-#include "../../../StateMachine/state.hpp"
-#include "../proto.hpp"
-#include <cstdint>
-#include <utility>
-#include "outstream/stream.hpp"
-#include "../../../util/bin.hpp"
+namespace piccante::elm327 {
 
-namespace piccante::gvret::state {
-class keepalive : public fsm::state<uint8_t, Protocol, bool> {
-    static constexpr uint16_t KEEPALIVE_PAYLOAD = 0xDEAD;
-
+class st {
         public:
-    explicit keepalive(out::stream& host_out)
-        : fsm::state<uint8_t, Protocol, bool>(KEEPALIVE), out(host_out) {}
+    struct params;
+    explicit st(out::stream& out, elm327::settings& settings,
+                std::function<void(bool settings, bool timeout)> reset)
+        : out(out), params(settings), reset(reset) {};
+    void handle(const std::string_view command);
 
-    Protocol enter() override {
-        // out << GET_COMMAND << KEEPALIVE << piccante::bin_be(KEEPALIVE_PAYLOAD);
-        out << "\xf1\x09\xDE\xAD";
-        out.flush();
-        return IDLE;
-    }
-    std::pair<Protocol, bool> tick([[maybe_unused]] uint8_t& byte) override {
-        return {IDLE, false};
-    }
+    bool is_st_command(const std::string_view command);
 
         private:
     out::stream& out;
+    elm327::settings& params;
+    std::function<void(bool all, bool timeout)> reset;
+
+    inline std::string_view end_ok() {
+        if (params.line_feed) {
+            return "\r\nOK\r\n>";
+        }
+        return "\rOK\r\r>";
+    };
+
+    void STDI(const std::string_view cmd);
 };
-} // namespace gvret
+} // namespace piccante::elm327

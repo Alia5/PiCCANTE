@@ -35,11 +35,8 @@ class USB_CDC_Sink : public out::base_sink {
     uint8_t itf = 0;
 };
 
-namespace {
-// Internal storage for dynamic streams
-std::vector<std::unique_ptr<USB_CDC_Sink>> sinks;
-std::vector<std::unique_ptr<out::stream>> streams;
-} // namespace
+inline std::vector<std::unique_ptr<USB_CDC_Sink>> sinks;
+inline std::vector<std::unique_ptr<out::stream>> streams;
 
 inline out::stream& out(uint8_t itf) {
     if (itf >= CFG_TUD_CDC) {

@@ -40,6 +40,12 @@ const led_modes = [
     { name: 'CAN Activity', value: 2 }
 ];
 
+const elm_interfaces = [
+    { name: 'USB', value: 0 },
+    { name: 'Bluetooth', value: 1 },
+    { name: 'WiFi', value: 2 }
+];
+
 const idle_timeout = [
     { name: 'Off', value: 0 },
     { name: '1 min', value: 1 },
@@ -104,33 +110,79 @@ const saveSettings = async (reset?: boolean) => {
 
 <div class="wrapper" in:fly={{ y: window.innerHeight, easing: cubicOut }} out:fade={{}}>
     <Masonry gridGap="2em" colWidth="minmax(280px, 1fr)">
-        <div class="card d-grid">
-            <h2>General</h2>
-            <b>Echo</b>
-            <div>
-                <input
-                    type="checkbox"
-                    class="toggle"
-                    bind:checked={settings.echo}
-                    onchange={() => applySetting({ echo: settings.echo })} />
+        <Masonry gridGap="2em" colWidth="minmax(280px, 1fr)">
+            <div class="card d-grid">
+                <h2>General</h2>
+                <b>Echo</b>
+                <div>
+                    <input
+                        type="checkbox"
+                        class="toggle"
+                        bind:checked={settings.echo}
+                        onchange={() => applySetting({ echo: settings.echo })} />
+                </div>
+                <b>LED Mode</b>
+                <Dropdown
+                    options={led_modes}
+                    bind:selected={settings.led_mode}
+                    onchange={() =>
+                        applySetting({
+                            led_mode: settings.led_mode
+                        })} />
+                <b>Idle Timeout</b>
+                <Dropdown
+                    options={idle_timeout}
+                    bind:selected={settings.idle_sleep_minutes}
+                    onchange={() =>
+                        applySetting({
+                            idle_sleep_minutes: settings.idle_sleep_minutes
+                        })} />
             </div>
-            <b>LED Mode</b>
-            <Dropdown
-                options={led_modes}
-                bind:selected={settings.led_mode}
-                onchange={() =>
-                    applySetting({
-                        led_mode: settings.led_mode
-                    })} />
-            <b>Idle Timeout</b>
-            <Dropdown
-                options={idle_timeout}
-                bind:selected={settings.idle_sleep_minutes}
-                onchange={() =>
-                    applySetting({
-                        idle_sleep_minutes: settings.idle_sleep_minutes
-                    })} />
-        </div>
+            <div class="card d-grid child-gap">
+                <h2>ELM327 Emulator</h2>
+                <b>Interface</b>
+                <Dropdown
+                    options={elm_interfaces}
+                    bind:selected={settings.elm_settings.interface}
+                    onchange={() =>
+                        applySetting({
+                            elm_settings: {
+                                interface: settings.elm_settings.interface
+                            }
+                        })} />
+                <b>CAN-Bus</b>
+                <Dropdown
+                    options={Object.entries(settings.can_settings)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        .filter(([k, v]) => k.startsWith('can') && (v as any).enabled)
+                        .map((b, idx) => ({
+                            name: `CAN${idx}`,
+                            value: idx
+                        }))}
+                    bind:selected={settings.elm_settings.bus}
+                    onchange={() =>
+                        applySetting({
+                            elm_settings: {
+                                bus: settings.elm_settings.bus
+                            }
+                        })} />
+                {#if settings.elm_settings.interface === 1}
+                    <b transition:slide> Bluetooth PIN</b>
+                    <input transition:slide type="number" bind:value={settings.elm_settings.bt_pin} />
+                    <button
+                        transition:slide
+                        style="grid-column: 2; width: 100%; padding: 0.4em;"
+                        onclick={() =>
+                            applySetting({
+                                elm_settings: {
+                                    bt_pin: settings.elm_settings.bt_pin
+                                }
+                            })}>
+                        Set PIN
+                    </button>
+                {/if}
+            </div>
+        </Masonry>
         <div class="card can">
             <div class="d-grid">
                 <h2>CAN</h2>
@@ -335,9 +387,16 @@ const saveSettings = async (reset?: boolean) => {
     align-items: center;
     grid-template-columns: auto minmax(6em, 1fr);
     grid-row-gap: 1em;
-    grid-column-gap: 6em;
+    grid-column-gap: 1em;
     @media (orientation: portrait) {
         grid-column-gap: 2em;
+    }
+}
+
+.child-gap {
+    row-gap: 0em;
+    & > :global(:nth-child(n + 2)) {
+        margin-top: 1em;
     }
 }
 

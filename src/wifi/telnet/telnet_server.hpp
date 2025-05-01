@@ -67,6 +67,7 @@ class server {
     QueueHandle_t get_rx_queue() const;
     SemaphoreHandle_t get_clients_mutex() const { return clients_mutex; }
     const std::vector<client_connection>& get_clients() const { return clients; }
+    out::base_sink& get_all_sink() { return all_clients_sink; }
 
         private:
     static void server_task(void* params);
@@ -90,9 +91,8 @@ class server {
     TaskHandle_t server_task_handle;
 
     SemaphoreHandle_t clients_mutex;
-
-
     std::vector<client_connection> clients;
+    out::sink_mux all_clients_sink;
 };
 
 class sink : public out::base_sink {
@@ -106,6 +106,7 @@ class sink : public out::base_sink {
         private:
     int client_socket;
     SemaphoreHandle_t write_mutex;
+    std::vector<uint8_t> buffer;
 };
 
 } // namespace piccante::wifi::telnet

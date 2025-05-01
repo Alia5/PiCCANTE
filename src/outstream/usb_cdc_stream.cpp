@@ -21,37 +21,22 @@
 
 namespace piccante::usb_cdc {
 void USB_CDC_Sink::write(const char* v, std::size_t s) {
-    size_t remaining = s;
-    const char* data = v;
+    uint32_t available = tud_cdc_n_write_available(itf);
 
-    static auto retries = 0;
-    constexpr auto max_retries = 1000;
-    while (remaining > 0) {
-        uint32_t available = tud_cdc_n_write_available(itf);
+    if (available == 0) {
+        return;
+    }
 
-        if (available == 0) {
-            // TODO: Cleanup buffer full hack.
-            tud_cdc_n_write_flush(itf);
-            if (++retries > max_retries) {
-                retries = max_retries;
-                // Log::error << "USB CDC write timeout on itf: " << itf
-                //            << "; Discarding...\n";
-                return;
-            }
-            if (available > 0) {
-                retries = 0;
-            }
-            continue;
-        }
-
-        uint32_t chunk_size = (remaining < available) ? remaining : available;
-        uint32_t written = tud_cdc_n_write(itf, data, chunk_size);
-
-        data += written;
-        remaining -= written;
-
-        if (written < chunk_size) {
-            tud_cdc_n_write_flush(itf);
+    uint32_t chunk_size = (s < available) ? s : available;
+    uint32_t written = tud_cdc_n_write(itf, v, chunk_size);
+    if (written < s) {
+        tud_cdc_n_write_flush(itf);
+        vTaskDelay(pdMS_TO_TICKS(1));
+        size_t remaining = s - written;
+        available = tud_cdc_n_write_available(itf);
+        if (available > 0) {
+            chunk_size = (remaining < available) ? remaining : available;
+            tud_cdc_n_write(itf, v + written, chunk_size);
         }
     }
 }

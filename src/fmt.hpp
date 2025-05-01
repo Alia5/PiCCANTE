@@ -42,5 +42,4 @@ static std::string sprintf(const std::string_view& fmtstr, const Args&... args) 
     }
     return result;
 }
-
 }

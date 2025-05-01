@@ -36,6 +36,11 @@
 #include "SysShell/settings.hpp"
 #include "telnet/telnet.hpp"
 #include "http/httpd.hpp"
+extern "C" {
+#include "dhcpd/dhcpserver.h"
+}
+
+#include "bt_spp/bt_spp.hpp"
 
 namespace piccante::wifi {
 
@@ -54,6 +59,8 @@ SemaphoreHandle_t mutex = nullptr;
 
 bool was_connected = false;
 bool auto_reconnect = true;
+
+dhcp_server_t dhcp_server;
 
 void wifi_task(void*) {
     vTaskDelay(50);
@@ -296,6 +303,15 @@ bool start_ap(const std::string_view& ssid, const std::string_view& password,
     cyw43_arch_enable_ap_mode(ssid_str.c_str(), password_str.c_str(),
                               CYW43_AUTH_WPA2_AES_PSK);
 
+    ip_addr_t ip = cyw43_state.netif[CYW43_ITF_AP].ip_addr;
+    ip_addr_t nm = cyw43_state.netif[CYW43_ITF_AP].netmask;
+
+    dhcp_server_init(&dhcp_server, &ip, &nm);
+    Log::info << "DHCP server started with IP: "
+              << (ip4_addr_get_u32(ip_2_ip4(&ip)) & 0xff) << "."
+              << (ip4_addr_get_u32(ip_2_ip4(&ip)) >> 8 & 0xff) << "."
+              << (ip4_addr_get_u32(ip_2_ip4(&ip)) >> 16 & 0xff) << "."
+              << (ip4_addr_get_u32(ip_2_ip4(&ip)) >> 24 & 0xff) << "\n";
 
     xSemaphoreGive(mutex);
     return true;
@@ -388,6 +404,8 @@ void stop() {
     if (mode == Mode::CLIENT) {
         cyw43_arch_disable_sta_mode();
     } else if (mode == Mode::ACCESS_POINT) {
+        dhcp_server_deinit(&dhcp_server);
+        Log::info << "DHCP server stopped\n";
         cyw43_arch_disable_ap_mode();
     }
 

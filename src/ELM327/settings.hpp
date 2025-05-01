@@ -16,18 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include <string_view>
 #include <cstdint>
 
-namespace piccante::led {
-
-enum Mode : uint8_t {
-    MODE_OFF,
-    MODE_PWR,
-    MODE_CAN,
+namespace piccante::elm327 {
+struct settings {
+    uint32_t obd_header;
+    uint32_t timeout;
+    bool line_feed;
+    bool echo;
+    bool white_spaces;
+    bool dlc;
+    bool monitor_mode;
+    bool memory;
+    bool print_headers;
+    bool use_extended_frames;
+    bool adaptive_timing;
 };
-
-void init(Mode mode = MODE_CAN);
-void set_mode(Mode mode);
-Mode get_mode();
-void blink();
-} // namespace piccante::led
+} // namespace piccante::elm327

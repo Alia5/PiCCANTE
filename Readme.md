@@ -65,15 +65,24 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
   - ✅ Full device configuration
   - ✅ Device Monitoring
   - 🔜 Integrated Web CLI:  
-    - Live CAN-bus monitoring
-    - ELM327 commands
+    - 🔜 Live CAN-bus monitoring
+    - 🔜 ELM327 commands
   - 🔜 MITM mode configuration
-- 🔜 ELM327 emulator
+- ✅ Bluetooth support (on Pico W models)
+- ☑️ (partial) ELM327 emulator
+  - ☑️ Partially implemented AT command set
+    - Setup up CAN bus, auto protocol detection and filters (🔜) are missing.  
+      Configure the CAN bus beforehand - this is a hacking-tool, you should now your vehicles CAN bus settings.
+  - ✅ Support for USB, Bluetooth or WiFi communication
+  - ✅ PID request and response
+    - ✅ 11bit and 29bit addressing
+    - ✅ Multi-Frame PID support (ISO-TP)
+    - ✅ Fast mode when number of answered frames is known
+  - 🔜 Adaptive Timeouts
+- 🔜 Data logging to SD card
 - 🔜 3D printable case designs for creating PiCCANTE based OBD-II dongles
-- 🔜 Bluetooth support (on Pico W models)
 - 🔜 MITM mode for advanced analysis / vehicle tuning
 - 🔜 (Software) CAN filters
-- 🔜 Data logging to SD card (maybe)
 
 ## 📋 Quick Start
 

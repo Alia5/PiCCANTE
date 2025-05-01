@@ -16,33 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-
-#include "../../../StateMachine/state.hpp"
-#include "../proto.hpp"
 #include <cstdint>
-#include <utility>
+#include <initializer_list>
+#include "FreeRTOS.h"
+#include "queue.h"
 #include "outstream/stream.hpp"
-#include "../../../util/bin.hpp"
 
-namespace piccante::gvret::state {
-class keepalive : public fsm::state<uint8_t, Protocol, bool> {
-    static constexpr uint16_t KEEPALIVE_PAYLOAD = 0xDEAD;
+namespace piccante::bluetooth {
+void stop();
+bool is_running();
+QueueHandle_t get_rx_queue();
+out::base_sink& get_sink();
+TaskHandle_t create_task();
 
-        public:
-    explicit keepalive(out::stream& host_out)
-        : fsm::state<uint8_t, Protocol, bool>(KEEPALIVE), out(host_out) {}
-
-    Protocol enter() override {
-        // out << GET_COMMAND << KEEPALIVE << piccante::bin_be(KEEPALIVE_PAYLOAD);
-        out << "\xf1\x09\xDE\xAD";
-        out.flush();
-        return IDLE;
-    }
-    std::pair<Protocol, bool> tick([[maybe_unused]] uint8_t& byte) override {
-        return {IDLE, false};
-    }
-
-        private:
-    out::stream& out;
-};
-} // namespace gvret
+} // namespace piccante::bluetooth

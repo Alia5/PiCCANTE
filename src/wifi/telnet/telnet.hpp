@@ -31,9 +31,6 @@ bool is_running();
 QueueHandle_t get_rx_queue();
 out::base_sink& get_sink();
 
-out::sink_mux& mux_sink(std::initializer_list<out::base_sink*> sinks);
-
-
 bool enable();
 void disable();
 bool set_port(uint16_t port);

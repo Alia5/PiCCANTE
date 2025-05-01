@@ -121,11 +121,6 @@ if(NOT DEFINED CAN2_TX_PIN)
     set(CAN2_TX_PIN 9)
 endif()
 
-if(NOT DEFINED IDLE_SLEEP_MS)
-    message(STATUS "IDLE_SLEEP_MS not defined, defaulting to 10")
-    set(IDLE_SLEEP_MS 10)
-endif()
-
 if(NOT DEFINED CAN_QUEUE_TIMEOUT_MS)
     message(STATUS "CAN_QUEUE_TIMEOUT_MS not defined, defaulting to 10")
     set(CAN_QUEUE_TIMEOUT_MS 10)
@@ -168,8 +163,6 @@ add_compile_definitions(
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-pico_set_program_version(${target_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-
 file(GLOB_RECURSE srcFiles CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/src/*.c"
     "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp"
@@ -201,7 +194,7 @@ target_sources(${target_name} PRIVATE
 )
 
 pico_set_program_name(${target_name} "PiCCANTE")
-pico_set_program_version(${target_name} "0.1")
+pico_set_program_version(${target_name} "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 if(DEFINED ENV{PICO_DEBUG} OR CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(PICO_DEOPTIMIZED_DEBUG 1)
@@ -219,6 +212,7 @@ else()
 endif()
 
 pico_enable_stdio_usb(${target_name} 0)
+pico_enable_stdio_uart(${target_name} 1)
 
 # Add the standard library to the build
 target_link_libraries(${target_name}
@@ -402,7 +396,9 @@ if(IS_WIFI_BOARD)
         pico_lwip_http
         pico_lwip_mdns
         pico_btstack_classic
-        pico_btstack_ble
+        pico_btstack_cyw43
+        pico_lwip_freertos
+        pico_btstack_bnep_lwip_sys_freertos
     )
 
     # Make sure we include lwIP headers
@@ -411,7 +407,10 @@ if(IS_WIFI_BOARD)
         ${PICO_SDK_PATH}/lib/btstack/src
     )
 
-    add_compile_definitions(CYW43_HOST_NAME="PiCCANTE")
+    add_compile_definitions(CYW43_HOST_NAME="PiCCANTE"
+        CYW43_ENABLE_BLUETOOTH=1
+        HAVE_LWIP=1
+    )
 endif()
 
 # pico_enable_stdio_usb(${target_name} 0)

@@ -97,7 +97,18 @@
             "condition_variable": "cpp",
             "semaphore": "cpp",
             "stdfloat": "cpp",
-            "cfenv": "cpp"
-        }
+            "cfenv": "cpp",
+            "*.ipp": "cpp",
+            "strstream": "cpp",
+            "coroutine": "cpp",
+            "typeindex": "cpp",
+            "shared_mutex": "cpp",
+            "complex": "cpp",
+            "unordered_set": "cpp",
+            "csignal": "cpp",
+            "source_location": "cpp",
+            "bitset": "cpp"
+        },
+        "cortex-debug.variableUseNaturalFormat": false
     }
 }

@@ -18,7 +18,7 @@
 #include "led.hpp"
 #include "pico/stdlib.h"
 #include "FreeRTOS.h"
-#include "timers.h"
+#include "task.h"
 
 #ifdef WIFI_ENABLED
 #include "pico/cyw43_arch.h"
@@ -36,8 +36,33 @@ bool cyw43_initialized = false;
 constexpr uint8_t PICO_LED_PIN = 25;
 #endif
 
-TimerHandle_t led_toggle_timer = nullptr;
 constexpr TickType_t toggle_duration_ms = 50;
+
+bool should_blink = false;
+
+void set(bool state) {
+#ifndef WIFI_ENABLED
+    gpio_put(PICO_LED_PIN, state);
+#else
+    if (!cyw43_initialized) {
+        return;
+    }
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, state);
+#endif
+}
+void blink_task(void*) {
+    for (;;) {
+        if (should_blink) {
+            set(false);
+            vTaskDelay(pdMS_TO_TICKS(toggle_duration_ms));
+            set(true);
+            should_blink = false;
+            vTaskDelay(pdMS_TO_TICKS(toggle_duration_ms));
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
+}
 
 } // namespace
 void init(Mode mode) {
@@ -50,34 +75,10 @@ void init(Mode mode) {
     cyw43_initialized = true;
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, current_mode > MODE_OFF ? 1 : 0);
 #endif
+    static TaskHandle_t handle;
+    xTaskCreate(blink_task, "led_blink", configMINIMAL_STACK_SIZE / 4, nullptr,
+                tskIDLE_PRIORITY + 2, &handle);
 }
-
-namespace {
-void set(bool state) {
-#ifndef WIFI_ENABLED
-    gpio_put(PICO_LED_PIN, state);
-#else
-    if (!cyw43_initialized) {
-        return;
-    }
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, state);
-#endif
-}
-
-void led_toggle_timer_callback([[maybe_unused]] TimerHandle_t timer) {
-    if (current_mode == MODE_CAN) {
-#ifndef WIFI_ENABLED
-        gpio_put(PICO_LED_PIN, 1);
-#else
-        if (!cyw43_initialized) {
-            return;
-        }
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-#endif
-    }
-}
-
-} // namespace
 
 void set_mode(Mode mode) {
     current_mode = mode;
@@ -97,38 +98,11 @@ void set_mode(Mode mode) {
 
 Mode get_mode() { return current_mode; }
 
-void toggle() {
+void blink() {
     if (current_mode != MODE_CAN) {
         return;
     }
-
-    if (led_toggle_timer != nullptr) {
-        if (xTimerIsTimerActive(led_toggle_timer)) {
-            return;
-        }
-    }
-
-#ifndef WIFI_ENABLED
-    gpio_put(PICO_LED_PIN, 0);
-#else
-    if (!cyw43_initialized) {
-        return;
-    }
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
-#endif
-
-    if (led_toggle_timer == nullptr) {
-        led_toggle_timer = xTimerCreate("LED_Toggle_Timer",
-                                        pdMS_TO_TICKS(toggle_duration_ms),
-                                        pdFALSE,
-                                        0,
-                                        led_toggle_timer_callback);
-    }
-
-    if (led_toggle_timer != nullptr) {
-        xTimerReset(led_toggle_timer, 0);
-        xTimerStart(led_toggle_timer, 0);
-    }
+    should_blink = true;
 }
 
 

@@ -304,6 +304,9 @@ const sortedTasks = $derived(
                             <b>Total</b>
                             <span>{can.rx_total}</span>
                             <span>{can.tx_total}</span>
+                            <b>Overflow</b>
+                            <span>{can.rx_overflow}</span>
+                            <span>{can.tx_overflow}</span>
                             <b style="white-space: nowrap;">Parse error</b>
                             <span>{can.parse_error}</span>
                             <b>-</b>

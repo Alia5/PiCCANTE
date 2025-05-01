@@ -82,6 +82,10 @@ class handler {
     void cmd_idle_timeout(const std::string_view& arg);
     void cmd_version(const std::string_view& arg);
 
+    void cmd_elm(const std::string_view& arg);
+
+    void cmd_elm_atz(const std::string_view& arg);
+
 #ifdef WIFI_ENABLED
     void cmd_wifi(const std::string_view& arg);
     void cmd_telnet(const std::string_view& arg);

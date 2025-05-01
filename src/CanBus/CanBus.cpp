@@ -28,6 +28,7 @@
 #include "FreeRTOSConfig.h"
 #include "queue.h"
 #include "semphr.h"
+#include "timers.h"
 #include "Logger/Logger.hpp"
 #include <array>
 #include "fmt.hpp"
@@ -51,6 +52,9 @@ namespace {
 std::array<CanQueues, NUM_BUSSES> can_queues = {};
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 std::array<can2040, NUM_BUSSES> can_buses = {};
+
+TaskHandle_t canTaskHandle = nullptr; // NOLINT
+
 } // namespace
 
 struct CanGPIO {
@@ -99,6 +103,7 @@ namespace {
 
 
 std::array<uint32_t, piccanteNUM_CAN_BUSSES> rx_overflow_counts = {0};
+std::array<uint32_t, piccanteNUM_CAN_BUSSES> tx_overflow_counts = {0};
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 can_settings_file settings = {};
@@ -312,14 +317,24 @@ void canTask(void* parameters) {
         }
     }
 
+    for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES; i++) {
+        if (settings.bus_config[i].enabled) {
+            Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i) << " with bitrate "
+                      << settings.bus_config[i].bitrate << " from stored settings\n";
+            canbus_setup(i, settings.bus_config[i].bitrate);
+        }
+    }
+
 
     can2040_msg msg = {};
     for (;;) {
         bool did_tx = false;
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
-            while (xQueueReceive(can_queues[i].tx, &msg, 0) == pdTRUE) {
-                led::toggle();
+            if (xQueueReceive(can_queues[i].tx, &msg, 0) == pdTRUE) {
                 did_tx = true;
+                if (!can2040_check_transmit(&(can_buses[i]))) {
+                    can2040_pio_irq_handler(&(can_buses[i]));
+                }
                 int res = can2040_transmit(&(can_buses[i]), &msg);
                 if (res < 0) {
                     Log::error << "CAN" << fmt::sprintf("%d", i)
@@ -327,18 +342,18 @@ void canTask(void* parameters) {
                 }
             }
         }
-        if (!did_tx) {
-            // No messages to send, so we can sleep
-            vTaskDelay(pdMS_TO_TICKS(CAN_IDLE_SLEEP_TIME_MS));
+        if (did_tx) {
+            led::blink();
+        } else {
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
         }
     }
 }
 
-TaskHandle_t canTaskHandle; // NOLINT
 } // namespace
 
 TaskHandle_t& create_task() {
-    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
+    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE / 2, nullptr, CAN_TASK_PRIORITY,
                 &canTaskHandle);
     return canTaskHandle;
 }
@@ -360,17 +375,24 @@ int send_can(uint8_t bus, can2040_msg& msg) {
     if (xQueueSend(can_queues[bus].tx, &msg, pdMS_TO_TICKS(CAN_QUEUE_TIMEOUT_MS)) !=
         pdTRUE) {
         Log::error << "CAN bus " << fmt::sprintf("%d", bus) << ": TX queue full\n";
+        tx_overflow_counts[bus]++;
         return -1;
     }
+    xTaskNotifyGive(canTaskHandle);
     return 0;
 }
-int receive(uint8_t bus, can2040_msg& msg) {
+int receive(uint8_t bus, can2040_msg& msg, uint32_t timeout_ms) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
+        vTaskDelay(pdMS_TO_TICKS(timeout_ms));
         return -1;
     }
-    if (xQueueReceive(can_queues[bus].rx, &msg, 0) == pdTRUE) {
-        return get_can_rx_buffered_frames(bus);
+    if (!settings.bus_config[bus].enabled) {
+        vTaskDelay(pdMS_TO_TICKS(timeout_ms));
+        return -1;
+    }
+    if (xQueueReceive(can_queues[bus].rx, &msg, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        return (uint8_t)uxQueueMessagesWaiting(can_queues[bus].rx);
     }
     return -1;
 }
@@ -396,6 +418,12 @@ uint32_t get_can_rx_overflow_count(uint8_t bus) {
         return 0;
     }
     return rx_overflow_counts[bus];
+}
+uint32_t get_can_tx_overflow_count(uint8_t bus) {
+    if (bus >= piccanteNUM_CAN_BUSSES) {
+        return 0;
+    }
+    return tx_overflow_counts[bus];
 }
 
 bool get_statistics(uint8_t bus, can2040_stats& stats) {
@@ -517,17 +545,6 @@ void load_settings() {
     if (err == LFS_ERR_OK) {
         lfs_ssize_t const bytesRead =
             lfs_file_read(&piccante::fs::lfs, &readFile, &settings, sizeof(settings));
-        if (bytesRead >= 0) {
-            for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES;
-                 i++) {
-                if (settings.bus_config[i].enabled) {
-                    Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i)
-                              << " with bitrate " << settings.bus_config[i].bitrate
-                              << " from stored settings\n";
-                    canbus_setup(i, settings.bus_config[i].bitrate);
-                }
-            }
-        }
         lfs_file_close(&piccante::fs::lfs, &readFile);
     } else {
         Log::error << "Failed to read CAN settings file\n";

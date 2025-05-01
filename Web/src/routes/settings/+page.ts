@@ -56,4 +56,9 @@ export interface PiCCANTE_Settings {
             'bitrate': number;
         };
     };
+    'elm_settings': {
+        'interface': number;
+        'bus': number;
+        'bt_pin': number;
+    };
 }

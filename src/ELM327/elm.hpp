@@ -1,3 +1,4 @@
+
 /*
  * PiCCANTE - PiCCANTE Car Controller Area Network Tool for Exploration
  * Copyright (C) 2025 Peter Repukat
@@ -16,18 +17,33 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+
+#include <memory>
 #include <cstdint>
+#include "emulator.hpp"
+#include "SysShell/settings.hpp"
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "outstream/usb_cdc_stream.hpp"
+#ifdef WIFI_ENABLED
+#include "wifi/telnet/telnet_server.hpp"
+#include "wifi/bt_spp/bt_spp.hpp"
+#endif
 
-namespace piccante::led {
+namespace piccante::elm327 {
 
-enum Mode : uint8_t {
-    MODE_OFF,
-    MODE_PWR,
-    MODE_CAN,
+enum class interface : uint8_t {
+    USB = 0,
+    Bluetooth = 1,
+    WiFi = 2,
 };
+void start();
+void stop();
 
-void init(Mode mode = MODE_CAN);
-void set_mode(Mode mode);
-Mode get_mode();
-void blink();
-} // namespace piccante::led
+void reconfigure();
+
+elm327::emulator* emu();
+QueueHandle_t queue();
+
+
+} // namespace piccante::elm327

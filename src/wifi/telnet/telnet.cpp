@@ -24,55 +24,7 @@ namespace piccante::wifi::telnet {
 
 namespace {
 std::unique_ptr<server> telnet_server = nullptr;
-} // namespace
-
-class telnet_sink : public out::base_sink {
-        public:
-    void write(const char* data, std::size_t len) override {
-        if (!telnet_server || !telnet_server->is_running()) {
-            return;
-        }
-
-        if (xSemaphoreTake(telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
-            pdTRUE) {
-            return;
-        }
-
-        for (const auto& client : telnet_server->get_clients()) {
-            if (client.sink) {
-                client.sink->write(data, len);
-            }
-        }
-
-        xSemaphoreGive(telnet_server->get_clients_mutex());
-    }
-
-    void flush() override {
-        if (!telnet_server || !telnet_server->is_running()) {
-            return;
-        }
-
-        if (xSemaphoreTake(telnet_server->get_clients_mutex(), pdMS_TO_TICKS(100)) !=
-            pdTRUE) {
-            return;
-        }
-
-        for (const auto& client : telnet_server->get_clients()) {
-            if (client.sink) {
-                client.sink->flush();
-            }
-        }
-
-        xSemaphoreGive(telnet_server->get_clients_mutex());
-    }
-};
-
-namespace {
-telnet_sink all_clients_sink;
-bool telnet_sink_added = false;
-out::sink_mux sink_muxxer{};
-} // namespace
-
+}
 bool initialize() {
     if (!sys::settings::telnet_enabled()) {
         Log::debug << "Telnet server is disabled in settings\n";
@@ -129,21 +81,7 @@ QueueHandle_t get_rx_queue() {
     return nullptr;
 }
 
-out::base_sink& get_sink() { return all_clients_sink; }
-
-
-out::sink_mux& mux_sink(std::initializer_list<out::base_sink*> sinks) {
-    if (!telnet_sink_added) {
-        sink_muxxer.add_sink(&all_clients_sink);
-        telnet_sink_added = true;
-    }
-
-    for (auto* sink : sinks) {
-        sink_muxxer.add_sink(sink);
-    }
-
-    return sink_muxxer;
-}
+out::base_sink& get_sink() { return telnet_server->get_all_sink(); }
 
 bool enable() {
     sys::settings::set_telnet_enabled(true);

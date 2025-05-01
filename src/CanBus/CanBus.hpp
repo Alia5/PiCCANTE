@@ -31,7 +31,6 @@ constexpr uint8_t NUM_BUSSES = piccanteNUM_CAN_BUSSES;
 
 constexpr uint8_t CAN_QUEUE_SIZE = piccanteCAN_QUEUE_SIZE;
 
-constexpr uint8_t CAN_IDLE_SLEEP_TIME_MS = piccanteIDLE_SLEEP_MS;
 constexpr uint8_t CAN_QUEUE_TIMEOUT_MS = piccanteCAN_QUEUE_TIMEOUT_MS;
 
 constexpr UBaseType_t CAN_TASK_PRIORITY = configMAX_PRIORITIES - 5;
@@ -48,11 +47,13 @@ struct CanSettings {
 TaskHandle_t& create_task();
 
 int send_can(uint8_t bus, can2040_msg& msg);
-int receive(uint8_t bus, can2040_msg& msg);
+int receive(uint8_t bus, can2040_msg& msg, uint32_t timeout_ms = 0);
 
 int get_can_rx_buffered_frames(uint8_t bus);
 int get_can_tx_buffered_frames(uint8_t bus);
 uint32_t get_can_rx_overflow_count(uint8_t bus);
+uint32_t get_can_tx_overflow_count(uint8_t bus);
+
 bool get_statistics(uint8_t bus, can2040_stats& stats);
 
 

@@ -51,6 +51,8 @@ class sink_mux : public base_sink {
         sinks_.erase(std::remove(sinks_.begin(), sinks_.end(), sink), sinks_.end());
     }
 
+    void clear_sinks() { sinks_.clear(); }
+
     void write(const char* v, std::size_t s) override {
         for (auto& sink : sinks_) {
             sink->write(v, s);

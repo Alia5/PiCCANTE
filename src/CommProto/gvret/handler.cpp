@@ -43,9 +43,9 @@ void handler::comm_can_frame(uint busnumber, const can2040_msg& frame) {
 
     constexpr size_t header_size =
         1 + 1 + 4 + 4 + 1; // GET_COMMAND + SEND_CAN_FRAME + time + id + dlc/bus
-    size_t total_size = header_size + frame.dlc + 1;
 
-    std::array<uint8_t, 32> buf; // 32 is enough for a CAN frame
+    // TODO: make class member.
+    static std::vector<uint8_t> buf(header_size + 8 + 1);
     size_t pos = 0;
 
     buf[pos++] = GET_COMMAND;

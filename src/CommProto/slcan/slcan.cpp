@@ -320,8 +320,6 @@ void handler::comm_can_frame(const can2040_msg& frame) {
     const bool is_extended = frame.id & CAN2040_ID_EFF;
     const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
-    std::vector<uint8_t> buffer(40);
-
     if (extended_mode) {
         host_out << std::to_string(millis) << " - " << fmt::sprintf("%x", id);
         host_out << (frame.id & CAN2040_ID_EFF ? " X " : " S "); // Extended frame
@@ -333,26 +331,26 @@ void handler::comm_can_frame(const can2040_msg& frame) {
         }
     } else {
         std::size_t pos = 0;
-        buffer[pos++] = is_extended ? 'T' : 't';
+        can_out_buffer[pos++] = is_extended ? 'T' : 't';
 
         if (is_extended) {
             for (int i = EXT_ID_MAX_SHIFT; i >= 0; i -= 4) {
-                buffer[pos++] = hex_digits[(id >> i) & 0xF];
+                can_out_buffer[pos++] = hex_digits[(id >> i) & 0xF];
             }
         } else {
-            buffer[pos++] = hex_digits[(id >> 8) & 0xF];
-            buffer[pos++] = hex_digits[(id >> 4) & 0xF];
-            buffer[pos++] = hex_digits[id & 0xF];
+            can_out_buffer[pos++] = hex_digits[(id >> 8) & 0xF];
+            can_out_buffer[pos++] = hex_digits[(id >> 4) & 0xF];
+            can_out_buffer[pos++] = hex_digits[id & 0xF];
         }
 
-        buffer[pos++] = '0' + frame.dlc;
+        can_out_buffer[pos++] = '0' + frame.dlc;
 
         for (uint32_t i = 0; i < frame.dlc; i++) {
             const auto byte = frame.data[i];
-            buffer[pos++] = hex_digits[(byte >> 4) & 0xF];
-            buffer[pos++] = hex_digits[byte & 0xF];
+            can_out_buffer[pos++] = hex_digits[(byte >> 4) & 0xF];
+            can_out_buffer[pos++] = hex_digits[byte & 0xF];
         }
-        host_out.write(buffer.data(), pos);
+        host_out.write(can_out_buffer.data(), pos);
         if (time_stamping) {
             host_out << (fmt::sprintf("%04x", millis)) << '\0';
         }
@@ -393,15 +391,11 @@ void handler::task() {
                 handle_command(cmd);
                 buffer.clear();
             } else {
-                if (buffer.size() < buffer.capacity()) {
-                    buffer.push_back(c);
-                }
+                buffer.push_back(c);
             }
         }
-        if (received) {
-            taskYIELD();
-        } else {
-            vTaskDelay(pdMS_TO_TICKS(piccanteIDLE_SLEEP_MS));
+        if (!received) {
+            vTaskDelay(pdMS_TO_TICKS(1));
         }
     }
 }
