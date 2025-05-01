@@ -1,7 +1,7 @@
 <img src="logo.svg" align="right" width="200"/>
 <br />
 
-[![Build Status](https://github.com/alia5/PiCCANTE/actions/workflows/build.yml/badge.svg)](https://github.com/alia5/PiCCANTE/actions/workflows/build.yml)
+[![Build Status](https://github.com/alia5/PiCCANTE/actions/workflows/build.yml/badge.svg)](https://github.com/alia5/PiCCANTE/actions/workflows/snapshots.yml)
 [![License: GPL-3.0](https://img.shields.io/github/license/alia5/PiCCANTE)](https://github.com/alia5/PiCCANTE/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/alia5/PiCCANTE?include_prereleases&sort=semver)](https://github.com/alia5/PiCCANTE/releases)
 [![Issues](https://img.shields.io/github/issues/alia5/PiCCANTE)](https://github.com/alia5/PiCCANTE/issues)
@@ -140,21 +140,26 @@ When connected via USB, PiCCANTE exposes **up to** 4× USB-CDC interfaces:
 ### ⌨️ PiCCANTE Commands
 
 ```
+atz             - Enable ELM mode (if ELM327-Emulator is on USB)
 binary          - Toggle GVRET binary mode (binary <on|off>)
 can_bitrate     - Change CAN bus bitrate (can_bitrate <bus> <bitrate>)
 can_disable     - Disable CAN bus (can_disable <bus>)
 can_enable      - Enable CAN bus with specified bitrate (can_enable <bus> <bitrate>)
 can_status      - Show status of CAN buses
 echo            - Toggle command echo (echo <on|off>)
+elm             - Configure ELM327 interface and mode (elm <usb|bt PIN|wifi>  <can0|can1|can2>)
 help            - Display this help message
+idle_timeout    - Set idle timeout in minutes (idle_timeout disable|<minutes>)
 led_mode        - Set LED mode (led_mode <0-3>) 0=OFF, 1=Power, 2=CAN Activity
 log_level       - Set log level (log_level <0-3>). 0=DEBUG, 1=INFO, 2=WARNING, 3=ERROR
 reset           - Reset the system (reset)
 save            - Save current settings to flash
 set_num_busses  - Set number of CAN buses (can_num_busses [number])
 settings        - Show current system settings
+sleep           - Enter deep sleep mode (sleep)
 sys_stats       - Display system information and resource usage (sys_stats [cpu|heap|fs|tasks|uptime|adc|wifi])
-telnet          - Enable or disable Telnet and set port (telnet enable|disable | telnet <port>)
+telnet          - Enable or disable Telnet and set port (telnet enable|disable | telnet <port
+version         - Display version information (version)
 wifi            - Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> <password> <channel> | wifi disable)
 ```
 
