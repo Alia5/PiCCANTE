@@ -36,6 +36,11 @@ export const mocks = {
 
                         bitrate: 125000
                     }
+                },
+                "elm_settings": {
+                    "interface": 1,
+                    "bus": 0,
+                    "bt_pin": 1337,
                 }
             }
         },
