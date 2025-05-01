@@ -35,6 +35,7 @@ extern "C" {
 #include "CanBus/CanBus.hpp"
 #include "wifi/telnet/telnet.hpp"
 #include "wifi/wifi.hpp"
+#include "ELM327/elm.hpp"
 
 
 namespace piccante::httpd::api::settings {
@@ -65,12 +66,18 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
     }
     can_settings_json += "}";
 
+    const auto elm_settings_json =
+        fmt::sprintf(R"("elm_settings":{"interface":%d,"bus":%d,"bt_pin":%d})",
+                     piccante::sys::settings::get_wifi_settings().elm_interface,
+                     piccante::sys::settings::get().elm_can_bus,
+                     piccante::sys::settings::get_wifi_settings().bluetooth_pin);
+
 
     const auto wifi_cfg = piccante::sys::settings::get_wifi_settings();
     const auto result = fmt::sprintf(
         R"({"echo":%s,"log_level":%d,"led_mode":%d,"wifi_mode":%d,"idle_sleep_minutes":%d,"wifi_settings":{
             "ssid":"%s","password":"%s","channel":%d,"telnet_port":%d,"telnet_enabled":%s
-        },%s})",
+        },%s,%s})",
         piccante::sys::settings::get_echo() ? "true" : "false",
         piccante::sys::settings::get_log_level(),
         static_cast<uint8_t>(piccante::sys::settings::get_led_mode()),
@@ -79,7 +86,7 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
         wifi_cfg.password.c_str(), wifi_cfg.channel,
         piccante::sys::settings::get_telnet_port(),
         piccante::sys::settings::telnet_enabled() ? "true" : "false",
-        can_settings_json.c_str());
+        can_settings_json.c_str(), elm_settings_json.c_str());
     http_server_write_raw(handle, result.c_str(), result.size());
     http_server_end_write_reply(handle, "");
     return true;
@@ -215,6 +222,39 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
                         can::disable(i);
                     }
                 }
+            }
+        }
+    }
+
+    if (auto elm_settings_json = util::json::get_object(json, "elm_settings")) {
+        if (auto v = util::json::get_value(*elm_settings_json, "bus")) {
+            Log::debug << "Setting ELM327 bus to: " << *v << "\n";
+            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+            piccante::elm327::stop();
+            piccante::sys::settings::set_elm_can_bus(std::stoi(std::string(*v)));
+            if (wifi_cfg.elm_interface !=
+                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
+                piccante::elm327::start();
+            }
+        }
+        if (auto v = util::json::get_value(*elm_settings_json, "interface")) {
+            Log::debug << "Setting ELM327 interface to: " << *v << "\n";
+            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+            piccante::elm327::stop();
+            piccante::sys::settings::set_elm_interface(std::stoi(std::string(*v)));
+            if (wifi_cfg.elm_interface !=
+                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
+                piccante::elm327::start();
+            }
+        }
+        if (auto v = util::json::get_value(*elm_settings_json, "bt_pin")) {
+            Log::debug << "Setting ELM327 bluetooth pin to: " << *v << "\n";
+            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+            piccante::elm327::stop();
+            piccante::sys::settings::set_bluetooth_pin(std::stoi(std::string(*v)));
+            if (wifi_cfg.elm_interface !=
+                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
+                piccante::elm327::start();
             }
         }
     }
