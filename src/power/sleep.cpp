@@ -113,7 +113,8 @@ void idle_detection_task(void* params) {
             xTimerReset(idle_timer, 0);
             timer_should_reset = false;
         }
-        vTaskDelay(pdTICKS_TO_MS(5000));
+        watchdog_update();
+        vTaskDelay(pdTICKS_TO_MS(1000));
     }
 }
 } // namespace
@@ -130,6 +131,9 @@ void init() {
         Log::error << "Failed to create idle detection task\n";
         return;
     }
+
+    watchdog_enable(5000, false);
+    Log::info << "Watchdog enabled with 5s timeout\n";
 }
 
 void reset_idle_timer() {
@@ -148,7 +152,7 @@ void enter_sleep_mode() {
     sleeping = true;
 
     Log::info << "Going to sleep\n";
-
+    watchdog_disable();
     led::set_mode(led::MODE_OFF);
 
 #ifdef WIFI_ENABLED
