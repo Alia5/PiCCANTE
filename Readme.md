@@ -90,7 +90,7 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 
 - 1× Raspberry Pi Pico (any model, RP2040 or RP2350)
   - **Note:** The Pico 2 W (RP2350) is recommended for full feature support, including WiFi and Bluetooth.
-- 1-3× CAN transceivers (readily available SN65HVD23x or any other 3.3V compatible transceiver)
+- 1-3× CAN transceivers (readily available SN65HVD or any other 3.3V compatible transceiver)
   - **Note:** Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them, for research in a vehicle, you may need to remove it.
 - USB cable
 - Perfboard
@@ -256,7 +256,7 @@ Contributions to PiCCANTE are welcome! Whether it's bug reports, feature request
 
 ### Extending PiCCANTE
 
-PiCCANTE is designed to be modular and extensible. Here are some key areas where you might want to extend functionality:
+PiCCANTE is designed to be extensible. Here are some key areas where you might want to extend functionality:
 
 - **Adding new commands**: Extend the command interpreter to add custom commands.
 - **Implementing new protocols**: Add new protocol handlers in their respective directories.
