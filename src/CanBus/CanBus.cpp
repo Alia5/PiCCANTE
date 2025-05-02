@@ -122,9 +122,10 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             rx_overflow_counts[0]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
-        if (rx_task_handle != nullptr) {
-            xTaskNotifyFromISR(rx_task_handle, 0, eSetBits, &higher_priority_task_woken);
-        }
+        // if (rx_task_handle != nullptr) {
+        //     xTaskNotifyFromISR(rx_task_handle, 0, eSetBits,
+        //     &higher_priority_task_woken);
+        // }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
     //     // Process transmitted message
@@ -147,9 +148,10 @@ void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             rx_overflow_counts[1]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
-        if (rx_task_handle != nullptr) {
-            xTaskNotifyFromISR(rx_task_handle, 0, eSetBits, &higher_priority_task_woken);
-        }
+        // if (rx_task_handle != nullptr) {
+        //     xTaskNotifyFromISR(rx_task_handle, 0, eSetBits,
+        //     &higher_priority_task_woken);
+        // }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
     //     // Process transmitted message
@@ -172,9 +174,10 @@ void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             rx_overflow_counts[2]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
-        if (rx_task_handle != nullptr) {
-            xTaskNotifyFromISR(rx_task_handle, 0, eSetBits, &higher_priority_task_woken);
-        }
+        // if (rx_task_handle != nullptr) {
+        //     xTaskNotifyFromISR(rx_task_handle, 0, eSetBits,
+        //     &higher_priority_task_woken);
+        // }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
     //     // Process transmitted message

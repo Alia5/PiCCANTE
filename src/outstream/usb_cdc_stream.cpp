@@ -29,14 +29,26 @@ void USB_CDC_Sink::write(const char* v, std::size_t s) {
 
     uint32_t chunk_size = (s < available) ? s : available;
     uint32_t written = tud_cdc_n_write(itf, v, chunk_size);
-    if (written < s) {
+    if (written == 0) {
+        return;
+    } else {
+        retries = 0;
+    }
+    while (written < s && retries <= 10) {
         tud_cdc_n_write_flush(itf);
-        vTaskDelay(pdMS_TO_TICKS(1));
-        size_t remaining = s - written;
+        taskYIELD();
+        const size_t remaining = s - written;
         available = tud_cdc_n_write_available(itf);
         if (available > 0) {
+            retries = 0;
             chunk_size = (remaining < available) ? remaining : available;
-            tud_cdc_n_write(itf, v + written, chunk_size);
+            written += tud_cdc_n_write(itf, v + written, chunk_size);
+        } else {
+            retries++;
+            vTaskDelay(1);
+            if (retries > 10) {
+                break;
+            }
         }
     }
 }

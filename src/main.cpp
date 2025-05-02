@@ -56,6 +56,7 @@ extern "C" {
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
+#include "wifi/telnet/buffered_sink.hpp"
 #include "wifi/bt_spp/bt_spp.hpp"
 #endif
 
@@ -97,6 +98,7 @@ static void can_recieveTask(void* parameter) {
     can2040_msg msg{};
     for (;;) {
         auto received = false;
+        ulTaskNotifyTake(pdTRUE, 0);
         for (int bus = 0; bus < num_busses; bus++) {
             if (piccante::can::receive(bus, msg, 0) >= 0) {
                 if (bus == cfg.elm_can_bus && piccante::elm327::emu() != nullptr) {
@@ -113,7 +115,7 @@ static void can_recieveTask(void* parameter) {
             piccante::power::sleep::reset_idle_timer();
             xTaskNotifyGive(piccanteAndGvretTaskHandle);
         } else {
-            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2));
         }
     }
 }
@@ -126,8 +128,9 @@ static void main_interface_task(void* parameter) {
 
 #ifdef WIFI_ENABLED
     auto sink = piccante::out::sink_mux{};
-    sink.add_sink(&piccante::wifi::telnet::get_sink());
-    // sink.add_sink(&piccante::bluetooth::get_sink());
+    auto buffered_telnet_sink =
+        piccante::out::timeout_buffer_sink{piccante::wifi::telnet::get_sink()};
+    sink.add_sink(&buffered_telnet_sink);
     sink.add_sink(piccante::usb_cdc::sinks[0].get());
     auto outstream = piccante::out::stream{sink};
 #else
@@ -144,6 +147,7 @@ static void main_interface_task(void* parameter) {
 #endif
 
     for (;;) {
+        ulTaskNotifyTake(pdTRUE, 0); // clear notifications
         auto received = false;
         while (tud_cdc_n_available(0) > 0) {
             received = true;

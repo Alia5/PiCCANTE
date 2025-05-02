@@ -33,6 +33,7 @@ class USB_CDC_Sink : public out::base_sink {
 
         private:
     uint8_t itf = 0;
+    uint8_t retries = 0;
 };
 
 inline std::vector<std::unique_ptr<USB_CDC_Sink>> sinks;
