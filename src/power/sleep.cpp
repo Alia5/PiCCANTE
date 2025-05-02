@@ -132,7 +132,7 @@ void init() {
         return;
     }
 
-    watchdog_enable(10000, false);
+    watchdog_enable(10000, true);
     Log::info << "Watchdog enabled with 10s timeout\n";
 }
 
