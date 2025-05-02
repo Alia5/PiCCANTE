@@ -375,6 +375,31 @@ target_sources(${target_name} PRIVATE
 
 # \ littlefs
 
+# FATFS
+set(FAT_FS_PATH ${CMAKE_CURRENT_LIST_DIR}/ext/FreeRTOS-FAT-CLI)
+
+set_source_files_properties(
+    ${CMAKE_CURRENT_LIST_DIR}/ext/FreeRTOS-FAT-CLI/src/FreeRTOS+FAT+CLI/src/crash.c
+    PROPERTIES
+    HEADER_FILE_ONLY TRUE
+)
+
+add_subdirectory(${FAT_FS_PATH}/src/FreeRTOS+FAT+CLI ${FATFS_BUILD_DIR})
+
+target_include_directories(FreeRTOS+FAT+CLI INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/src/config
+)
+
+target_include_directories(${target_name} INTERFACE
+    ${FAT_FS_PATH}/src/FreeRTOS+FAT+CLI/include
+    ${FAT_FS_PATH}/../Lab-Project-FreeRTOS-FAT/include
+    ${FAT_FS_PATH}/portable/RP2040
+)
+
+target_link_libraries(${target_name} FreeRTOS+FAT+CLI)
+
+# \ FATFS
+
 # Add any user requested libraries
 target_link_libraries(${target_name}
     pico_async_context_freertos

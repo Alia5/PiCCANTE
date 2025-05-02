@@ -13,3 +13,6 @@
 [submodule "ext/pico-extras"]
 	path = ext/pico-extras
 	url = git@github.com:raspberrypi/pico-extras.git
+[submodule "ext/FreeRTOS-FAT-CLI"]
+	path = ext/FreeRTOS-FAT-CLI
+	url = git@github.com:carlk3/FreeRTOS-FAT-CLI-for-RPi-Pico.git

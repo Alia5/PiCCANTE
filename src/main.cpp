@@ -53,6 +53,8 @@ extern "C" {
 #include "fmt.hpp"
 #include <pico/time.h>
 
+#include "sd_card/sd_card.hpp"
+
 #ifdef WIFI_ENABLED
 #include "wifi/wifi.hpp"
 #include "wifi/telnet/telnet.hpp"
@@ -303,4 +305,5 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName) {
 }
 
 #endif /* #if ( configCHECK_FOR_STACK_OVERFLOW > 0 ) */
+
 
