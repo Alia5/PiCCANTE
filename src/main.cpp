@@ -87,32 +87,33 @@ static void usbDeviceTask(void* parameters) {
 
 
 static void can_recieveTask(void* parameter) {
-    const auto bus = reinterpret_cast<int>(parameter);
-    vTaskDelay(100 * bus);
+    vTaskDelay(1200);
     const auto num_busses = piccante::can::get_num_busses();
 
-    if (bus >= num_busses) {
-        return;
-    }
-    piccante::Log::info << "Starting CAN Receive (Bus" << bus << ") Task!\n";
+
+    piccante::Log::info << "Starting CAN Receive Task!\n";
 
     const auto& cfg = piccante::sys::settings::get();
     can2040_msg msg{};
     for (;;) {
         auto received = false;
-        if (piccante::can::receive(bus, msg, 10) >= 0) {
-            if (bus == cfg.elm_can_bus && piccante::elm327::emu() != nullptr) {
-                piccante::elm327::emu()->handle_can_frame(msg);
-            }
+        for (int bus = 0; bus < num_busses; bus++) {
+            if (piccante::can::receive(bus, msg, 0) >= 0) {
+                if (bus == cfg.elm_can_bus && piccante::elm327::emu() != nullptr) {
+                    piccante::elm327::emu()->handle_can_frame(msg);
+                }
 
-            gvret_handler->comm_can_frame(bus, msg);
-            slcan_handler[bus]->comm_can_frame(msg);
-            received = true;
+                gvret_handler->comm_can_frame(bus, msg);
+                slcan_handler[bus]->comm_can_frame(msg);
+                received = true;
+            }
         }
         if (received) {
             piccante::led::blink();
             piccante::power::sleep::reset_idle_timer();
             xTaskNotifyGive(piccanteAndGvretTaskHandle);
+        } else {
+            ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
         }
     }
 }
@@ -234,20 +235,18 @@ int main() {
 
     xTaskCreate(usbDeviceTask, "USB", configMINIMAL_STACK_SIZE / 2, nullptr,
                 configMAX_PRIORITIES - 6, &usbTaskHandle);
-    xTaskCreate(main_interface_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE, nullptr,
-                3, &piccanteAndGvretTaskHandle);
+    xTaskCreate(main_interface_task, "PiCCANTE+GVRET", configMINIMAL_STACK_SIZE * 2,
+                nullptr, 3, &piccanteAndGvretTaskHandle);
 
     for (size_t i = 0; i < piccanteNUM_CAN_BUSSES; i++) {
         slcan_handler[i] = std::make_unique<piccante::slcan::handler>(
             piccante::usb_cdc::out(i + 1), i + 1, i);
         auto slcanTaskHandle = slcan_handler[i]->create_task();
-
-        TaskHandle_t canRxHandle;
-        xTaskCreate(can_recieveTask, fmt::sprintf("CAN RX%d", i).c_str(),
-                    configMINIMAL_STACK_SIZE, reinterpret_cast<void*>(i),
-                    configMAX_PRIORITIES - 10, &canRxHandle);
     }
-
+    static TaskHandle_t canRxHandle;
+    xTaskCreate(can_recieveTask, "CAN RX", configMINIMAL_STACK_SIZE * 2, nullptr,
+                configMAX_PRIORITIES - 10, &canRxHandle);
+    piccante::can::set_rx_task_handle(canRxHandle);
     static TaskHandle_t canTaskHandle = piccante::can::create_task();
 
     vTaskCoreAffinitySet(canTaskHandle, 0x02);
@@ -278,7 +277,11 @@ int main() {
 }
 
 // NOLINTNEXTLINE
-void vApplicationMallocFailedHook() { configASSERT((volatile void*)nullptr); }
+void vApplicationMallocFailedHook() {
+    //
+    piccante::Log::error << "Malloc failed!\n";
+    configASSERT((volatile void*)nullptr);
+}
 // NOLINTNEXTLINE
 void vApplicationIdleHook() {
     volatile size_t xFreeHeapSpace = 0;
@@ -291,10 +294,9 @@ void vApplicationIdleHook() {
 #if (configCHECK_FOR_STACK_OVERFLOW > 0)
 
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName) {
-    /* Check pcTaskName for the name of the offending task,
-     * or pxCurrentTCB if pcTaskName has itself been corrupted. */
-    (void)xTask;
-    (void)pcTaskName;
+    piccante::Log::error << "STACK OVERFLOW: Task " << pcTaskName
+                         << " overflowed its stack!\n";
 }
 
 #endif /* #if ( configCHECK_FOR_STACK_OVERFLOW > 0 ) */
+

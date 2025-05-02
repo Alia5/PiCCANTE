@@ -76,7 +76,7 @@ void init(Mode mode) {
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, current_mode > MODE_OFF ? 1 : 0);
 #endif
     static TaskHandle_t handle;
-    xTaskCreate(blink_task, "led_blink", configMINIMAL_STACK_SIZE / 4, nullptr,
+    xTaskCreate(blink_task, "led_blink", configMINIMAL_STACK_SIZE / 2, nullptr,
                 tskIDLE_PRIORITY + 2, &handle);
 }
 

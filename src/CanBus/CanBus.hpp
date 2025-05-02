@@ -68,4 +68,5 @@ uint32_t get_bitrate(uint8_t bus);
 bool is_listenonly(uint8_t bus);
 void set_listenonly(uint8_t bus, bool listen_only);
 void load_settings();
+void set_rx_task_handle(TaskHandle_t task_handle);
 }

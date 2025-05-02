@@ -55,6 +55,8 @@ std::array<can2040, NUM_BUSSES> can_buses = {};
 
 TaskHandle_t canTaskHandle = nullptr; // NOLINT
 
+TaskHandle_t rx_task_handle = nullptr; // NOLINT
+
 } // namespace
 
 struct CanGPIO {
@@ -120,6 +122,9 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             rx_overflow_counts[0]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
+        if (rx_task_handle != nullptr) {
+            xTaskNotifyFromISR(rx_task_handle, 0, eSetBits, &higher_priority_task_woken);
+        }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
     //     // Process transmitted message
@@ -142,6 +147,9 @@ void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             rx_overflow_counts[1]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
+        if (rx_task_handle != nullptr) {
+            xTaskNotifyFromISR(rx_task_handle, 0, eSetBits, &higher_priority_task_woken);
+        }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
     //     // Process transmitted message
@@ -163,6 +171,9 @@ void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
             rx_overflow_counts[2]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+        }
+        if (rx_task_handle != nullptr) {
+            xTaskNotifyFromISR(rx_task_handle, 0, eSetBits, &higher_priority_task_woken);
         }
     }
     // else if (notify == CAN2040_NOTIFY_TX) {
@@ -353,7 +364,7 @@ void canTask(void* parameters) {
 } // namespace
 
 TaskHandle_t& create_task() {
-    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE / 2, nullptr, CAN_TASK_PRIORITY,
+    xTaskCreate(canTask, "CAN", configMINIMAL_STACK_SIZE, nullptr, CAN_TASK_PRIORITY,
                 &canTaskHandle);
     return canTaskHandle;
 }
@@ -550,5 +561,7 @@ void load_settings() {
         Log::error << "Failed to read CAN settings file\n";
     }
 }
+
+void set_rx_task_handle(TaskHandle_t task_handle) { rx_task_handle = task_handle; }
 
 } // namespace piccante::can

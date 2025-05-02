@@ -132,8 +132,8 @@ void init() {
         return;
     }
 
-    watchdog_enable(5000, false);
-    Log::info << "Watchdog enabled with 5s timeout\n";
+    watchdog_enable(10000, false);
+    Log::info << "Watchdog enabled with 10s timeout\n";
 }
 
 void reset_idle_timer() {
