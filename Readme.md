@@ -91,13 +91,16 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 - 1× Raspberry Pi Pico (any model, RP2040 or RP2350)
   - **Note:** The Pico 2 W (RP2350) is recommended for full feature support, including WiFi and Bluetooth.
 - 1-3× CAN transceivers (readily available SN65HVD or any other 3.3V compatible transceiver)
-  - **Note:** Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them, for research in a vehicle, you may need to remove it.
+  - **Note:** Most readily available transceiver breakout-boards have a 120 Ohm terminating Resistor on them, when connecting to an existing (terminated) CAN bus this **needs** to be removed.
 - USB cable
-- Perfboard
+- Perfboard (Double sided, 18x24 - 60mm x 50mm)
   - [**OPTIONAL**] or custom PCB 🔜
 - Soldering iron
 - Basic soldering skills
 - [**Optional**] Low dropout Buck-Converter module and OBD Plug for directly connecting to the vehicle's OBD-II port
+- [**Optional**] Schotky diode for safe dual power supply (eg. 1N5817, others will do as well)
+- [**Optional**] SD card module/slot for data logging
+- [**Optional**] 100kOhm + 10kOhm resistors for voltage divider to measure the vehicle's battery voltage
 - [**Optional**] 3D printed case for the Pico and transceivers
 
 ### 🚀 Basic Usage Examples
@@ -134,6 +137,9 @@ The initial prototype fits on a 60mm x 50mm board with:
 - Schottky diode for safe dual power supply (1N5817)
 
 ![PiCCANTE Perfboard](./hardware/PiCCANTE_Perfboard.svg)
+
+⚠️ Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them.
+⚠️ When connecting to an existing (terminated) CAN bus, you **must** remove the resistor on the transceiver board.
 
 More can be found in [hardware](./hardware)
 
