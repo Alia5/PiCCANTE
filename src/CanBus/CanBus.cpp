@@ -37,6 +37,7 @@
 #include <fs/littlefs_driver.hpp>
 #include "led/led.hpp"
 #include <hardware/watchdog.h>
+#include <hardware/gpio.h>
 
 
 namespace piccante::can {
@@ -52,6 +53,8 @@ namespace {
 std::array<CanQueues, NUM_BUSSES> can_queues = {};
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 std::array<can2040, NUM_BUSSES> can_buses = {};
+constexpr std::array<uint8_t, 3> pwr_pins = {piccanteCAN0_PWR_PIN, piccanteCAN1_PWR_PIN,
+                                             piccanteCAN2_PWR_PIN};
 
 TaskHandle_t canTaskHandle = nullptr; // NOLINT
 
@@ -223,6 +226,15 @@ std::array<bool, 3> canbus_initial_setup_done = {
 };
 
 void canbus_setup_initial(uint8_t bus) {
+    for (auto pin : pwr_pins) {
+        if (pin == 0) {
+            continue;
+        }
+        gpio_init(pin);
+        gpio_set_dir(pin, GPIO_OUT);
+        gpio_put(pin, 0);
+    }
+
     can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
 
@@ -477,6 +489,9 @@ void enable(uint8_t bus, uint32_t bitrate) {
         set_bitrate(bus, bitrate);
         return;
     }
+    if (pwr_pins[bus] != 0) {
+        gpio_put(pwr_pins[bus], true);
+    }
     canbus_setup(bus, bitrate);
     settings.bus_config[bus].bitrate = bitrate;
     settings.bus_config[bus].enabled = true;
@@ -489,6 +504,9 @@ void disable(uint8_t bus) {
         return;
     }
     can2040_stop(&(can_buses[bus]));
+    if (pwr_pins[bus] != 0) {
+        gpio_put(pwr_pins[bus], false);
+    }
     if (!settings.bus_config[bus].enabled) {
         settings.bus_config[bus].enabled = false;
         store_settings();

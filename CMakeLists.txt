@@ -140,10 +140,16 @@ add_compile_definitions(
     piccanteNUM_CAN_BUSSES=${NUM_CAN_BUSSES}
     piccanteCAN0_RX_PIN=${CAN0_RX_PIN}
     piccanteCAN0_TX_PIN=${CAN0_TX_PIN}
+    piccanteCAN0_PWR_PIN=0
+
     piccanteCAN1_RX_PIN=${CAN1_RX_PIN}
     piccanteCAN1_TX_PIN=${CAN1_TX_PIN}
+    piccanteCAN1_PWR_PIN=0
+
     piccanteCAN2_RX_PIN=${CAN2_RX_PIN}
     piccanteCAN2_TX_PIN=${CAN2_TX_PIN}
+    piccanteCAN2_PWR_PIN=0
+
     piccanteIDLE_SLEEP_MS=${IDLE_SLEEP_MS}
     piccanteCAN_QUEUE_TIMEOUT_MS=${CAN_QUEUE_TIMEOUT_MS}
     piccanteCAN_QUEUE_SIZE=${CAN_QUEUE_SIZE}
