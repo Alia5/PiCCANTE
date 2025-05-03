@@ -188,8 +188,14 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
 
     if (auto can_settings_json = util::json::get_object(json, "can_settings")) {
         if (auto v = util::json::get_value(*can_settings_json, "enabled")) {
-            Log::debug << "Setting number of available can interfaces to: " << *v << "\n";
-            can::set_num_busses(std::stoi(std::string(*v)));
+            char* end;
+            long num = strtol(v->data(), &end, 10);
+            if (end != v->data() && end == v->data() + v->size() && num >= 0 &&
+                num <= piccanteNUM_CAN_BUSSES) {
+                Log::debug << "Setting number of available can interfaces to: " << *v
+                           << "\n";
+                can::set_num_busses(static_cast<int>(num));
+            }
         }
 
         for (int i = 0; i < can::get_num_busses(); i++) {
@@ -199,10 +205,10 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
                 auto enabled = util::json::get_value(*v, "enabled");
                 auto bitrate = util::json::get_value(*v, "bitrate");
                 auto listen_only = util::json::get_value(*v, "listen_only");
-                if (enabled != "") {
+                if (enabled.has_value() && *enabled != "") {
                     if (enabled == "true") {
                         const auto stored_bitrate = can::get_bitrate(i);
-                        if (bitrate == "") {
+                        if (!bitrate.has_value() || *bitrate == "") {
                             Log::debug << "Enabling canbus " << i
                                        << " with stored bitrate: " << stored_bitrate
                                        << "\n";
@@ -212,15 +218,19 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
                                        << " with new bitrate: " << *bitrate << "\n";
                             can::enable(i, std::stoi(std::string(*bitrate)));
                         }
-                        if (listen_only != "") {
-                            Log::debug << "Setting " << i
-                                       << " listen only to: " << *listen_only << "\n";
-                            can::set_listenonly(i, *listen_only == "true");
-                        }
                     } else {
                         Log::debug << "Disabling canbus " << i << "\n";
                         can::disable(i);
                     }
+                }
+                if (!enabled.has_value() && bitrate.has_value() && *bitrate != "") {
+                    Log::debug << "Setting " << i << " bitrate to: " << *bitrate << "\n";
+                    can::set_bitrate(i, std::stoi(std::string(*bitrate)));
+                }
+                if (listen_only.has_value() && *listen_only != "") {
+                    Log::debug << "Setting " << i << " listen only to: " << *listen_only
+                               << "\n";
+                    can::set_listenonly(i, *listen_only == "true");
                 }
             }
         }
