@@ -123,8 +123,21 @@ candump can0
 
 ## 🔧 Hardware
 
-Comprehensive documentation for self-built perfboard hardware is coming soon.  
-Custom PCB designs may follow at a later date.
+PiCCANTE is simple enough to be soldered onto double-sided perfboard.  
+The initial prototype fits on a 60mm x 50mm board with:
+
+- Pi Pico (2 W)
+- 3x CAN transceivers (SN65HVD)
+- buck-converter
+- SD card slot
+- Voltage divider for measuring the vehicle's battery voltage
+- Schottky diode for safe dual power supply (1N5817)
+
+![PiCCANTE Perfboard](./hardware/PiCCANTE_Perfboard.svg)
+
+More can be found in [hardware](./hardware)
+
+A custom PCB designs follow at a later date.
 
 ## 💾 Software
 
