@@ -389,6 +389,8 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet,
 void bt_task(void* params) {
     (void)params;
 
+    vTaskDelay(pdMS_TO_TICKS(53));
+
     Log::info << "Starting Bluetooth SPP task\n";
     if (!init_resources()) {
         Log::error << "Failed to initialize Bluetooth resources\n";
