@@ -15,8 +15,6 @@ PiCCANTE is a powerful hacking tool for accessing, exploring, and manipulating v
 
 ⚠️ **Always exercise caution when connecting to vehicle systems.** ⚠️ 
 
-## 🚧 WORK IN PROGRESS 🚧
-
 ## ℹ️ About PiCCANTE
 
 PiCCANTE is designed to be a dead-**simple**, dirt-**cheap**, and readily-**available** hardware platform for vehicle research and exploration.  
@@ -79,8 +77,8 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
     - ✅ Multi-Frame PID support (ISO-TP)
     - ✅ Fast mode when number of answered frames is known
   - 🔜 Adaptive Timeouts
+- ✅ 3D printable case designs for creating PiCCANTE based OBD-II dongles
 - 🔜 Data logging to SD card
-- 🔜 3D printable case designs for creating PiCCANTE based OBD-II dongles
 - 🔜 MITM mode for advanced analysis / vehicle tuning
 - 🔜 (Software) CAN filters
 
@@ -136,15 +134,33 @@ The initial prototype fits on a 60mm x 50mm board with:
 - Voltage divider for measuring the vehicle's battery voltage
 - Schottky diode for safe dual power supply (1N5817)
 
-⚠️ Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them.  
-⚠️ When connecting to an existing (terminated) CAN bus, you **must** remove the resistor on the transceiver board.
+⚠️ Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them. ⚠️  
+⚠️ When connecting to an existing (terminated) CAN bus, you **must** remove the resistor on the transceiver board. ⚠️  
 
 <img src="./hardware/PiCCANTE_Perfboard.svg" width="100%"/>
 <details>
-  <summary>Show More</summary>
+  <summary>Show More (Schematics/Images)</summary>
 <img src="./hardware/Perfboard_Topside_Complete.jpg" width="100%"/> 
 <img src="./hardware/Perfboard_Bottom_Complete.jpg" width="100%"/>  
 <img src="./hardware/PiCCANTE_schematic.svg" width="100%"/>  
+</details>
+
+A 3D printable case is available in the [hardware/case/perfboard/](./hardware/case/perfboard/) directory.  
+Even though the hardware is soldered onto perfboard, the case is just as large as a regular credit card.  
+
+<details>
+  <summary>Show Case</summary>
+
+#### 🛒 What You'll Need
+
+- 3D printer
+- ABS/ASA or PETG filament
+- 3x M3 screws
+- 3x M3 heatset inserts
+- 1x male OBD-II connector (I used [this one](https://store.minitools.com/en/components-and-connectors/obd-connectors/sep-a-obd-e2-obd2-male-connector.html))
+- Wires
+
+<img src="./hardware/Case.jpg" width="100%"/>
 </details>
 
 More can be found in [hardware](./hardware)
