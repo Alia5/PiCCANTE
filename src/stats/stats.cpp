@@ -221,18 +221,20 @@ std::vector<AdcStats> get_adc_stats() {
 
     std::vector<AdcStats> results;
 
-    // ADC0 (GPIO26) - Usually general purpose ADC
+    // ADC0 (GPIO26) - Connected to Voltage divider from external buck converter (vehicle
+    // 12V)
     adc_gpio_init(26);
     adc_select_input(0);
     uint16_t raw0 = adc_read();
-    float voltage0 = (raw0 * 3.3f) / 4095.0f;
+    float voltage0 = (raw0 * 3.3F) / 4095.0F *
+                     11.0F; // Vin = (Vadc * (100 + 10)) / 10 => Vin = Vadc * 11
     results.push_back({.value = voltage0,
                        .raw_value = raw0,
                        .channel = 0,
                        .name = "ADC0",
                        .unit = "V"});
 
-    // ADC1 (GPIO27) - Usually general purpose ADC
+    // ADC1 (GPIO27) - Gneral purpose ADC
     adc_gpio_init(27);
     adc_select_input(1);
     uint16_t raw1 = adc_read();
@@ -243,7 +245,7 @@ std::vector<AdcStats> get_adc_stats() {
                        .name = "ADC1",
                        .unit = "V"});
 
-    // ADC2 (GPIO28) - Usually general purpose ADC
+    // ADC2 (GPIO28) - General purpose ADC
     adc_gpio_init(28);
     adc_select_input(2);
     uint16_t raw2 = adc_read();
