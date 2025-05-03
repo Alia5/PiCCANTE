@@ -136,7 +136,7 @@ The initial prototype fits on a 60mm x 50mm board with:
 - Voltage divider for measuring the vehicle's battery voltage
 - Schottky diode for safe dual power supply (1N5817)
 
-⚠️ Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them.
+⚠️ Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them.  
 ⚠️ When connecting to an existing (terminated) CAN bus, you **must** remove the resistor on the transceiver board.
 
 <img src="./hardware/PiCCANTE_Perfboard.svg" width="100%"/>
