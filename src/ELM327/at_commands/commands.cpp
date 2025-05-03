@@ -27,6 +27,7 @@
 #include <unordered_map>
 #include "SysShell/settings.hpp"
 #include "../elm.hpp"
+#include "stats/stats.hpp"
 
 namespace piccante::elm327 {
 
@@ -239,8 +240,9 @@ void at::ATAR(const std::string_view cmd) {
 
 void at::ATDESC() { out << emulator::device_desc << end_ok(); }
 void at::ATRV() {
-    // TODO: Could read ADC here (if implemented...)
-    out << "13.4V";
+    const auto adc_stats = sys::stats::get_adc_stats();
+
+    out << fmt::sprintf("%.1fV", adc_stats.begin()->value);
     if (params.white_spaces) {
         out << " ";
     }

@@ -76,6 +76,7 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
     - ✅ 11bit and 29bit addressing
     - ✅ Multi-Frame PID support (ISO-TP)
     - ✅ Fast mode when number of answered frames is known
+  - ✅ Report vehicle battery voltage (if ADC is connected)
   - 🔜 Adaptive Timeouts
 - ✅ 3D printable case designs for creating PiCCANTE based OBD-II dongles
 - 🔜 Data logging to SD card
