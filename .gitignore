@@ -1,3 +1,6 @@
 build
 .cache
 *.local
+hardware/PiCCANTE-OBD-Dongle/PiCCANTE-OBD-Dongle-backups
+hardware/PiCCANTE-OBD-Dongle/fp-info-cache
+*.lck
