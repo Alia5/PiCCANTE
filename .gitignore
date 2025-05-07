@@ -4,3 +4,7 @@ build
 hardware/PiCCANTE-OBD-Dongle/PiCCANTE-OBD-Dongle-backups
 hardware/PiCCANTE-OBD-Dongle/fp-info-cache
 *.lck
+hardware/PiCCANTE-OBD-Dongle/production
+hardware/PiCCANTE-OBD-Dongle/fabrication-toolkit-options.json
+hardware/PiCCANTE-OBD-Dongle/_autosave-PiCCANTE-OBD-Dongle.kicad_pcb
+hardware/PiCCANTE-OBD-Dongle/PiCCANTE-OBD-Dongle_AR-Check.txt

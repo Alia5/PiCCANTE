@@ -5583,7 +5583,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Inductor_SMD:L_6.3x6.3_H3"
+		(property "Footprint" "EasyEDA:IND-SMD_L4.0-W4.0"
 			(at 217.17 41.91 0)
 			(effects
 				(font
@@ -5719,7 +5719,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 31.75 19.05 0)
 			(effects
 				(font
@@ -5853,7 +5853,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Horizontal"
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 154.94 175.26 0)
 			(effects
 				(font
@@ -5921,7 +5921,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Horizontal"
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 154.94 165.1 0)
 			(effects
 				(font
@@ -6061,7 +6061,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Capacitor_SMD_AKL:C_1206_3216Metric"
+		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
 			(at 210.5152 55.88 0)
 			(effects
 				(font
@@ -6399,7 +6399,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 221.488 111.76 90)
 			(effects
 				(font
@@ -6538,7 +6538,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 213.868 111.76 90)
 			(effects
 				(font
@@ -6905,7 +6905,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Capacitor_SMD_AKL:C_0201_0603Metric"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
 			(at 187.6552 115.57 0)
 			(effects
 				(font
@@ -6975,7 +6975,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 36.83 134.62 0)
 			(effects
 				(font
@@ -7175,7 +7175,7 @@
 				)
 			)
 		)
-		(property "Footprint" "PCM_Capacitor_SMD_AKL:C_0201_0603Metric"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
 			(at 224.79 37.7952 0)
 			(effects
 				(font
@@ -7311,7 +7311,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 206.248 111.76 90)
 			(effects
 				(font
@@ -7447,7 +7447,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PiCO_CUSTOM_KEEPOUT:RaspberryPi_Pico_W_SMD_HandSolder_CUSTOM_KEEPOUT"
+		(property "Footprint" "PiCO_CUSTOM_KEEPOUT:RaspberryPi_Pico_W_SMD_THT_COMBO_CUSTOM_KEEPOUT"
 			(at 135.89 125.73 0)
 			(effects
 				(font
@@ -7947,7 +7947,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 229.108 111.76 90)
 			(effects
 				(font
@@ -8015,7 +8015,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Horizontal"
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 			(at 154.94 186.69 0)
 			(effects
 				(font
@@ -8217,7 +8217,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 36.83 77.47 0)
 			(effects
 				(font
@@ -8419,7 +8419,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Capacitor_SMD_AKL:C_1206_3216Metric"
+		(property "Footprint" "Capacitor_SMD:C_1206_3216Metric"
 			(at 268.9352 59.69 0)
 			(effects
 				(font
@@ -8691,7 +8691,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "PCM_Resistor_SMD_AKL:R_0201_0603Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 198.628 111.76 90)
 			(effects
 				(font
