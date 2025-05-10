@@ -58,7 +58,7 @@ jobs:
             else
               # Get commits since the latest tag
               LOG_RANGE="$LATEST_TAG..HEAD"
-              CONTEXT_MSG="Changes since $LATEST_TAG:"
+              CONTEXT_MSG="since $LATEST_TAG:"
             fi
           fi
           
@@ -102,22 +102,25 @@ jobs:
           if [ ! -z "$FEATURES" ]; then
             echo "### ✨ New Features" >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
-            echo "$FEATURES" | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
+            echo "$FEATURES" | sed 's/\*\*feature\*\*: //g' | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
           fi
           
           if [ ! -z "$FIXES" ]; then
             echo "### 🐛 Fixes" >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
-            echo "$FIXES" | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
+            echo "$FIXES" | sed 's/\*\*fix\*\*: //g' | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
           fi
           
           if [ ! -z "$MISC" ]; then
             echo "### 🔧 Miscellaneous" >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
-            echo "$MISC" | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
+            echo "$MISC" | sed 's/\*\*misc\*\*: //g' | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
           fi
           
           echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
+          echo "Changelog generated successfully."
+          echo "Changelog content:"
+          echo "$GITHUB_OUTPUT"
