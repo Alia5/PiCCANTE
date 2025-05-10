@@ -20,9 +20,17 @@ jobs:
         artifact_suffix: "-Release"
         upload_artifacts: true  
 
+  generate-changelog:
+    name: Generate Changelog
+    needs: build
+    uses: ./.github/workflows/generate-changelog.yml
+    with:
+        mode: release
+        tag_name: ${{ github.ref_name }}
+
   create-release:
     name: Create Release
-    needs: build
+    needs: [build, generate-changelog]
     runs-on: ubuntu-latest
     
     steps:
@@ -92,6 +100,7 @@ jobs:
             
             ### Changes
             
+            ${{ needs.generate-changelog.outputs.changelog }}
             
           files: release_files/**/*
           prerelease: false

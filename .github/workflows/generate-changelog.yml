@@ -1,0 +1,123 @@
+name: Generate Changelog
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+        description: 'Mode of operation: "release" or "snapshot"'
+      tag_name:
+        required: false
+        type: string
+        description: 'Current tag name (required for release mode)'
+    outputs:
+      changelog:
+        description: "Generated changelog"
+        value: ${{ jobs.generate.outputs.changelog }}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    outputs:
+      changelog: ${{ steps.generate_changelog.outputs.changelog }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate Changelog
+        id: generate_changelog
+        run: |
+          echo "Generating changelog from commits..."
+          
+          if [[ "${{ inputs.mode }}" == "release" ]]; then
+            # For releases, get commits between the previous tag and this one
+            PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match "v*.*.*" HEAD^ 2>/dev/null || echo "")
+            CURRENT_TAG="${{ inputs.tag_name }}"
+            
+            if [ -z "$PREVIOUS_TAG" ]; then
+              # If no previous tag exists, get all commits
+              LOG_RANGE="$CURRENT_TAG"
+              CONTEXT_MSG="All changes in this release:"
+            else
+              # Get commits between tags
+              LOG_RANGE="$PREVIOUS_TAG..$CURRENT_TAG"
+              CONTEXT_MSG="Changes since $PREVIOUS_TAG:"
+            fi
+          else
+            # For snapshots, get commits since the latest release tag
+            LATEST_TAG=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "")
+            
+            if [ -z "$LATEST_TAG" ]; then
+              # If no tag exists, get all commits with changelog entries
+              LOG_RANGE=""
+              CONTEXT_MSG="All changes:"
+            else
+              # Get commits since the latest tag
+              LOG_RANGE="$LATEST_TAG..HEAD"
+              CONTEXT_MSG="Changes since $LATEST_TAG:"
+            fi
+          fi
+          
+          # Find commits with changelog entries
+          CHANGELOG=$(git log --pretty=format:'%H' $LOG_RANGE | while read commit_hash; do
+            # Extract commit details
+            commit_msg=$(git log -1 --pretty=format:'%s' $commit_hash)
+            commit_body=$(git log -1 --pretty=format:'%b' $commit_hash)
+            
+            # Check for Changelog footer
+            if echo "$commit_body" | grep -q "Changelog: feature\|Changelog: fix\|Changelog: misc"; then
+              # Get the changelog type
+              changelog_type=$(echo "$commit_body" | grep -o "Changelog: [a-z]*" | head -n1 | cut -d ' ' -f 2)
+              
+              # Format the entry
+              entry="- **$changelog_type**: $commit_msg"
+              
+              # Add body content if present
+              commit_body_content=$(echo "$commit_body" | grep -v "Changelog: " | sed '/^$/d')
+              if [ ! -z "$commit_body_content" ]; then
+                entry="$entry\n  $(echo "$commit_body_content" | sed 's/^/  /')"
+              fi
+              
+              echo "$entry"
+            fi
+          done)
+          
+          # Group by changelog type
+          FEATURES=$(echo "$CHANGELOG" | grep "**feature**" || echo "")
+          FIXES=$(echo "$CHANGELOG" | grep "**fix**" || echo "")
+          MISC=$(echo "$CHANGELOG" | grep "**misc**" || echo "")
+          
+          # Prepare final changelog with sections
+          echo "changelog<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+          
+          if [ ! -z "$CONTEXT_MSG" ]; then
+            echo "$CONTEXT_MSG" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+          
+          if [ ! -z "$FEATURES" ]; then
+            echo "### ✨ New Features" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "$FEATURES" | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+          
+          if [ ! -z "$FIXES" ]; then
+            echo "### 🐛 Fixes" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "$FIXES" | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+          
+          if [ ! -z "$MISC" ]; then
+            echo "### 🔧 Miscellaneous" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "$MISC" | sed 's/\\n/\n/g' >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
