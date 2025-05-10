@@ -28,13 +28,9 @@
 #include "queue.h"
 #include "task.h"
 #include "semphr.h"
-extern "C" {
-#include <can2040.h>
-}
+#include "CanBus/frame.hpp"
 #include "Logger/Logger.hpp"
 
-
-struct can2040_msg;
 
 #if defined bind
 #undef bind
@@ -72,7 +68,7 @@ class emulator {
     void handle_command(std::string_view command);
     int handle_pid_request(std::string_view command);
 
-    void handle_can_frame(const can2040_msg& frame);
+    void handle_can_frame(const can::frame& frame);
 
     constexpr static uint32_t obd2_11bit_broadcast = 0x7DF;
     constexpr static uint32_t obd2_29bit_broadcast = 0x18DB33F1;
@@ -138,8 +134,8 @@ class emulator {
                         uint32_t pid);
     int check_for_timeout();
     int process_input_byte(uint8_t byte, std::vector<char>& buff);
-    void process_can_frame(const can2040_msg& frame);
-    void format_frame_output(const can2040_msg& frame, uint32_t id,
+    void process_can_frame(const can::frame& frame);
+    void format_frame_output(const can::frame& frame, uint32_t id,
                              std::string& outBuff) const;
     std::string_view end_ok() {
         if (params.line_feed) {

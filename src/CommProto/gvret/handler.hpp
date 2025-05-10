@@ -21,6 +21,8 @@
 #include "../../StateMachine/StateMachine.hpp"
 #include "proto.hpp"
 #include "states/states.hpp"
+#include "CanBus/frame.hpp"
+
 
 // My implementation of the gvret protocol (afaik) originally by Collin Kidder (Collin80)
 // Based on the original code from:
@@ -47,7 +49,7 @@ class handler {
     handler& operator=(handler&&) = delete;
 
     bool process_byte(uint8_t byte);
-    void comm_can_frame(uint busnumber, const can2040_msg& frame);
+    void comm_can_frame(uint busnumber, const can::frame& frame);
     void set_binary_mode(bool mode);
     bool get_binary_mode() const;
 
@@ -68,7 +70,7 @@ class handler {
         state::set_sw_mode(),
         state::keepalive(host_out),
         state::set_systype(),
-        state::echo_can_frame([this](uint busnumber, const can2040_msg& frame) {
+        state::echo_can_frame([this](uint busnumber, const can::frame& frame) {
             this->comm_can_frame(busnumber, frame);
         }),
         state::get_num_buses(host_out),

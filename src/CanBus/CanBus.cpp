@@ -118,8 +118,16 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
+        frame fr{
+            .extended = msg->id & CAN2040_ID_EFF,
+            .rtr = msg->id & CAN2040_ID_RTR,
+            .id = msg->id & ~(CAN2040_ID_RTR | CAN2040_ID_EFF),
+            .dlc = msg->dlc,
+            .data = {msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4],
+                     msg->data[5], msg->data[6], msg->data[7]},
+        };
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[0].rx, msg, &higher_priority_task_woken) !=
+        if (xQueueSendFromISR(can_queues[0].rx, &fr, &higher_priority_task_woken) !=
             pdTRUE) {
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
             rx_overflow_counts[0]++;
@@ -145,7 +153,16 @@ void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[1].rx, msg, &higher_priority_task_woken) !=
+        frame fr{
+            .extended = msg->id & CAN2040_ID_EFF,
+            .rtr = msg->id & CAN2040_ID_RTR,
+            .id = msg->id & ~(CAN2040_ID_RTR | CAN2040_ID_EFF),
+            .dlc = msg->dlc,
+            .data = {msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4],
+                     msg->data[5], msg->data[6], msg->data[7]},
+        };
+        // Process received message - add to queue from ISR
+        if (xQueueSendFromISR(can_queues[0].rx, &fr, &higher_priority_task_woken) !=
             pdTRUE) {
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
             rx_overflow_counts[1]++;
@@ -171,7 +188,16 @@ void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[2].rx, msg, &higher_priority_task_woken) !=
+        frame fr{
+            .extended = msg->id & CAN2040_ID_EFF,
+            .rtr = msg->id & CAN2040_ID_RTR,
+            .id = msg->id & ~(CAN2040_ID_RTR | CAN2040_ID_EFF),
+            .dlc = msg->dlc,
+            .data = {msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4],
+                     msg->data[5], msg->data[6], msg->data[7]},
+        };
+        // Process received message - add to queue from ISR
+        if (xQueueSendFromISR(can_queues[0].rx, &fr, &higher_priority_task_woken) !=
             pdTRUE) {
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
             rx_overflow_counts[2]++;
@@ -334,8 +360,8 @@ void canTask(void* parameters) {
     Log::info << "Starting CAN task...\n";
 
     for (std::size_t i = 0; i < NUM_BUSSES; i++) {
-        can_queues[i].rx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
-        can_queues[i].tx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(can2040_msg));
+        can_queues[i].rx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(frame));
+        can_queues[i].tx = xQueueCreate(CAN_QUEUE_SIZE, sizeof(frame));
 
         if (can_queues[i].rx == NULL || can_queues[i].tx == NULL) {
             Log::error << "Failed to create CAN queues for bus " << i << "\n";
@@ -352,7 +378,7 @@ void canTask(void* parameters) {
     }
 
 
-    can2040_msg msg = {};
+    frame msg = {};
     for (;;) {
         bool did_tx = false;
         for (std::size_t i = 0; i < NUM_BUSSES; i++) {
@@ -361,7 +387,13 @@ void canTask(void* parameters) {
                 if (!can2040_check_transmit(&(can_buses[i]))) {
                     can2040_pio_irq_handler(&(can_buses[i]));
                 }
-                int res = can2040_transmit(&(can_buses[i]), &msg);
+                can2040_msg msg2040 = {
+                    .id = msg.id | (msg.extended ? CAN2040_ID_EFF : 0) |
+                          (msg.rtr ? CAN2040_ID_RTR : 0),
+                    .dlc = msg.dlc,
+                    .data = {msg.data[0], msg.data[1], msg.data[2], msg.data[3],
+                             msg.data[4], msg.data[5], msg.data[6], msg.data[7]}};
+                int res = can2040_transmit(&(can_buses[i]), &msg2040);
                 if (res < 0) {
                     Log::error << "CAN" << fmt::sprintf("%d", i)
                                << ": Failed to send message\n";
@@ -384,7 +416,7 @@ TaskHandle_t& create_task() {
     return canTaskHandle;
 }
 
-int send_can(uint8_t bus, can2040_msg& msg) {
+int send_can(uint8_t bus, frame& msg) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
         return -1;
@@ -407,7 +439,7 @@ int send_can(uint8_t bus, can2040_msg& msg) {
     xTaskNotifyGive(canTaskHandle);
     return 0;
 }
-int receive(uint8_t bus, can2040_msg& msg, uint32_t timeout_ms) {
+int receive(uint8_t bus, frame& msg, uint32_t timeout_ms) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
         vTaskDelay(pdMS_TO_TICKS(timeout_ms));

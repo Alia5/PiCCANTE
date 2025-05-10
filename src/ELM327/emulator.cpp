@@ -22,9 +22,7 @@
 #include "at_commands/commands.hpp"
 #include <cmath>
 #include "CanBus/CanBus.hpp"
-extern "C" {
-#include <can2040.h>
-}
+#include "CanBus/frame.hpp"
 #include <pico/time.h>
 #include "Logger/Logger.hpp"
 #include "util/hexstr.hpp"
@@ -102,11 +100,11 @@ void emulator::handle_command(std::string_view command) {
 }
 
 int emulator::handle_pid_request(std::string_view command) {
-    can2040_msg frame{};
+    piccante::can::frame frame{};
 
     frame.id = params.obd_header;
     if (params.use_extended_frames) {
-        frame.id |= CAN2040_ID_EFF;
+        frame.extended = true;
     }
 
     frame.dlc = 8;
@@ -156,20 +154,18 @@ int emulator::handle_pid_request(std::string_view command) {
 }
 
 
-void emulator::handle_can_frame(const can2040_msg& frame) {
-    const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
-
+void emulator::handle_can_frame(const can::frame& frame) {
     if (!params.monitor_mode) {
         if (!is_waiting_for_response) {
             return;
         }
 
         if (params.use_extended_frames) {
-            if (id < 0x18DAF100 || id > 0x18DAF1FF) {
+            if (frame.id < 0x18DAF100 || frame.id > 0x18DAF1FF) {
                 return; // ignore
             }
         } else {
-            if (id < 0x7e8 || id > 0x7ef) {
+            if (frame.id < 0x7e8 || frame.id > 0x7ef) {
                 return; // ignore
             }
         }
@@ -275,8 +271,8 @@ int emulator::process_input_byte(uint8_t byte, std::vector<char>& buff) {
     return 0;
 }
 
-void emulator::process_can_frame(const can2040_msg& frame) {
-    auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
+void emulator::process_can_frame(const can::frame& frame) {
+    auto id = frame.id;
 
     const auto now = pdTICKS_TO_MS(xTaskGetTickCount());
     current_request.last_response_time = now;
@@ -294,14 +290,15 @@ void emulator::process_can_frame(const can2040_msg& frame) {
     // Send flow control for multi-frame responses (ISO-TP)
     if (frame.data[0] == iso_tp::FirstFrame) {
         // First frame of multi-frame message - need to send flow control
-        can2040_msg fc_frame{};
+        piccante::can::frame fc_frame{};
 
         uint32_t fc_target_id = id;
         if (params.use_extended_frames) {
             uint32_t byte0 = id & 0xFF;
             uint32_t byte1 = (id >> 8) & 0xFF;
             fc_target_id = (id & 0xFFFF0000) | (byte0 << 8) | byte1;
-            fc_frame.id = fc_target_id | CAN2040_ID_EFF;
+            fc_frame.id = fc_target_id;
+            fc_frame.extended = true;
         } else {
             fc_target_id = id - 0x08;
             fc_frame.id = fc_target_id;
@@ -379,7 +376,7 @@ void emulator::process_can_frame(const can2040_msg& frame) {
     }
 }
 
-void emulator::format_frame_output(const can2040_msg& frame,
+void emulator::format_frame_output(const can::frame& frame,
                                    uint32_t id,
                                    std::string& outBuff) const {
     outBuff.clear();

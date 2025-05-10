@@ -21,6 +21,7 @@
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"
 #include "../../../CanBus/CanBus.hpp"
+#include "CanBus/frame.hpp"
 #include <cstdint>
 #include <utility>
 
@@ -31,7 +32,7 @@ namespace piccante::gvret::state {
 class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
         public:
     explicit echo_can_frame(
-        std::function<void(uint busnumber, const can2040_msg& frame)> comm_fn)
+        std::function<void(uint busnumber, const can::frame& frame)> comm_fn)
         : fsm::state<uint8_t, Protocol, bool>(ECHO_CAN_FRAME), comm_fn(comm_fn) {}
 
 
@@ -56,7 +57,7 @@ class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
                 // TODO: validate
                 if (frame.id & 1 << 31) {
                     frame.id &= ~(1 << 31);
-                    frame.id |= CAN2040_ID_EFF;
+                    frame.extended = true;
                 }
                 break;
             case 4:
@@ -83,9 +84,9 @@ class echo_can_frame : public fsm::state<uint8_t, Protocol, bool> {
     }
 
         protected:
-    std::function<void(uint busnumber, const can2040_msg& frame)> comm_fn;
+    std::function<void(uint busnumber, const can::frame& frame)> comm_fn;
     uint8_t step = 0;
-    can2040_msg frame = {};
+    piccante::can::frame frame = {};
     uint8_t out_bus = 0;
 };
 } // namespace piccante::gvret::state

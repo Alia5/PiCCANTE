@@ -25,7 +25,6 @@
  */
 
 #include "slcan.hpp"
-#include <can2040.h>
 #include <cstddef>
 #include <cstdint>
 #include <cctype>
@@ -38,6 +37,7 @@
 #include "outstream/stream.hpp"
 #include <utility>
 #include "../CanBus/CanBus.hpp"
+#include "CanBus/frame.hpp"
 #include "../util/hexstr.hpp"
 #include "fmt.hpp"
 #include "Logger/Logger.hpp"
@@ -126,7 +126,7 @@ void handler::handle_short_cmd(char cmd) {
 }
 
 void handler::handle_long_cmd(const std::string_view& cmd) {
-    can2040_msg out_frame{};
+    piccante::can::frame out_frame{};
 
 
     Log::debug << "SLCAN Long Command:" << cmd << "\n";
@@ -195,7 +195,7 @@ void handler::handle_long_cmd(const std::string_view& cmd) {
                         return;
                     }
 
-                    can2040_msg out_frame{};
+                    piccante::can::frame out_frame{};
                     out_frame.id = id;
                     uint8_t num_bytes =
                         std::min(static_cast<size_t>(8), data_hex.length() / 2);
@@ -305,7 +305,7 @@ void handler::handle_long_cmd(const std::string_view& cmd) {
 constexpr int EXT_ID_MAX_SHIFT = 28; // 32 - 4 (7 shifts of 4 bits)
 constexpr std::string_view hex_digits = "0123456789abcdef";
 
-void handler::comm_can_frame(const can2040_msg& frame) {
+void handler::comm_can_frame(const can::frame& frame) {
     uint32_t const millis = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
     if (!auto_poll) {
@@ -317,12 +317,12 @@ void handler::comm_can_frame(const can2040_msg& frame) {
     }
 
 
-    const bool is_extended = frame.id & CAN2040_ID_EFF;
-    const auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
+    const bool is_extended = frame.extended;
+    const auto id = frame.id;
 
     if (extended_mode) {
         host_out << std::to_string(millis) << " - " << fmt::sprintf("%x", id);
-        host_out << (frame.id & CAN2040_ID_EFF ? " X " : " S "); // Extended frame
+        host_out << (frame.extended ? " X " : " S "); // Extended frame
         printBusName();
         for (int i = 0; std::cmp_less(i, frame.dlc); i++) {
             // TODO: Provide more elegant write

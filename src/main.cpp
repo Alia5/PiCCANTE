@@ -97,7 +97,7 @@ static void can_recieveTask(void* parameter) {
     piccante::Log::info << "Starting CAN Receive Task!\n";
 
     const auto& cfg = piccante::sys::settings::get();
-    can2040_msg msg{};
+    piccante::can::frame msg{};
     for (;;) {
         auto received = false;
         ulTaskNotifyTake(pdTRUE, 0);

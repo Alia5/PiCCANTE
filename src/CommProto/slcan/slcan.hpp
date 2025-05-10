@@ -23,8 +23,8 @@
 #include <task.h>
 #include <map>
 #include <vector>
+#include "CanBus/frame.hpp"
 
-struct can2040_msg;
 
 namespace piccante::slcan {
 
@@ -78,7 +78,7 @@ class handler {
     void handle_short_cmd(char cmd);
     void handle_long_cmd(const std::string_view& cmd);
     void handle_command(const std::string_view& cmd);
-    void comm_can_frame(const can2040_msg& frame);
+    void comm_can_frame(const can::frame& frame);
 
 
         private:

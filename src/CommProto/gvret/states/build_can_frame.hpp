@@ -49,7 +49,7 @@ class build_can_frame : public fsm::state<uint8_t, Protocol, bool> {
                 // TODO: validate
                 if (frame.id & 1 << 31) {
                     frame.id &= ~(1 << 31);
-                    frame.id |= CAN2040_ID_EFF;
+                    frame.extended = true;
                 }
                 break;
             case 4:
@@ -84,7 +84,7 @@ class build_can_frame : public fsm::state<uint8_t, Protocol, bool> {
 
         protected:
     uint8_t step = 0;
-    can2040_msg frame = {0, 0, 0, 0, 0, 0, 0, 0};
+    piccante::can::frame frame = {0, 0, 0, 0, 0, 0, 0, 0};
     uint8_t out_bus = 0;
 };
 } // namespace piccante::gvret::state

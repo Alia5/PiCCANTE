@@ -20,7 +20,7 @@
 #include <pico/time.h>
 #include "util/bin.hpp"
 #include "proto.hpp"
-#include "can2040.h"
+#include "CanBus/frame.hpp"
 
 
 namespace piccante::gvret {
@@ -31,15 +31,13 @@ bool handler::process_byte(uint8_t byte) {
     return protocol_fsm.tick(byte);
 }
 
-void handler::comm_can_frame(uint busnumber, const can2040_msg& frame) {
+void handler::comm_can_frame(uint busnumber, const can::frame& frame) {
     if (!binary_mode) {
         return;
     }
     // TODO: MICROS as 4 byte value, but oh well... SavvyCAN only uses relative value
     // should be fine
     uint32_t const time = to_us_since_boot(get_absolute_time());
-
-    auto id = frame.id & ~(CAN2040_ID_EFF | CAN2040_ID_RTR);
 
     constexpr size_t header_size =
         1 + 1 + 4 + 4 + 1; // GET_COMMAND + SEND_CAN_FRAME + time + id + dlc/bus
@@ -52,7 +50,7 @@ void handler::comm_can_frame(uint busnumber, const can2040_msg& frame) {
     buf[pos++] = SEND_CAN_FRAME;
     std::memcpy(&buf[pos], &time, 4);
     pos += 4;
-    std::memcpy(&buf[pos], &id, 4);
+    std::memcpy(&buf[pos], &frame.id, 4);
     pos += 4;
     buf[pos++] = static_cast<uint8_t>(frame.dlc + uint8_t(busnumber << 4));
     for (uint8_t i = 0; i < frame.dlc; i++) {

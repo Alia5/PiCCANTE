@@ -15,20 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "gvret.hpp"
-#include <cstdint>
-#include <pico/types.h>
-#include <numeric>
-#include "outstream/stream.hpp"
-#include "../../CanBus/CanBus.hpp"
-#include "proto.hpp"
-#include "util/bin.hpp"
-#include <pico/time.h>
-namespace piccante::gvret {
+#pragma once
 
-uint8_t check_sum(const std::span<uint8_t>& buff) {
-    return std::accumulate(buff.begin(), buff.end(), 0);
-}
+namespace piccante::can {
 
+struct frame {
+    bool extended;
+    bool rtr;
+    uint32_t id;
+    uint32_t dlc;
+    union {
+        uint8_t data[8];
+        uint32_t data32[2];
+    };
+};
 
-} // namespace piccante::gvret
+} // namespace piccante::can

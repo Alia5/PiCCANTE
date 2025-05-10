@@ -24,6 +24,7 @@ extern "C" {
 #include "task.h"
 
 #include <array>
+#include "frame.hpp"
 
 namespace piccante::can {
 
@@ -46,8 +47,8 @@ struct CanSettings {
 
 TaskHandle_t& create_task();
 
-int send_can(uint8_t bus, can2040_msg& msg);
-int receive(uint8_t bus, can2040_msg& msg, uint32_t timeout_ms = 0);
+int send_can(uint8_t bus, frame& msg);
+int receive(uint8_t bus, frame& msg, uint32_t timeout_ms = 0);
 
 int get_can_rx_buffered_frames(uint8_t bus);
 int get_can_tx_buffered_frames(uint8_t bus);
