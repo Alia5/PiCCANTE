@@ -1,0 +1,6 @@
+production
+*-backups
+\~*
+_autosave*
+fp-info*
+fabrication-*

@@ -28,7 +28,7 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 <sub>Keep it D.I.R.T.Y 😉</sub>  
 
 - **D**ead-Simple 🔨  
-  - Simple enough for perfboard soldering with minimal components.
+  - Simple enough for perfboard soldering with minimal components. (Proper PCB available!)
   - No fiddling around with compilers and SDKs: Pre-built firmware releases for immediate use.
 - **I**nexpensive 💰  
   - Minimal hardware requirements to keep costs dirt-cheap.  
@@ -83,24 +83,92 @@ The project leverages Raspberry Pi Pico (2 [W]) development boards, selected for
 - 🔜 MITM mode for advanced analysis / vehicle tuning
 - 🔜 (Software) CAN filters
 
-## 📋 Quick Start
+## 🔧 Hardware
+
+For more information, checkout the [hardware](./hardware) directory.
+
+### Simplest version
+
+PiCCANTE is designed to be modular and can be built with just a few components.  
+The simplest version just uses a Pico board and a CAN transceiver.
 
 ### 🛒 What You'll Need
 
 - 1× Raspberry Pi Pico (any model, RP2040 or RP2350)
   - **Note:** The Pico 2 W (RP2350) is recommended for full feature support, including WiFi and Bluetooth.
 - 1-3× CAN transceivers (readily available SN65HVD or any other 3.3V compatible transceiver)
-  - **Note:** Most readily available transceiver breakout-boards have a 120 Ohm terminating Resistor on them, when connecting to an existing (terminated) CAN bus this **needs** to be removed.
+  - **Note:** ⚠️ Most readily available transceiver breakout-boards have a 120 Ohm terminating Resistor on them, when connecting to an existing (terminated) CAN bus this **needs** to be removed. ⚠️
 - USB cable
-- Perfboard (Double sided, 18x24 - 60mm x 50mm)
-  - [**OPTIONAL**] or custom PCB 🔜
-- Soldering iron
-- Basic soldering skills
-- [**Optional**] Low dropout Buck-Converter module and OBD Plug for directly connecting to the vehicle's OBD-II port
-- [**Optional**] Schotky diode for safe dual power supply (eg. 1N5817, others will do as well)
-- [**Optional**] SD card module/slot for data logging
-- [**Optional**] 100kOhm + 10kOhm resistors for voltage divider to measure the vehicle's battery voltage
-- [**Optional**] 3D printed case for the Pico and transceivers
+
+If you want more features, you can add an SD card slot, a buck converter, and other things.
+
+<details>
+  <summary>Show Details</summary>
+  <br />
+
+<img src="./hardware/Simple.svg" width="100%"/>
+</details>
+
+### OBD-II Dongle (DIY Perfboard)
+
+A full PiCCANTE based OBD-II dongle is simple enough to be soldered onto double-sided perfboard.
+
+<details>
+  <summary>Show Details</summary>
+<br />
+
+A perfboard version fits on a 60mm x 50mm board and the 3D printable case measures just 97mm x 56mm including the OBD-II connector.
+
+It cam be built with the following components (but you can omit anything you don't need):
+
+- Pi Pico (2 [W])
+- 3x CAN transceivers (eg. SN65HVD, any 3.3V compatible transceiver will do)
+- buck-converter
+- SD card slot
+- Voltage divider for measuring the vehicle's battery voltage
+- Schottky diode for safe dual power supply (1N5817)
+- **Case**:
+  - ABS/ASA or PETG filament
+  - 3x M3 screws
+  - 3x M3 heatset inserts
+  - 1x male OBD-II connector (I used [this one](https://store.minitools.com/en/components-and-connectors/obd-connectors/sep-a-obd-e2-obd2-male-connector.html))
+  - Wires
+
+<img src="./hardware/PiCCANTE-OBD-Dongle/Perfboard/PiCCANTE_Perfboard.svg" width="100%"/>
+
+<img src="./hardware/PiCCANTE-OBD-Dongle/Perfboard/Perfboard_Topside_Complete.jpg" width="100%"/>
+<img src="./hardware/PiCCANTE-OBD-Dongle/Perfboard/Perfboard_Bottom_Complete.jpg" width="100%"/>  
+
+<img src="./hardware/PiCCANTE-OBD-Dongle/Perfboard/Case.jpg" width="100%"/>
+
+<img src="./hardware/PiCCANTE-OBD-Dongle/Perfboard/PiCCANTE_schematic.svg" width="100%"/>  
+  
+</details>
+
+### OBD-II Dongle (Manufactured PCB)
+
+A proper PCB with better CAN transceivers can be found in the [hardware directory](./hardware/PiCCANTE-OBD-Dongle/PCB).  
+It is made with [KiCAD](https://www.kicad.org/) and can be manufactured by any PCB manufacturer.
+
+<details>
+  <summary>Show Details</summary>
+    <br />
+
+<img src="./hardware/PiCCANTE-OBD-Dongle/PCB/Top.jpg" width="100%"/>
+<img src="./hardware/PiCCANTE-OBD-Dongle/PCB/Bottom.jpg" width="100%"/>
+
+</details>
+
+## 💾 Software
+
+Pre-compiled binaries for all official Raspberry Pi Pico boards are available as CI action artifacts in the GitHub repository.
+
+When connected via USB, PiCCANTE exposes **up to** 4× USB-CDC interfaces:
+
+- 1× Combined PiCCANTE command + GVRET (binary) interface
+  - Always the _first_ exposed CDC device.
+  - Also exposed via telnet if enabled on WiFi enabled boards.
+- **Up to** 3× SLCAN interfaces (dedicated to each CAN channel)
 
 ### 🚀 Basic Usage Examples
 
@@ -122,62 +190,6 @@ candump can0
 3. Go to Connection ➡️ Open Connection Window ➡️ Add device Connection
 4. Select "Serial Connection (GVRET)" and choose the appropriate COM port / TTY
 5. Click "Create New Connection"
-
-## 🔧 Hardware
-
-PiCCANTE is simple enough to be soldered onto double-sided perfboard.  
-The initial prototype fits on a 60mm x 50mm board with:
-
-- Pi Pico (2 W)
-- 3x CAN transceivers (SN65HVD)
-- buck-converter
-- SD card slot
-- Voltage divider for measuring the vehicle's battery voltage
-- Schottky diode for safe dual power supply (1N5817)
-
-⚠️ Most readily available transceiver breakout-boards have a 120Ohm terminating Resistor on them. ⚠️  
-⚠️ When connecting to an existing (terminated) CAN bus, you **must** remove the resistor on the transceiver board. ⚠️  
-
-<img src="./hardware/PiCCANTE_Perfboard.svg" width="100%"/>
-<details>
-  <summary>Show More (Schematics/Images)</summary>
-<img src="./hardware/Perfboard_Topside_Complete.jpg" width="100%"/> 
-<img src="./hardware/Perfboard_Bottom_Complete.jpg" width="100%"/>  
-<img src="./hardware/PiCCANTE_schematic.svg" width="100%"/>  
-</details>
-
-A 3D printable case is available in the [hardware/case/perfboard/](./hardware/case/perfboard/) directory.  
-Even though the hardware is soldered onto perfboard, the case is just as large as a regular credit card.  
-
-<details>
-  <summary>Show Case</summary>
-
-#### 🛒 What You'll Need
-
-- 3D printer
-- ABS/ASA or PETG filament
-- 3x M3 screws
-- 3x M3 heatset inserts
-- 1x male OBD-II connector (I used [this one](https://store.minitools.com/en/components-and-connectors/obd-connectors/sep-a-obd-e2-obd2-male-connector.html))
-- Wires
-
-<img src="./hardware/Case.jpg" width="100%"/>
-</details>
-
-More can be found in [hardware](./hardware)
-
-A custom PCB designs follow at a later date.
-
-## 💾 Software
-
-Pre-compiled binaries for all official Raspberry Pi Pico boards are available as CI action artifacts in the GitHub repository.
-
-When connected via USB, PiCCANTE exposes **up to** 4× USB-CDC interfaces:
-
-- 1× Combined PiCCANTE command + GVRET (binary) interface
-  - Always the _first_ exposed CDC device.
-  - Also exposed via telnet if enabled on WiFi enabled boards.
-- **Up to** 3× SLCAN interfaces (dedicated to each CAN channel)
 
 ### ⌨️ PiCCANTE Commands
 
@@ -209,8 +221,8 @@ wifi            - Manage WiFi settings (wifi info | wifi connect <ssid> <passwor
 
 ### 🔄 Why only CAN2.0B and not CAN FD/XL?
 
-The Raspberry Pi Pico has no native CAN support. The PIO can2040 implementation we're using only supports CAN 2.0B.  
-However, if you **need** CAN FD or other bus types, feel free to open a PR supporting a CAN controller (like MCP2518FD).
+The Raspberry Pi Pico has no native CAN support. The PIO can2040 implementation we're using only supports CAN 2.0B (due to licensing issues).  
+However, if you **need** CAN FD or other bus types, feel free to open a PR supporting a CAN controller (like MCP2518FD).  
 
 ### 🔌 Can I use PiCCANTE with Linux/Windows/macOS?
 
