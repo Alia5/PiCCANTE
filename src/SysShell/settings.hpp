@@ -33,6 +33,7 @@ struct system_settings {
 #pragma pack(pop)
 
 #ifdef WIFI_ENABLED
+#pragma pack(push, 1)
 struct wifi_settings {
     std::string ssid;
     std::string password;
@@ -44,6 +45,7 @@ struct wifi_settings {
     uint8_t elm_interface; // usb, bt, wifi
     uint32_t bluetooth_pin;
 };
+#pragma pack(pop)
 #endif
 
 bool load_settings();
