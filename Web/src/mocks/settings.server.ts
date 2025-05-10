@@ -17,6 +17,7 @@ export const mocks = {
                     telnet_enabled: true
                 },
                 can_settings: {
+                    baud_lockout: false,
                     max_supported: 3,
                     enabled: 3,
                     can0: {

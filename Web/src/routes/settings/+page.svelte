@@ -202,6 +202,21 @@ const saveSettings = async (reset?: boolean) => {
                         })} />
                 <b></b>
                 <span>(Immediately resets board!)</span>
+                <b>Bus speed lock</b>
+                <div>
+                    <input
+                        type="checkbox"
+                        class="toggle"
+                        bind:checked={settings.can_settings.baud_lockout}
+                        onchange={() =>
+                            applySetting({
+                                can_settings: {
+                                    baud_lockout: settings.can_settings.baud_lockout
+                                }
+                            })} />
+                </div>
+                <b></b>
+                <span>(Prevents GVRET/SLCAN from changing bus speed)</span>
             </div>
             {#each Array(settings.can_settings.enabled)
                 .fill(0)

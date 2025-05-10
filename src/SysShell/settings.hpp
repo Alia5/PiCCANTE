@@ -29,6 +29,8 @@ struct system_settings {
     uint8_t wifi_mode;
     uint8_t idle_sleep_minutes;
     uint8_t elm_can_bus; // interface always usb (or none)
+    bool baudrate_lockout; // locks out gvret / slcan interfaces from setting the CAN bus
+                           // speed
 };
 #pragma pack(pop)
 
@@ -66,6 +68,9 @@ uint8_t get_idle_sleep_minutes();
 void set_idle_sleep_minutes(uint8_t minutes);
 
 void set_elm_can_bus(uint8_t bus);
+
+void set_baudrate_lockout(bool lockout);
+bool baudrate_locked();
 
 #ifdef WIFI_ENABLED
 

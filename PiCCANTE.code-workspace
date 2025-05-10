@@ -109,6 +109,6 @@
             "source_location": "cpp",
             "bitset": "cpp"
         },
-        "cortex-debug.variableUseNaturalFormat": false
+        "cortex-debug.variableUseNaturalFormat": true
     }
 }

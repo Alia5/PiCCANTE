@@ -43,10 +43,11 @@ bool get(http_connection conn, [[maybe_unused]] std::string_view url) {
     auto* const handle =
         http_server_begin_write_reply(conn, "200 OK", "application/json", "");
 
+    const auto& cfg = sys::settings::get();
     const int num_buses = can::get_num_busses();
-    auto can_settings_json =
-        fmt::sprintf(R"("can_settings":{"max_supported":%d,"enabled":%d,)",
-                     piccanteNUM_CAN_BUSSES, num_buses);
+    auto can_settings_json = fmt::sprintf(
+        R"("can_settings":{"max_supported":%d,"enabled":%d,"baud_lockout":%s,)",
+        piccanteNUM_CAN_BUSSES, num_buses, cfg.baudrate_lockout ? "true" : "false");
 
     for (int i = 0; i < num_buses; i++) {
         const auto enabled = can::is_enabled(i);
@@ -196,6 +197,11 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
                            << "\n";
                 can::set_num_busses(static_cast<int>(num));
             }
+        }
+
+        if (auto v = util::json::get_value(*can_settings_json, "baud_lockout")) {
+            Log::debug << "Setting baudrate lockout to: " << *v << "\n";
+            piccante::sys::settings::set_baudrate_lockout(*v == "true");
         }
 
         for (int i = 0; i < can::get_num_busses(); i++) {

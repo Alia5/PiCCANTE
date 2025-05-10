@@ -124,6 +124,9 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
      {"Show status of CAN buses", &handler::cmd_can_status}},
     {"set_num_busses", //
      {"Set number of CAN buses (can_num_busses [number])", &handler::cmd_can_num_busses}},
+    {"can_lock_rate", //
+     {"Prevent the can bus speed from changing via GVRET/SLCAN (can_lock_rate <on|off>)",
+      &handler::cmd_can_baud_lockout}},
     {"settings", {"Show current system settings", &handler::cmd_settings_show}},
     {"save", {"Save current settings to flash", &handler::cmd_settings_store}},
     {"led_mode", //
@@ -421,6 +424,11 @@ void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
     for (int i = 0; i < label_width - 10; i++)
         host_out << ' ';
     host_out << static_cast<int>(piccante::can::get_num_busses()) << "\n";
+
+    host_out << "CAN speed lock:";
+    for (int i = 0; i < label_width - 15; i++)
+        host_out << ' ';
+    host_out << (cfg.baudrate_lockout ? "Enabled" : "Disabled") << "\n";
 
     host_out << "Idle timeout:";
     for (int i = 0; i < label_width - 13; i++)
@@ -796,7 +804,6 @@ void handler::cmd_elm(const std::string_view& cmd) {
     elm327::stop();
 
     const std::string_view interface{(*it).data(), (*it).size()};
-    const auto& cfg = settings::get();
 #ifdef WIFI_ENABLED
     const auto& wifi_cfg = settings::get_wifi_settings();
     if (interface == "usb") {
@@ -877,6 +884,19 @@ void handler::cmd_version([[maybe_unused]] const std::string_view& arg) {
     host_out << "PiCCANTE version: " << PICCANTE_VERSION << "\n";
     host_out << "Build date: " << __DATE__ << "\n";
     host_out << "Build time: " << __TIME__ << "\n";
+    host_out.flush();
+}
+
+void handler::cmd_can_baud_lockout(const std::string_view& arg) {
+    if (arg == "on") {
+        settings::set_baudrate_lockout(true);
+        host_out << "CAN baud rate lockout enabled\n";
+    } else if (arg == "off") {
+        settings::set_baudrate_lockout(false);
+        host_out << "CAN baud rate lockout disabled\n";
+    } else {
+        host_out << "Usage: can_lock_rate <on|off>\n";
+    }
     host_out.flush();
 }
 

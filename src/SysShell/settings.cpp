@@ -289,6 +289,9 @@ void set_idle_sleep_minutes(uint8_t minutes) { cfg.idle_sleep_minutes = minutes;
 
 void set_elm_can_bus(uint8_t bus) { cfg.elm_can_bus = bus; }
 
+void set_baudrate_lockout(bool lockout) { cfg.baudrate_lockout = lockout; }
+bool baudrate_locked() { return cfg.baudrate_lockout; }
+
 #ifdef WIFI_ENABLED
 
 uint8_t get_wifi_mode() { return cfg.wifi_mode; }

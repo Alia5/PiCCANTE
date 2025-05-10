@@ -43,6 +43,7 @@
 #include "Logger/Logger.hpp"
 #include "FreeRTOS.h"
 #include <class/cdc/cdc_device.h>
+#include "SysShell/settings.hpp"
 
 namespace piccante::slcan {
 
@@ -215,6 +216,12 @@ void handler::handle_long_cmd(const std::string_view& cmd) {
                 } else {
                     uint8_t speedNum = std::clamp(
                         cmd[1] - '0', 0, static_cast<int>(bus_speeds.size() - 1));
+                    const auto& cfg = sys::settings::get();
+                    if (cfg.baudrate_lockout) {
+                        host_out << ('\r'); // ok
+                        host_out.flush();
+                        return;
+                    }
                     can::set_bitrate(bus, bus_speeds[speedNum]);
                 }
                 break;
@@ -286,9 +293,16 @@ void handler::handle_long_cmd(const std::string_view& cmd) {
                         const auto convres =
                             std::from_chars((*it).begin(), (*it).end(), speed);
                         if (convres.ec == std::errc() && speed > 0) {
+                            const auto& cfg = sys::settings::get();
+                            if (cfg.baudrate_lockout) {
+                                host_out << ('\r'); // ok
+                                host_out.flush();
+                                return;
+                            }
                             can::set_bitrate(bus, speed);
                         } else {
                             host_out << ("Invalid speed\n");
+                            host_out.flush();
                             return;
                         }
                     }

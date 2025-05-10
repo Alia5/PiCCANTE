@@ -41,6 +41,7 @@ export interface PiCCANTE_Settings {
         'telnet_enabled': boolean;
     };
     'can_settings': {
+        baud_lockout: boolean;
         'max_supported': 1 | 2 | 3;
         'enabled': 1 | 2 | 3;
         'can0'?: {

@@ -81,6 +81,7 @@ class handler {
     void cmd_sleep(const std::string_view& arg);
     void cmd_idle_timeout(const std::string_view& arg);
     void cmd_version(const std::string_view& arg);
+    void cmd_can_baud_lockout(const std::string_view& arg);
 
     void cmd_elm(const std::string_view& arg);
 

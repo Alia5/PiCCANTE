@@ -26,6 +26,7 @@
 #include "../proto.hpp"
 #include "../gvret.hpp"
 #include "CanBus/CanBus.hpp"
+#include "SysShell/settings.hpp"
 
 namespace piccante::gvret::state {
 class setup_canbus_1_2 : public fsm::state<uint8_t, Protocol, bool> {
@@ -62,13 +63,24 @@ class setup_canbus_1_2 : public fsm::state<uint8_t, Protocol, bool> {
                         bool listen_only = buff_int & LISTEN_ONLY_MASK;
                         can::set_listenonly(0, listen_only);
                         if (enabled) {
-                            can::enable(0, bus_speed);
+                            const auto& cfg = sys::settings::get();
+                            if (cfg.baudrate_lockout) {
+                                can::enable(0, can::get_bitrate(0));
+                            } else {
+                                can::enable(0, bus_speed);
+                            }
+
                         } else {
                             can::disable(0);
                         }
                     } else {
                         // Legacy behavior
-                        can::enable(0, can::DEFAULT_BUS_SPEED);
+                        const auto& cfg = sys::settings::get();
+                        if (cfg.baudrate_lockout) {
+                            can::enable(0, can::get_bitrate(0));
+                        } else {
+                            can::enable(0, can::DEFAULT_BUS_SPEED);
+                        }
                     }
                 }
                 break;
@@ -96,13 +108,23 @@ class setup_canbus_1_2 : public fsm::state<uint8_t, Protocol, bool> {
                         bool listen_only = buff_int & LISTEN_ONLY_MASK;
                         can::set_listenonly(1, listen_only);
                         if (enabled) {
-                            can::enable(1, bus_speed);
+                            const auto& cfg = sys::settings::get();
+                            if (cfg.baudrate_lockout) {
+                                can::enable(1, can::get_bitrate(1));
+                            } else {
+                                can::enable(1, bus_speed);
+                            }
                         } else {
                             can::disable(1);
                         }
                     } else {
                         // Legacy behavior
-                        can::enable(1, can::DEFAULT_BUS_SPEED);
+                        const auto& cfg = sys::settings::get();
+                        if (cfg.baudrate_lockout) {
+                            can::enable(1, can::get_bitrate(1));
+                        } else {
+                            can::enable(1, can::DEFAULT_BUS_SPEED);
+                        }
                     }
                 }
                 return {IDLE, true};

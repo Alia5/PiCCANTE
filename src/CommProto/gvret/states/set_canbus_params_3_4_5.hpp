@@ -25,6 +25,7 @@
 #include "../../../StateMachine/state.hpp"
 #include "../proto.hpp"
 #include "../gvret.hpp"
+#include "SysShell/settings.hpp"
 
 namespace piccante::gvret::state {
 class set_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
@@ -61,13 +62,24 @@ class set_canbus_params_3_4_5 : public fsm::state<uint8_t, Protocol, bool> {
                         bool listen_only = buff_int & LISTEN_ONLY_MASK;
                         can::set_listenonly(2, listen_only);
                         if (enabled) {
-                            can::enable(2, bus_speed);
+                            const auto& cfg = sys::settings::get();
+                            if (cfg.baudrate_lockout) {
+                                can::enable(2, can::get_bitrate(2));
+                            } else {
+                                can::enable(2, bus_speed);
+                            }
+
                         } else {
                             can::disable(2);
                         }
                     } else {
+                        const auto& cfg = sys::settings::get();
+                        if (cfg.baudrate_lockout) {
+                            can::enable(2, can::get_bitrate(2));
+                        } else {
+                            can::enable(2, can::DEFAULT_BUS_SPEED);
+                        }
                         // Legacy behavior
-                        can::enable(2, can::DEFAULT_BUS_SPEED);
                     }
                 }
                 break;
