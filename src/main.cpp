@@ -25,6 +25,7 @@ extern "C" {
 
 #include "Logger/Logger.hpp"
 #include "CanBus/CanBus.hpp"
+#include "CanBus/mitm_bridge/bridge.hpp"
 #include "class/cdc/cdc_device.h"
 #include "device/usbd.h"
 
@@ -103,6 +104,11 @@ static void can_recieveTask(void* parameter) {
         ulTaskNotifyTake(pdTRUE, 0);
         for (int bus = 0; bus < num_busses; bus++) {
             if (piccante::can::receive(bus, msg, 0) >= 0) {
+                const auto bridged = piccante::can::mitm::bridge::handle(bus, msg);
+                if (bridged) {
+                    taskYIELD();
+                }
+
                 if (bus == cfg.elm_can_bus && piccante::elm327::emu() != nullptr) {
                     piccante::elm327::emu()->handle_can_frame(msg);
                 }

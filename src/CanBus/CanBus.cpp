@@ -38,6 +38,8 @@
 #include "led/led.hpp"
 #include <hardware/watchdog.h>
 #include <hardware/gpio.h>
+#include <utility>
+#include "mitm_bridge/bridge.hpp"
 
 
 namespace piccante::can {
@@ -101,6 +103,7 @@ constexpr std::array<const CanGPIO, NUM_BUSSES> CAN_GPIO = {
 struct can_settings_file {
     uint8_t num_busses;
     std::array<CanSettings, 3> bus_config;
+    std::array<uint8_t, 2> bridged;
 };
 #pragma pack(pop)
 
@@ -387,6 +390,7 @@ void canTask(void* parameters) {
                 if (!can2040_check_transmit(&(can_buses[i]))) {
                     can2040_pio_irq_handler(&(can_buses[i]));
                 }
+
                 can2040_msg msg2040 = {
                     .id = msg.id | (msg.extended ? CAN2040_ID_EFF : 0) |
                           (msg.rtr ? CAN2040_ID_RTR : 0),
@@ -416,7 +420,7 @@ TaskHandle_t& create_task() {
     return canTaskHandle;
 }
 
-int send_can(uint8_t bus, frame& msg) {
+int send_can(uint8_t bus, const frame& msg) {
     if (bus >= piccanteNUM_CAN_BUSSES || bus >= settings.num_busses) {
         Log::error << "Invalid CAN bus number: " << fmt::sprintf("%d", bus) << "\n";
         return -1;
@@ -613,8 +617,19 @@ void load_settings() {
     } else {
         Log::error << "Failed to read CAN settings file\n";
     }
+    mitm::bridge::set_bridge(settings.bridged[0], settings.bridged[1]);
 }
 
 void set_rx_task_handle(TaskHandle_t task_handle) { rx_task_handle = task_handle; }
+
+void store_bridge_settings(const std::pair<uint8_t, uint8_t>& bridge) {
+    if (bridge.first == settings.bridged[0] && bridge.second == settings.bridged[1]) {
+        return;
+    }
+    settings.bridged[0] = bridge.first;
+    settings.bridged[1] = bridge.second;
+    store_settings();
+}
+
 
 } // namespace piccante::can

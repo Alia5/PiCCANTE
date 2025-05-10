@@ -127,6 +127,9 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
     {"can_lock_rate", //
      {"Prevent the can bus speed from changing via GVRET/SLCAN (can_lock_rate <on|off>)",
       &handler::cmd_can_baud_lockout}},
+    {"can_bridge", //
+     {"Bridge CAN interfaces (can_bridge <off | <bus1> <bus2>>)",
+      &handler::cmd_can_bridge}},
     {"settings", {"Show current system settings", &handler::cmd_settings_show}},
     {"save", {"Save current settings to flash", &handler::cmd_settings_store}},
     {"led_mode", //
@@ -147,7 +150,8 @@ std::map<std::string_view, handler::CommandInfo, std::less<>> handler::commands 
      {"Display version information (version)", &handler::cmd_version}},
 #ifdef WIFI_ENABLED
     {"wifi", //
-     {"Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap <ssid> "
+     {"Manage WiFi settings (wifi info | wifi connect <ssid> <password> | wifi ap "
+      "<ssid> "
       "<password> "
       "<channel> | wifi disable)",
       &handler::cmd_wifi}},
@@ -226,159 +230,6 @@ void handler::cmd_toggle_binary(const std::string_view& arg) {
     host_out.flush();
 }
 
-void handler::cmd_can_enable(const std::string_view& arg) {
-    int bus = 0;
-    unsigned int bitrate = 0;
-
-    // Find the first space to separate arguments
-    auto space_pos = arg.find(' ');
-    if (space_pos != std::string_view::npos) {
-        // Parse first argument (bus)
-        auto bus_str = arg.substr(0, space_pos);
-        auto [bus_ptr, bus_ec] =
-            std::from_chars(bus_str.data(), bus_str.data() + bus_str.size(), bus);
-
-        // Parse second argument (bitrate)
-        auto bitrate_str = arg.substr(space_pos + 1);
-        auto [bitrate_ptr, bitrate_ec] = std::from_chars(
-            bitrate_str.data(), bitrate_str.data() + bitrate_str.size(), bitrate);
-
-        // Check if both conversions succeeded
-        if (bus_ec == std::errc() && bitrate_ec == std::errc()) {
-            if (bus >= 0 && bus < can::get_num_busses()) {
-                host_out << "Enabling CAN bus " << bus << " with bitrate " << bitrate
-                         << "\n";
-                piccante::can::enable(bus, bitrate);
-            } else {
-                host_out << "Invalid bus number. Valid range: 0-"
-                         << (can::get_num_busses() - 1) << "\n";
-            }
-            return;
-        }
-    }
-
-    host_out << "Usage: can_enable <bus> <bitrate>\n";
-    host_out.flush();
-}
-void handler::cmd_can_disable(const std::string_view& arg) {
-    int bus = 0;
-    auto [ptr, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), bus);
-
-    if (ec == std::errc()) {
-        if (bus >= 0 && bus < can::get_num_busses()) {
-            host_out << "Disabling CAN bus " << bus << "\n";
-            piccante::can::disable(bus);
-        } else {
-            host_out << "Invalid bus number. Valid range: 0-"
-                     << (can::get_num_busses() - 1) << "\n";
-        }
-    } else {
-        host_out << "Usage: can_disable <bus>\n";
-    }
-    host_out.flush();
-}
-
-void handler::cmd_can_bitrate(const std::string_view& arg) {
-    int bus = 0;
-    unsigned int bitrate = 0;
-
-    auto space_pos = arg.find(' ');
-    if (space_pos != std::string_view::npos) {
-        auto bus_str = arg.substr(0, space_pos);
-        auto [bus_ptr, bus_ec] =
-            std::from_chars(bus_str.data(), bus_str.data() + bus_str.size(), bus);
-
-        auto bitrate_str = arg.substr(space_pos + 1);
-        auto [bitrate_ptr, bitrate_ec] = std::from_chars(
-            bitrate_str.data(), bitrate_str.data() + bitrate_str.size(), bitrate);
-
-        if (bus_ec == std::errc() && bitrate_ec == std::errc()) {
-            if (bus >= 0 && bus < can::get_num_busses()) {
-                host_out << "Setting CAN bus " << bus << " bitrate to " << bitrate
-                         << "\n";
-                piccante::can::set_bitrate(bus, bitrate);
-            } else {
-                host_out << "Invalid bus number. Valid range: 0-"
-                         << (can::get_num_busses() - 1) << "\n";
-            }
-            host_out.flush();
-            return;
-        }
-    }
-
-    host_out << "Usage: can_bitrate <bus> <bitrate>\n";
-    host_out.flush();
-}
-void handler::cmd_can_status([[maybe_unused]] const std::string_view& arg) {
-    host_out << "\nCAN BUS STATUS\n";
-    host_out << "-------------\n\n";
-
-    host_out << "Max supported buses: " << static_cast<int>(piccanteNUM_CAN_BUSSES)
-             << "\n";
-    host_out << "Enabled buses:        " << static_cast<int>(can::get_num_busses())
-             << "\n\n";
-
-    for (uint8_t i = 0; i < can::get_num_busses(); i++) {
-        const bool enabled = piccante::can::is_enabled(i);
-        const uint32_t bitrate = piccante::can::get_bitrate(i);
-        const uint32_t rx_buffered = piccante::can::get_can_rx_buffered_frames(i);
-        const uint32_t tx_buffered = piccante::can::get_can_tx_buffered_frames(i);
-        const uint32_t rx_overflow = piccante::can::get_can_rx_overflow_count(i);
-
-        host_out << "Bus " << static_cast<int>(i) << ":\n";
-        host_out << "  Status:      " << (enabled ? "Enabled" : "Disabled") << "\n";
-
-        if (enabled) {
-            host_out << "  Bitrate:     " << bitrate << " bps\n";
-            host_out << "  RX buffered: " << rx_buffered << "\n";
-            host_out << "  TX buffered: " << tx_buffered << "\n";
-
-            if (rx_overflow > 0) {
-                host_out << "  RX overflow: " << rx_overflow << "\n";
-            }
-
-            // Add can2040 statistics
-            can2040_stats stats;
-            if (can::get_statistics(i, stats)) {
-                host_out << "  Statistics:\n";
-                host_out << "    RX total:     " << stats.rx_total << "\n";
-                host_out << "    TX total:     " << stats.tx_total << "\n";
-                host_out << "    TX attempts:  " << stats.tx_attempt << "\n";
-                host_out << "    Parse errors: " << stats.parse_error << "\n";
-            }
-        }
-
-        if (i < can::get_num_busses() - 1) {
-            host_out << "\n";
-        }
-    }
-
-    host_out << "\n";
-    host_out.flush();
-}
-
-void handler::cmd_can_num_busses(const std::string_view& arg) {
-    int wanted = 0;
-    auto [ptr, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), wanted);
-
-    if (ec == std::errc()) {
-        // Conversion succeeded
-        if (wanted > 0 && wanted <= piccanteNUM_CAN_BUSSES) {
-            host_out << "Setting number of CAN buses to " << wanted << "\n";
-            piccante::can::set_num_busses(wanted);
-        } else {
-            host_out << "Invalid number of buses. Valid range: 1-"
-                     << piccanteNUM_CAN_BUSSES << "\n";
-        }
-    } else {
-        // Conversion failed or no argument provided
-        host_out << "Current number of CAN buses: " << piccante::can::get_num_busses()
-                 << "\n"
-                 << "Valid Range: 1-" << piccanteNUM_CAN_BUSSES << "\n";
-        host_out << "Usage: can_num_busses <number>\n";
-    }
-    host_out.flush();
-}
 
 void handler::cmd_settings_show([[maybe_unused]] const std::string_view& arg) {
     host_out << "\nSystem Settings:\n";
@@ -887,17 +738,5 @@ void handler::cmd_version([[maybe_unused]] const std::string_view& arg) {
     host_out.flush();
 }
 
-void handler::cmd_can_baud_lockout(const std::string_view& arg) {
-    if (arg == "on") {
-        settings::set_baudrate_lockout(true);
-        host_out << "CAN baud rate lockout enabled\n";
-    } else if (arg == "off") {
-        settings::set_baudrate_lockout(false);
-        host_out << "CAN baud rate lockout disabled\n";
-    } else {
-        host_out << "Usage: can_lock_rate <on|off>\n";
-    }
-    host_out.flush();
-}
 
 } // namespace piccante::sys::shell

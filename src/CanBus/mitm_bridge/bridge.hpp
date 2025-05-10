@@ -16,19 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
+#include "../frame.hpp"
 #include <cstdint>
 
-namespace piccante::can {
-
-struct frame {
-    bool extended;
-    bool rtr;
-    uint32_t id;
-    uint32_t dlc;
-    union {
-        uint8_t data[8];
-        uint32_t data32[2];
-    };
-};
-
-} // namespace piccante::can
+namespace piccante::can::mitm::bridge {
+void set_bridge(uint8_t bus1, uint8_t bus2);
+bool handle(uint8_t bus, const can::frame& frame);
+} // namespace piccante::can::mitm::bridge

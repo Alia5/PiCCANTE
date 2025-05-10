@@ -24,6 +24,7 @@ extern "C" {
 #include "task.h"
 
 #include <array>
+#include <utility>
 #include "frame.hpp"
 
 namespace piccante::can {
@@ -47,7 +48,7 @@ struct CanSettings {
 
 TaskHandle_t& create_task();
 
-int send_can(uint8_t bus, frame& msg);
+int send_can(uint8_t bus, const frame& msg);
 int receive(uint8_t bus, frame& msg, uint32_t timeout_ms = 0);
 
 int get_can_rx_buffered_frames(uint8_t bus);
@@ -70,4 +71,5 @@ bool is_listenonly(uint8_t bus);
 void set_listenonly(uint8_t bus, bool listen_only);
 void load_settings();
 void set_rx_task_handle(TaskHandle_t task_handle);
+void store_bridge_settings(const std::pair<uint8_t, uint8_t>& bridge);
 }
