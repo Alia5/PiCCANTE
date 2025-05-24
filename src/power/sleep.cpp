@@ -63,6 +63,10 @@ void idle_detection_task(void* params) {
     vTaskDelay(pdMS_TO_TICKS(1000)); // Time for other tasks
     Log::info << "Idle detection task started\n";
 
+    gpio_init(6);
+    gpio_set_dir(6, true);
+    gpio_put(6, false);
+
     uint8_t idle_minutes_prev = 0;
 
     for (;;) {
@@ -155,6 +159,8 @@ void enter_sleep_mode() {
     watchdog_disable();
     led::set_mode(led::MODE_OFF);
 
+    gpio_put(6, true);
+
 #ifdef WIFI_ENABLED
     wifi::stop();
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -165,6 +171,7 @@ void enter_sleep_mode() {
     // Allow log to flush / other core to sleep.
     vTaskDelay(pdMS_TO_TICKS(100));
     vTaskSuspendAll();
+
 
     multicore_reset_core1();
 
