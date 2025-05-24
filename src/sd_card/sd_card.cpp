@@ -37,6 +37,10 @@ FF_Disk_t* disk = nullptr;
 
 bool mount() {
     disk = FF_SDDiskInit("sd0");
+    if (!disk) {
+        Log::error << "FF_SDDiskInit failed: disk is nullptr\n";
+        return false;
+    }
     FF_Error_t err = FF_SDDiskMount(disk);
     if (FF_isERR(err) != pdFALSE) {
         Log::error << "Failed to mount SD card: " << (const char*)FF_GetErrMessage(err)
