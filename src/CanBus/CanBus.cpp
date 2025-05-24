@@ -165,7 +165,7 @@ void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
                      msg->data[5], msg->data[6], msg->data[7]},
         };
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[0].rx, &fr, &higher_priority_task_woken) !=
+        if (xQueueSendFromISR(can_queues[1].rx, &fr, &higher_priority_task_woken) !=
             pdTRUE) {
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
             rx_overflow_counts[1]++;
@@ -200,7 +200,7 @@ void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
                      msg->data[5], msg->data[6], msg->data[7]},
         };
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[0].rx, &fr, &higher_priority_task_woken) !=
+        if (xQueueSendFromISR(can_queues[2].rx, &fr, &higher_priority_task_woken) !=
             pdTRUE) {
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
             rx_overflow_counts[2]++;
@@ -295,20 +295,17 @@ void canbus_setup_initial(uint8_t bus) {
     // Set core affinity for this interrupt
 
     if (CAN_GPIO[bus].pio_num == 0) {
-        // For PIO0 interrupts
-        hw_set_bits(&pio0_hw->inte1, (1u << CAN_GPIO[bus].pio_irq)); // Enable on core 1
+        hw_set_bits(&pio0_hw->inte1, (1u << CAN_GPIO[bus].pio_irq));
         hw_clear_bits(&pio0_hw->inte0,
                       (1u << CAN_GPIO[bus].pio_irq)); // Disable on core 0
     } else if (CAN_GPIO[bus].pio_num == 1) {
-        // For PIO1 interrupts
-        hw_set_bits(&pio1_hw->inte1, (1u << CAN_GPIO[bus].pio_irq)); // Enable on core 1
+        hw_set_bits(&pio1_hw->inte1, (1u << CAN_GPIO[bus].pio_irq));
         hw_clear_bits(&pio1_hw->inte0,
                       (1u << CAN_GPIO[bus].pio_irq)); // Disable on core 0
     }
 #if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
     else if (CAN_GPIO[bus].pio_num == 2) {
-        // For PIO2 interrupts if your board supports it
-        hw_set_bits(&pio2_hw->inte1, (1u << CAN_GPIO[bus].pio_irq)); // Enable on core 1
+        hw_set_bits(&pio2_hw->inte1, (1u << CAN_GPIO[bus].pio_irq));
         hw_clear_bits(&pio2_hw->inte0,
                       (1u << CAN_GPIO[bus].pio_irq)); // Disable on core 0
     }
