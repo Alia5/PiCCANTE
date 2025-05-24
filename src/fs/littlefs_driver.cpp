@@ -21,12 +21,16 @@
 #include <array>
 #include "FreeRTOS.h" // NOLINT
 #include "hardware/flash.h"
+#include "pico/flash.h"
 #include "hardware/sync.h"
 #include <hardware/regs/addressmap.h>
+#include <hardware/structs/spi.h>
 #include <lfs.h>
 #include "projdefs.h"
 #include "semphr.h"
 #include "Logger/Logger.hpp"
+#include "pico/multicore.h"
+#include <hardware/dma.h>
 
 // These symbols are defined in the linker script
 extern uint32_t const __filesystem_start; // NOLINT
@@ -51,53 +55,92 @@ void ensure_mutex_initialized() {
     }
 }
 
+
 int flash_read(const struct lfs_config* cfg, lfs_block_t block, lfs_off_t off,
                void* buffer, lfs_size_t size) {
     auto fs_mem = (uint8_t*)cfg->context;
     memcpy(buffer, &fs_mem[block * cfg->block_size + off], size);
     return LFS_ERR_OK;
 }
+
+struct FlashProgramParams {
+    uint32_t addr;
+    const uint8_t* buffer;
+    size_t size;
+};
+
+struct FlashEraseParams {
+    uint32_t addr;
+    size_t size;
+};
+
+static void flash_program_wrapper(void* params) {
+    auto* p = static_cast<FlashProgramParams*>(params);
+    flash_range_program(p->addr, p->buffer, p->size);
+}
+
+static void flash_erase_wrapper(void* params) {
+    auto* p = static_cast<FlashEraseParams*>(params);
+    flash_range_erase(p->addr, p->size);
+}
+
 int flash_prog(const struct lfs_config* cfg, lfs_block_t block, lfs_off_t off,
                const void* buffer, lfs_size_t size) {
-    ensure_mutex_initialized();
-
-    if (xSemaphoreTake(flash_mutex, portMAX_DELAY) != pdTRUE) {
-        return LFS_ERR_IO;
-    }
-
     // Get XIP address and convert to flash address
     auto fs_mem = (uint8_t*)cfg->context;
     auto addr = (uint32_t)(&fs_mem[block * cfg->block_size + off] - (uint8_t*)XIP_BASE);
 
-    auto ints = save_and_disable_interrupts();
-    flash_range_program(addr, (const uint8_t*)buffer, size);
-    restore_interrupts(ints);
+    FlashProgramParams params{addr, static_cast<const uint8_t*>(buffer), size};
 
-    xSemaphoreGive(flash_mutex);
-    return LFS_ERR_OK;
-}
-
-int flash_erase(const struct lfs_config* cfg, lfs_block_t block) {
-    ensure_mutex_initialized();
-
-    if (xSemaphoreTake(flash_mutex, portMAX_DELAY) != pdTRUE) {
+    // Execute the flash operation safely
+    int result = flash_safe_execute(flash_program_wrapper, &params, 100);
+    if (result != PICO_OK) {
+        Log::error << "Flash program failed with code: " << result << "\n";
         return LFS_ERR_IO;
     }
 
-    auto fs_mem = (uint8_t*)cfg->context;
-    auto addr = (uint32_t)(&fs_mem[block * cfg->block_size] - (uint8_t*)XIP_BASE);
 
-    auto ints = save_and_disable_interrupts();
-    flash_range_erase(addr, cfg->block_size);
-    restore_interrupts(ints);
-
-    xSemaphoreGive(flash_mutex);
     return LFS_ERR_OK;
 }
 
 
+int flash_erase(const struct lfs_config* cfg, lfs_block_t block) {
+    auto fs_mem = (uint8_t*)cfg->context;
+
+
+    auto addr = (uint32_t)(&fs_mem[block * cfg->block_size] - (uint8_t*)XIP_BASE);
+
+
+    // Set up the parameters for the flash operation
+    FlashEraseParams params{addr, cfg->block_size};
+
+    // Execute the flash operation safely
+    int result = flash_safe_execute(flash_erase_wrapper, &params, 100);
+    if (result != PICO_OK) {
+        Log::error << "Flash erase failed with code: " << result << "\n";
+        return LFS_ERR_IO;
+    }
+
+
+    return LFS_ERR_OK;
+}
+
 // Sync operation (no-op for RP2040)
 int flash_sync(const struct lfs_config* /*c*/) { return LFS_ERR_OK; }
+
+int lock(const struct lfs_config* /*c*/) {
+    if (xSemaphoreTake(flash_mutex, 200) != pdTRUE) {
+        Log::error << "Failed to take flash mutex\n";
+        return LFS_ERR_IO;
+    }
+    // interrupts = save_and_disable_interrupts();
+    return LFS_ERR_OK;
+}
+int unlock(const struct lfs_config* /*c*/) {
+    // restore_interrupts(interrupts);
+    xSemaphoreGive(flash_mutex);
+    return LFS_ERR_OK;
+}
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
@@ -107,7 +150,8 @@ lfs_config const cfg = {
     .prog = flash_prog,
     .erase = flash_erase,
     .sync = flash_sync,
-
+    .lock = lock,
+    .unlock = unlock,
     .read_size = READ_SIZE,
     .prog_size = PROG_SIZE,
     .block_size = FLASH_SECTOR_SIZE,

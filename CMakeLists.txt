@@ -368,6 +368,7 @@ generate_littlefs_image(${target_name} ${LITTLEFS_DATA_DIR} ${LITTLEFS_SIZE_BYTE
     DEPENDS ${LFS_EXTRA_DEPS}
 )
 target_compile_definitions(${target_name} PRIVATE
+    LFS_THREADSAFE=1
     LFS_BLOCK_SIZE=4096
     LFS_BLOCK_COUNT=${LFS_BLOCK_COUNT}
     LFS_CACHE_SIZE=128
