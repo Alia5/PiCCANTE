@@ -40,6 +40,7 @@
 #include <hardware/gpio.h>
 #include <utility>
 #include "mitm_bridge/bridge.hpp"
+#include <hardware/pio.h>
 
 
 namespace piccante::can {
@@ -195,6 +196,21 @@ void canbus_setup_initial(uint8_t bus) {
         gpio_put(pin, 0);
     }
 
+#ifdef WIFI_ENABLED
+    PIO pio_instance = pio_get_instance(CAN_GPIO[bus].pio_num);
+    if (CAN_GPIO[bus].pio_num == 2) {
+        uint sm_mask = 0b0011;
+        pio_claim_sm_mask(pio_instance, sm_mask);
+        Log::info << "Claimed PIO2 state machines 0-2 for CAN bus " << bus
+                  << ", leaving SM3 for CYW43\n";
+    } else {
+        uint sm_mask = 0x0F;
+        pio_claim_sm_mask(pio_instance, sm_mask);
+        Log::info << "Claimed all PIO" << CAN_GPIO[bus].pio_num
+                  << " state machines for CAN bus " << bus << "\n";
+    }
+#endif
+
     can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
 
@@ -301,6 +317,7 @@ void canTask(void* parameters) {
     }
 
     for (std::size_t i = 0; i < settings.num_busses && i < piccanteNUM_CAN_BUSSES; i++) {
+        canbus_setup_initial(i);
         if (settings.bus_config[i].enabled) {
             Log::info << "Enabling CAN bus " << fmt::sprintf("%d", i) << " with bitrate "
                       << settings.bus_config[i].bitrate << " from stored settings\n";
