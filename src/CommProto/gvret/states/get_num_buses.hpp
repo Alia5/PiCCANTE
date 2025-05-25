@@ -29,9 +29,9 @@ class get_num_buses : public fsm::state<uint8_t, Protocol, bool> {
     explicit get_num_buses(out::stream& host_out)
         : fsm::state<uint8_t, Protocol, bool>(GET_NUM_BUSES), out(host_out) {}
 
-    constexpr static uint8_t NUM_BUSES = 1; // TODO: get from config/build-config
     Protocol enter() override {
-        out << GET_COMMAND << GET_NUM_BUSES << NUM_BUSES;
+        uint8_t num_busses = can::get_num_busses();
+        out << GET_COMMAND << GET_NUM_BUSES << num_busses;
         out.flush();
         return IDLE;
     }
