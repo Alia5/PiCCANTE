@@ -116,8 +116,8 @@ std::array<uint32_t, piccanteNUM_CAN_BUSSES> tx_overflow_counts = {0};
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-non-const-global-variables
 can_settings_file settings = {};
 
-void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
-                     struct can2040_msg* msg) {               // NOLINT
+void can2040_cb_can(struct can2040* cd, uint32_t notify, // NOLINT
+                    struct can2040_msg* msg) {           // NOLINT
     BaseType_t higher_priority_task_woken = pdFALSE;
     // Add message processing code here...
     if (notify == CAN2040_NOTIFY_RX) {
@@ -129,11 +129,12 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
             .data = {msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4],
                      msg->data[5], msg->data[6], msg->data[7]},
         };
+        const auto bus_num = cd->pio_num; // NOLINT
         // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[0].rx, &fr, &higher_priority_task_woken) !=
+        if (xQueueSendFromISR(can_queues[bus_num].rx, &fr, &higher_priority_task_woken) !=
             pdTRUE) {
             UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-            rx_overflow_counts[0]++;
+            rx_overflow_counts[bus_num]++;
             taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
         }
         // if (rx_task_handle != nullptr) {
@@ -148,77 +149,7 @@ void can2040_cb_can0(struct can2040* /*cd*/, uint32_t notify, // NOLINT
     // }
     portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
 }
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
-    piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
-void can2040_cb_can1(struct can2040* /*cd*/, uint32_t notify, // NOLINT
-                     struct can2040_msg* msg) {               // NOLINT
-    BaseType_t higher_priority_task_woken = pdFALSE;
-    // Add message processing code here...
-    if (notify == CAN2040_NOTIFY_RX) {
-        // Process received message - add to queue from ISR
-        frame fr{
-            .extended = msg->id & CAN2040_ID_EFF,
-            .rtr = msg->id & CAN2040_ID_RTR,
-            .id = msg->id & ~(CAN2040_ID_RTR | CAN2040_ID_EFF),
-            .dlc = msg->dlc,
-            .data = {msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4],
-                     msg->data[5], msg->data[6], msg->data[7]},
-        };
-        // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[1].rx, &fr, &higher_priority_task_woken) !=
-            pdTRUE) {
-            UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-            rx_overflow_counts[1]++;
-            taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
-        }
-        // if (rx_task_handle != nullptr) {
-        //     xTaskNotifyFromISR(rx_task_handle, 0, eSetBits,
-        //     &higher_priority_task_woken);
-        // }
-    }
-    // else if (notify == CAN2040_NOTIFY_TX) {
-    //     // Process transmitted message
-    // } else if (notify == CAN2040_NOTIFY_ERROR) {
-    //     // Handle error
-    // }
-    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
-}
-#endif
-#if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
-void can2040_cb_can2(struct can2040* /*cd*/, uint32_t notify, // NOLINT
-                     struct can2040_msg* msg) {               // NOLINT
-    BaseType_t higher_priority_task_woken = pdFALSE;
-    // Add message processing code here...
-    if (notify == CAN2040_NOTIFY_RX) {
-        // Process received message - add to queue from ISR
-        frame fr{
-            .extended = msg->id & CAN2040_ID_EFF,
-            .rtr = msg->id & CAN2040_ID_RTR,
-            .id = msg->id & ~(CAN2040_ID_RTR | CAN2040_ID_EFF),
-            .dlc = msg->dlc,
-            .data = {msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4],
-                     msg->data[5], msg->data[6], msg->data[7]},
-        };
-        // Process received message - add to queue from ISR
-        if (xQueueSendFromISR(can_queues[2].rx, &fr, &higher_priority_task_woken) !=
-            pdTRUE) {
-            UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-            rx_overflow_counts[2]++;
-            taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
-        }
-        // if (rx_task_handle != nullptr) {
-        //     xTaskNotifyFromISR(rx_task_handle, 0, eSetBits,
-        //     &higher_priority_task_woken);
-        // }
-    }
-    // else if (notify == CAN2040_NOTIFY_TX) {
-    //     // Process transmitted message
-    // } else if (notify == CAN2040_NOTIFY_ERROR) {
-    //     // Handle error
-    // }
-    portYIELD_FROM_ISR(higher_priority_task_woken); // NOLINT
-}
-#endif
+
 void PIOx_IRQHandler_CAN0() {
     BaseType_t const higher_priority_task_woken = pdFALSE;
     can2040_pio_irq_handler(&(can_buses[0]));
@@ -269,20 +200,20 @@ void canbus_setup_initial(uint8_t bus) {
 
     switch (bus) { // NOLINT
         case 0:
-            can2040_callback_config(&(can_buses[bus]), can2040_cb_can0);
+            can2040_callback_config(&(can_buses[bus]), can2040_cb_can);
             irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN0);
             break;
 #if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_2 ||                                       \
     piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
         case 1:
-            can2040_callback_config(&(can_buses[bus]), can2040_cb_can1);
+            can2040_callback_config(&(can_buses[bus]), can2040_cb_can);
             irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN1);
             break;
 #endif
 #if piccanteNUM_CAN_BUSSES == piccanteCAN_NUM_3
 
         case 2:
-            can2040_callback_config(&(can_buses[bus]), can2040_cb_can2);
+            can2040_callback_config(&(can_buses[bus]), can2040_cb_can);
             irq_set_exclusive_handler(CAN_GPIO[bus].pio_irq, PIOx_IRQHandler_CAN2);
             break;
 #endif
