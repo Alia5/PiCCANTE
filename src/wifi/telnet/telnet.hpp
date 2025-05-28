@@ -30,7 +30,6 @@ bool reconfigure();
 bool is_running();
 QueueHandle_t get_rx_queue();
 out::base_sink& get_sink();
-
 bool enable();
 void disable();
 bool set_port(uint16_t port);

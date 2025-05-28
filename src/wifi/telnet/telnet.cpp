@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "telnet.hpp"
+#include "outstream/stream.hpp"
 #include "telnet_server.hpp"
 #include "SysShell/settings.hpp"
 #include "Logger/Logger.hpp"
@@ -24,6 +25,7 @@ namespace piccante::wifi::telnet {
 
 namespace {
 std::unique_ptr<server> telnet_server = nullptr;
+out::sink_mux telnet_sink;
 }
 bool initialize() {
     if (!sys::settings::telnet_enabled()) {
@@ -35,6 +37,7 @@ bool initialize() {
         telnet_server = std::make_unique<server>("Telnet PiCCANTE",
                                                  sys::settings::get_telnet_port(),
                                                  "PiCCANTE + GVRET Telnet Server\r\n");
+        telnet_sink.add_sink(&telnet_server->get_all_sink());
     }
 
     bool success = telnet_server->start();
@@ -81,7 +84,7 @@ QueueHandle_t get_rx_queue() {
     return nullptr;
 }
 
-out::base_sink& get_sink() { return telnet_server->get_all_sink(); }
+out::base_sink& get_sink() { return telnet_sink; }
 
 bool enable() {
     sys::settings::set_telnet_enabled(true);
