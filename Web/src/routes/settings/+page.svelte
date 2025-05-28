@@ -98,6 +98,12 @@ const applySetting = async (setting: PartialNested<PiCCANTE_Settings>) => {
 const saveSettings = async (reset?: boolean) => {
     loading = true;
     try {
+        const settingsCopy = JSON.parse(JSON.stringify(settings));
+        delete settingsCopy.can_settings.enabled;
+        delete settingsCopy.wifi_settings;
+        settingsCopy.reboot = true;
+        await applySetting(settingsCopy);
+
         await fetch('/api/save', {
             method: 'POST',
             body: reset ? JSON.stringify({ reset: true }) : ''
@@ -115,41 +121,17 @@ const saveSettings = async (reset?: boolean) => {
                 <h2>General</h2>
                 <b>Echo</b>
                 <div>
-                    <input
-                        type="checkbox"
-                        class="toggle"
-                        bind:checked={settings.echo}
-                        onchange={() => applySetting({ echo: settings.echo })} />
+                    <input type="checkbox" class="toggle" bind:checked={settings.echo} />
                 </div>
                 <b>LED Mode</b>
-                <Dropdown
-                    options={led_modes}
-                    bind:selected={settings.led_mode}
-                    onchange={() =>
-                        applySetting({
-                            led_mode: settings.led_mode
-                        })} />
+                <Dropdown options={led_modes} bind:selected={settings.led_mode} />
                 <b>Idle Timeout</b>
-                <Dropdown
-                    options={idle_timeout}
-                    bind:selected={settings.idle_sleep_minutes}
-                    onchange={() =>
-                        applySetting({
-                            idle_sleep_minutes: settings.idle_sleep_minutes
-                        })} />
+                <Dropdown options={idle_timeout} bind:selected={settings.idle_sleep_minutes} />
             </div>
             <div class="card d-grid child-gap">
                 <h2>ELM327 Emulator</h2>
                 <b>Interface</b>
-                <Dropdown
-                    options={elm_interfaces}
-                    bind:selected={settings.elm_settings.interface}
-                    onchange={() =>
-                        applySetting({
-                            elm_settings: {
-                                interface: settings.elm_settings.interface
-                            }
-                        })} />
+                <Dropdown options={elm_interfaces} bind:selected={settings.elm_settings.interface} />
                 <b>CAN-Bus</b>
                 <Dropdown
                     options={Object.entries(settings.can_settings)
@@ -159,13 +141,7 @@ const saveSettings = async (reset?: boolean) => {
                             name: `CAN${idx}`,
                             value: idx
                         }))}
-                    bind:selected={settings.elm_settings.bus}
-                    onchange={() =>
-                        applySetting({
-                            elm_settings: {
-                                bus: settings.elm_settings.bus
-                            }
-                        })} />
+                    bind:selected={settings.elm_settings.bus} />
                 {#if settings.elm_settings.interface === 1}
                     <b transition:slide> Bluetooth PIN</b>
                     <input transition:slide type="number" bind:value={settings.elm_settings.bt_pin} />
@@ -204,16 +180,7 @@ const saveSettings = async (reset?: boolean) => {
                 <span>(Immediately resets board!)</span>
                 <b>Bus speed lock</b>
                 <div>
-                    <input
-                        type="checkbox"
-                        class="toggle"
-                        bind:checked={settings.can_settings.baud_lockout}
-                        onchange={() =>
-                            applySetting({
-                                can_settings: {
-                                    baud_lockout: settings.can_settings.baud_lockout
-                                }
-                            })} />
+                    <input type="checkbox" class="toggle" bind:checked={settings.can_settings.baud_lockout} />
                 </div>
                 <b></b>
                 <span>(Prevents GVRET/SLCAN from changing bus speed)</span>
@@ -228,15 +195,7 @@ const saveSettings = async (reset?: boolean) => {
                         <input
                             type="checkbox"
                             class="toggle"
-                            bind:checked={settings.can_settings[`can${idx}`].enabled}
-                            onchange={() =>
-                                applySetting({
-                                    can_settings: {
-                                        [`can${idx}`]: {
-                                            enabled: settings.can_settings[`can${idx}`].enabled
-                                        }
-                                    }
-                                })} />
+                            bind:checked={settings.can_settings[`can${idx}`].enabled} />
                     </div>
                     <b>Listen Only</b>
                     <div>
@@ -244,29 +203,13 @@ const saveSettings = async (reset?: boolean) => {
                             type="checkbox"
                             class="toggle"
                             disabled={!settings.can_settings[`can${idx}`].enabled}
-                            bind:checked={settings.can_settings[`can${idx}`].listen_only}
-                            onchange={() =>
-                                applySetting({
-                                    can_settings: {
-                                        [`can${idx}`]: {
-                                            listen_only: settings.can_settings[`can${idx}`].listen_only
-                                        }
-                                    }
-                                })} />
+                            bind:checked={settings.can_settings[`can${idx}`].listen_only} />
                     </div>
                     <b>Baudrate</b>
                     <Dropdown
                         options={can_bitrates}
                         disabled={!settings.can_settings[`can${idx}`].enabled}
-                        bind:selected={settings.can_settings[`can${idx}`].bitrate}
-                        onchange={() =>
-                            applySetting({
-                                can_settings: {
-                                    [`can${idx}`]: {
-                                        bitrate: settings.can_settings[`can${idx}`].bitrate
-                                    }
-                                }
-                            })} />
+                        bind:selected={settings.can_settings[`can${idx}`].bitrate} />
                 </div>
             {/each}
         </div>
@@ -317,11 +260,7 @@ const saveSettings = async (reset?: boolean) => {
                         type="checkbox"
                         class="toggle"
                         bind:checked={settings.wifi_settings.telnet_enabled}
-                        disabled={!wifi_enabled}
-                        onchange={() =>
-                            applySetting({
-                                wifi_settings: { telnet_enabled: settings.wifi_settings.telnet_enabled }
-                            })} />
+                        disabled={!wifi_enabled} />
                 </div>
                 <b style={!wifi_enabled ? 'opacity: 0.5;' : ''}>Port</b>
                 <input
@@ -330,10 +269,6 @@ const saveSettings = async (reset?: boolean) => {
                     min="1"
                     max="65535"
                     bind:value={settings.wifi_settings.telnet_port}
-                    onchange={() =>
-                        applySetting({
-                            wifi_settings: { telnet_port: settings.wifi_settings.telnet_port }
-                        })}
                     disabled={!wifi_enabled} />
             </div>
         </div>
@@ -342,13 +277,6 @@ const saveSettings = async (reset?: boolean) => {
         <div class="loader" transition:fade><Loadingspinner size="4em" ringWidth="6px" /></div>
     {/if}
     <div class="btns" in:fade={{ delay: 400 }} out:fade>
-        <button
-            style="background-color: #6f6f6f"
-            onclick={() => {
-                void saveSettings();
-            }}>
-            Save
-        </button>
         <button onclick={() => void saveSettings(true)}> Save and Reboot </button>
     </div>
 </div>

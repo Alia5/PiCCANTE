@@ -131,6 +131,24 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
         piccante::sys::settings::set_idle_sleep_minutes(std::stoi(std::string(*v)));
     }
 
+    if (auto elm_settings_json = util::json::get_object(json, "elm_settings")) {
+        if (auto v = util::json::get_value(*elm_settings_json, "bus")) {
+            Log::debug << "Setting ELM327 bus to: " << *v << "\n";
+            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+            piccante::sys::settings::set_elm_can_bus(std::stoi(std::string(*v)));
+        }
+        if (auto v = util::json::get_value(*elm_settings_json, "interface")) {
+            Log::debug << "Setting ELM327 interface to: " << *v << "\n";
+            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+            piccante::sys::settings::set_elm_interface(std::stoi(std::string(*v)));
+        }
+        if (auto v = util::json::get_value(*elm_settings_json, "bt_pin")) {
+            Log::debug << "Setting ELM327 bluetooth pin to: " << *v << "\n";
+            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
+            piccante::sys::settings::set_bluetooth_pin(std::stoi(std::string(*v)));
+        }
+    }
+
     // Handle nested wifi_settings
     if (auto wifi_json = piccante::util::json::get_object(json, "wifi_settings")) {
         bool wifi_settings_changed = false;
@@ -187,6 +205,7 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
         }
     }
 
+
     if (auto can_settings_json = util::json::get_object(json, "can_settings")) {
         if (auto v = util::json::get_value(*can_settings_json, "enabled")) {
             char* end;
@@ -242,40 +261,17 @@ bool set(http_connection conn, [[maybe_unused]] std::string_view url) {
         }
     }
 
-    if (auto elm_settings_json = util::json::get_object(json, "elm_settings")) {
-        if (auto v = util::json::get_value(*elm_settings_json, "bus")) {
-            Log::debug << "Setting ELM327 bus to: " << *v << "\n";
-            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
-            piccante::elm327::stop();
-            piccante::sys::settings::set_elm_can_bus(std::stoi(std::string(*v)));
-            if (wifi_cfg.elm_interface !=
-                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
-                piccante::elm327::start();
-            }
-        }
-        if (auto v = util::json::get_value(*elm_settings_json, "interface")) {
-            Log::debug << "Setting ELM327 interface to: " << *v << "\n";
-            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
-            piccante::elm327::stop();
-            piccante::sys::settings::set_elm_interface(std::stoi(std::string(*v)));
-            if (wifi_cfg.elm_interface !=
-                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
-                piccante::elm327::start();
-            }
-        }
-        if (auto v = util::json::get_value(*elm_settings_json, "bt_pin")) {
-            Log::debug << "Setting ELM327 bluetooth pin to: " << *v << "\n";
-            const auto& wifi_cfg = piccante::sys::settings::get_wifi_settings();
-            piccante::elm327::stop();
-            piccante::sys::settings::set_bluetooth_pin(std::stoi(std::string(*v)));
-            if (wifi_cfg.elm_interface !=
-                static_cast<uint8_t>(piccante::elm327::interface::USB)) {
-                piccante::elm327::start();
+    if (auto v = util::json::get_value(json, "reboot")) {
+        if (*v == "true") {
+            Log::info << "Reboot requested\n";
+            watchdog_enable(0, false);
+            while (1) { /* Wait for watchdog to trigger */
             }
         }
     }
 
     http_server_send_reply(conn, "200 OK", "application/json", R"({"status":"ok"})", -1);
+
 
     return true;
 }
@@ -309,7 +305,7 @@ bool save(http_connection conn, [[maybe_unused]] std::string_view url) {
         if (should_reset) {
             vTaskDelay(pdMS_TO_TICKS(100));
             Log::info << "Reset device requested\n";
-            watchdog_enable(1, 1);
+            watchdog_enable(0, false);
             while (1) { /* Wait for watchdog to trigger */
             }
         }

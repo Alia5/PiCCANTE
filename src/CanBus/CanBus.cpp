@@ -196,21 +196,24 @@ void canbus_setup_initial(uint8_t bus) {
         gpio_put(pin, 0);
     }
 
+
 #ifdef WIFI_ENABLED
     PIO pio_instance = pio_get_instance(CAN_GPIO[bus].pio_num);
-    if (CAN_GPIO[bus].pio_num == 2) {
-        uint sm_mask = 0b0011;
+    if (settings.bus_config[bus].listen_only) {
+        const uint sm_mask = 0b0011;
         pio_claim_sm_mask(pio_instance, sm_mask);
-        Log::info << "Claimed PIO2 state machines 0-2 for CAN bus " << bus
-                  << ", leaving SM3 for CYW43\n";
+        Log::info << "Claimed PIO" << CAN_GPIO[bus].pio_num
+                  << " state machines 0-1 for CAN bus " << bus
+                  << ", leaving SM2 for CYW43\n";
     } else {
-        uint sm_mask = 0x0F;
+#endif
+        const uint sm_mask = 0x0F;
         pio_claim_sm_mask(pio_instance, sm_mask);
         Log::info << "Claimed all PIO" << CAN_GPIO[bus].pio_num
                   << " state machines for CAN bus " << bus << "\n";
+#ifdef WIFI_ENABLED
     }
 #endif
-
     can2040_setup(&(can_buses[bus]), CAN_GPIO[bus].pio_num);
 
 
