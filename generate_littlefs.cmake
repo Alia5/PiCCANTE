@@ -1,4 +1,13 @@
 function(download_mklittlefs)
+
+    message(STATUS "Platform detection:")
+    message(STATUS "  WIN32 = ${WIN32}") 
+    message(STATUS "  APPLE = ${APPLE}") #Doesn't work for me on OSX 14.7.8
+    message(STATUS "  CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME}")
+    message(STATUS "  CMAKE_HOST_SYSTEM_NAME = ${CMAKE_HOST_SYSTEM_NAME}")
+    message(STATUS "  CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
+    message(STATUS "  CMAKE_CROSSCOMPILING = ${CMAKE_CROSSCOMPILING}")
+
     # Determine platform-specific download URL
     if(WIN32)
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -10,7 +19,8 @@ function(download_mklittlefs)
         endif()
 
         set(MKLITTLEFS_EXECUTABLE "mklittlefs.exe" PARENT_SCOPE)
-    elseif(APPLE)
+
+    elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
         execute_process(
             COMMAND uname -m
             OUTPUT_VARIABLE ARCH
@@ -19,12 +29,14 @@ function(download_mklittlefs)
 
         if(ARCH STREQUAL "arm64")
             set(MKLITTLEFS_URL "https://github.com/earlephilhower/mklittlefs/releases/download/4.0.2/aarch64-apple-darwin-mklittlefs-db0513a.tar.gz" PARENT_SCOPE)
-        else()
+        elseif(ARCH STREQUAL "x86_64")
             set(MKLITTLEFS_URL "https://github.com/earlephilhower/mklittlefs/releases/download/4.0.2/x86_64-apple-darwin-mklittlefs-db0513a.tar.gz" PARENT_SCOPE)
         endif()
 
         set(MKLITTLEFS_IS_ZIP FALSE PARENT_SCOPE)
         set(MKLITTLEFS_EXECUTABLE "mklittlefs" PARENT_SCOPE)
+        message(STATUS "mklittlefs type MAC")
+
     else() # Linux
         execute_process(
             COMMAND uname -m
@@ -32,6 +44,7 @@ function(download_mklittlefs)
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
 
+        message(STATUS "mklittlefs type LINUX")
         if(ARCH STREQUAL "aarch64")
             set(MKLITTLEFS_URL "https://github.com/earlephilhower/mklittlefs/releases/download/4.0.2/aarch64-linux-gnu-mklittlefs-db0513a.tar.gz" PARENT_SCOPE)
         elseif(ARCH MATCHES "^arm")
