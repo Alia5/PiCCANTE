@@ -16,3 +16,6 @@
 [submodule "ext/FreeRTOS-FAT-CLI"]
 	path = ext/FreeRTOS-FAT-CLI
 	url = git@github.com:carlk3/FreeRTOS-FAT-CLI-for-RPi-Pico.git
+[submodule "ext/pico-sdk"]
+	path = ext/pico-sdk
+	url = git@github.com:raspberrypi/pico-sdk.git
