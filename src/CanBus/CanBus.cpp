@@ -197,8 +197,8 @@ void canbus_setup_initial(uint8_t bus) {
     }
 
 
-#ifdef WIFI_ENABLED
     PIO pio_instance = pio_get_instance(CAN_GPIO[bus].pio_num);
+#ifdef WIFI_ENABLED
     if (settings.bus_config[bus].listen_only) {
         const uint sm_mask = 0b0011;
         pio_claim_sm_mask(pio_instance, sm_mask);
