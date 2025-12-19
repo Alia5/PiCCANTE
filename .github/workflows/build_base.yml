@@ -1,6 +1,18 @@
 name: PiCCANTE Build Base
 
 on:
+  workflow_dispatch:
+    inputs:
+        artifact_suffix:
+            required: false
+            type: string
+            default: ""
+            description: "Suffix to add to artifact names"
+        upload_artifacts:
+            required: false
+            type: boolean
+            default: false
+            description: "Whether to upload build artifacts"
   workflow_call:
     inputs:
         artifact_suffix:
