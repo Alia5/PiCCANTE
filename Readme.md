@@ -6,6 +6,8 @@
 [![Release](https://img.shields.io/github/v/release/alia5/PiCCANTE?include_prereleases&sort=semver)](https://github.com/alia5/PiCCANTE/releases)
 [![Issues](https://img.shields.io/github/issues/alia5/PiCCANTE)](https://github.com/alia5/PiCCANTE/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/alia5/PiCCANTE/pulls)
+[![Discord](https://img.shields.io/discord/368823110817808384?logo=discord&logoColor=white&label=Discord&color=%23535fe5
+)](https://discord.gg/hs34MtcHJY)
 
 # PiCCANTE 🌶️
 
